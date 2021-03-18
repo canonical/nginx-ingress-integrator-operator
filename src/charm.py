@@ -12,6 +12,8 @@ develop a new k8s charm using the Operator Framework:
 
 import logging
 
+from kubernetes import client, config
+
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus
@@ -30,13 +32,25 @@ class CharmK8SIngressCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self._stored.set_default(things=[])
 
+    def _get_pods(self):
+        # Taken from https://github.com/kubernetes-client/python/blob/master/examples/in_cluster_config.py
+        # however, currently getting https://pastebin.ubuntu.com/p/knFQhGyjYt/.
+        # Not sure if this is due to permissions, but need to dig in more and
+        # find out how to resolve this one way or the other.
+        config.load_incluster_config()
+
+        v1 = client.CoreV1Api()
+        logger.info("Listing pods with their IPs:")
+        ret = v1.list_pod_for_all_namespaces(watch=False)
+        for i in ret.items:
+            logger.info("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
+
     def _on_config_changed(self, _):
-        # Note: you need to uncomment the example in the config.yaml file for this to work (ensure
-        # to not just leave the example, but adapt to your configuration needs)
         current = self.config["thing"]
         if current not in self._stored.things:
             logger.debug("found a new thing: %r", current)
             self._stored.things.append(current)
+        self._get_pods()
         self.unit.status = ActiveStatus()
 
 

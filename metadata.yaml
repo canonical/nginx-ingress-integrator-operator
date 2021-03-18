@@ -1,10 +1,23 @@
 # Copyright 2021 Tom Haddon
 # See LICENSE file for licensing details.
-name: charm-k8s-ingress
+name: k8s-ingress
 description: |
-  TODO: fill out the charm's description
+  An operator to configure a kubernetes ingress.
 summary: |
-  TODO: fill out the charm's summary
-series: [kubernetes]
+  An operator to configure a kubernetes ingress.
+min-juju-version: 2.9.0
+platforms:
+  - kubernetes
+systems:
+  - os: ubuntu
+    channel: 20.04/stable
 
+containers:
+  placeholder:
+    systems:
+      - resource: placeholder-image
 
+resources:
+  placeholder-image:
+    type: oci-image
+    description: A placeholder image, operator code won't do anything with it.

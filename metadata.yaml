@@ -1,0 +1,10 @@
+# Copyright 2021 Tom Haddon
+# See LICENSE file for licensing details.
+name: charm-k8s-ingress
+description: |
+  TODO: fill out the charm's description
+summary: |
+  TODO: fill out the charm's summary
+series: [kubernetes]
+
+

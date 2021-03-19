@@ -32,7 +32,6 @@ Now from the directory where you've run `charmcraft build` as above:
 juju deploy ./k8s-ingress.charm --resource placeholder-image='google/pause'
 ```
 This is currently failing with the following error in `juju debug-log`.
-Further debugging is required:
 ```
 unit-k8s-ingress-0: 05:12:02 INFO juju.worker.uniter awaiting error resolution for "config-changed" hook
 unit-k8s-ingress-0: 05:12:03 ERROR unit.k8s-ingress/0.juju-log Uncaught exception while in charm code:
@@ -64,6 +63,9 @@ Traceback (most recent call last):
 kubernetes.config.config_exception.ConfigException: Service token file does not exists.
 unit-k8s-ingress-0: 05:12:03 ERROR juju.worker.uniter.operation hook "config-changed" (via hook dispatching script: dispatch) failed: exit status 1
 ```
+Per https://github.com/kubernetes-client/python/issues/1331 the file it's looking for is
+/var/run/secrets/kubernetes.io/serviceaccount/token, but this file isn't present in the
+'charm' container for the deployed instance. The file does exist in the model operator, however.
 
 ## Testing
 

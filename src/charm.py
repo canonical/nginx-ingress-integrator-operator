@@ -11,8 +11,12 @@ develop a new k8s charm using the Operator Framework:
 """
 
 import logging
+import os
+from pathlib import Path
 
-from kubernetes import client, config
+import kubernetes
+
+# from kubernetes.client.rest import ApiException as K8sApiException
 
 from ops.charm import CharmBase
 from ops.main import main
@@ -22,9 +26,24 @@ from ops.framework import StoredState
 logger = logging.getLogger(__name__)
 
 
+def _core_v1_api():
+    """Use the v1 k8s API."""
+    cl = kubernetes.client.ApiClient()
+    return kubernetes.client.CoreV1Api(cl)
+
+
+def _fix_lp_1892255():
+    """Workaround for lp:1892255."""
+    # Remove os.environ.update when lp:1892255 is FIX_RELEASED.
+    os.environ.update(
+        dict(e.split("=") for e in Path("/proc/1/environ").read_text().split("\x00") if "KUBERNETES_SERVICE" in e)
+    )
+
+
 class CharmK8SIngressCharm(CharmBase):
     """Charm the service."""
 
+    _authed = False
     _stored = StoredState()
 
     def __init__(self, *args):
@@ -32,16 +51,19 @@ class CharmK8SIngressCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self._stored.set_default(things=[])
 
-    def _get_pods(self):
-        # Taken from https://github.com/kubernetes-client/python/blob/master/examples/in_cluster_config.py
-        # however, currently getting https://pastebin.ubuntu.com/p/knFQhGyjYt/.
-        # Not sure if this is due to permissions, but need to dig in more and
-        # find out how to resolve this one way or the other.
-        config.load_incluster_config()
+    def k8s_auth(self):
+        if self._authed:
+            return
 
-        v1 = client.CoreV1Api()
+        _fix_lp_1892255()
+        kubernetes.config.load_incluster_config()
+        self._authed = True
+
+    def _get_pods(self):
+        self.k8s_auth()
+        api = _core_v1_api()
         logger.info("Listing pods with their IPs:")
-        ret = v1.list_pod_for_all_namespaces(watch=False)
+        ret = api.list_pod_for_all_namespaces(watch=False)
         for i in ret.items:
             logger.info("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
 

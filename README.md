@@ -67,6 +67,8 @@ Per https://github.com/kubernetes-client/python/issues/1331 the file it's lookin
 /var/run/secrets/kubernetes.io/serviceaccount/token, but this file isn't present in the
 'charm' container for the deployed instance. The file does exist in the model operator, however.
 
+This has been filed as https://bugs.launchpad.net/juju/+bug/1920102.
+
 ## Testing
 
 Simply run `make test`.

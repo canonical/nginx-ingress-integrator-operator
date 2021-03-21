@@ -84,7 +84,8 @@ class CharmK8SIngressCharm(CharmBase):
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(name="{}-ingress".format(self.config["service-name"]),
                 annotations={
-                    "nginx.ingress.kubernetes.io/rewrite-target": "/"
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
+                    "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 }
             ),
             spec=kubernetes.client.NetworkingV1beta1IngressSpec(
@@ -105,6 +106,8 @@ class CharmK8SIngressCharm(CharmBase):
             )
         )
         # Creation of the Deployment in specified namespace.
+        # XXX: We need to check if it already exists and patch it if so,
+        #      possibly by just 's/create_/patch_/'.
         api.create_namespaced_ingress(
             namespace=self.config["service-namespace"],
             body=body

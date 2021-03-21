@@ -112,20 +112,11 @@ class CharmK8SIngressCharm(CharmBase):
         logger.info("Ingress created in namespace {} with name {}".format(
             self.config["service-namespace"], self.config["service-name"]))
 
-    def _get_pods(self):
-        self.k8s_auth()
-        api = _core_v1_api()
-        logger.info("Listing pods with their IPs:")
-        ret = api.list_pod_for_all_namespaces(watch=False)
-        for i in ret.items:
-            logger.info("%s\t%s\t%s" % (i.status.pod_ip, i.metadata.namespace, i.metadata.name))
-
     def _on_config_changed(self, _):
         current = self.config["thing"]
         if current not in self._stored.things:
             logger.debug("found a new thing: %r", current)
             self._stored.things.append(current)
-        self._get_pods()
         if self.config["service-name"]:
             self._create_ingress()
         self.unit.status = ActiveStatus()

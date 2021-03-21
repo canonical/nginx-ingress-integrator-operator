@@ -75,6 +75,61 @@ and you'd then deploy the charm as follows:
 ```
 juju deploy ./k8s-ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
 ```
+We've also added some initial config options to configure the ingress. As an
+example:
+```
+juju config k8s-ingress service-namespace=ingress-test service-name=gunicorn service-port=80 service-hostname=foo.internal
+```
+This will give you something like this (deployed alongside the non-sidecar
+version of the charm for comparison):
+```
+mthaddon@tenaya:~/repos/charm-k8s-ingress/charm-k8s-ingress$ microk8s.kubectl get ingress --all-namespaces
+NAMESPACE      NAME                   CLASS    HOSTS          ADDRESS   PORTS   AGE
+ingress-test   gunicorn-old-ingress   <none>   foo.internal             80      27m
+ingress-test   gunicorn-ingress       <none>   foo.internal             80      91s
+mthaddon@tenaya:~/repos/charm-k8s-ingress/charm-k8s-ingress$ juju status
+Model         Controller          Cloud/Region        Version  SLA          Timestamp
+ingress-test  microk8s-localhost  microk8s/localhost  2.9-rc7  unsupported  18:12:17+01:00
+
+App           Version            Status  Scale  Charm        Store  Channel  Rev  OS          Address        Message
+gunicorn                         active      1  gunicorn     local             3  ubuntu
+gunicorn-old  gunicorn-app:edge  active      1  gunicorn     local             1  kubernetes  10.152.183.69
+k8s-ingress                      active      1  k8s-ingress  local             3  ubuntu
+
+Unit             Workload  Agent  Address      Ports   Message
+gunicorn-old/1*  active    idle   10.1.234.25  80/TCP
+gunicorn/0*      active    idle   10.1.234.21
+k8s-ingress/0*   active    idle   10.1.234.28
+
+mthaddon@tenaya:~/repos/charm-k8s-ingress/charm-k8s-ingress$ microk8s.kubectl describe ingress -n ingress-test gunicorn-ingress
+Name:             gunicorn-ingress
+Namespace:        ingress-test
+Address:
+Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+Rules:
+  Host          Path  Backends
+  ----          ----  --------
+  foo.internal  
+                /   gunicorn:80 ()
+Annotations:    nginx.ingress.kubernetes.io/rewrite-target: /
+Events:         <none>
+mthaddon@tenaya:~/repos/charm-k8s-ingress/charm-k8s-ingress$ microk8s.kubectl describe ingress -n ingress-test gunicorn-old-ingress
+Name:             gunicorn-old-ingress
+Namespace:        ingress-test
+Address:
+Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+Rules:
+  Host          Path  Backends
+  ----          ----  --------
+  foo.internal  
+                /   gunicorn-old:80 (10.1.234.25:80)
+Annotations:    controller.juju.is/id: ac6cacf4-3ed5-4313-88d2-89eef6ae5822
+                model.juju.is/id: 5cbdb63d-0847-4b92-8c4b-f4af185b60b0
+                nginx.ingress.kubernetes.io/ssl-redirect: false
+Events:         <none>
+mthaddon@tenaya:~/repos/charm-k8s-ingress/charm-k8s-ingress$ 
+```
+This needs further work and testing, but produces an initial ingress.
 
 ## Testing
 

@@ -24,7 +24,7 @@ cd juju
 make install
 make microk8s-operator-update  # to make the microk8s image and push to Docker
 export PATH="/home/${USER}/go/bin:$PATH"
-juju bootstrap microk8s
+juju bootstrap microk8s --no-gui
 juju add-model ingress-test
 ```
 Now from the directory where you've run `charmcraft build` as above:
@@ -68,6 +68,13 @@ Per https://github.com/kubernetes-client/python/issues/1331 the file it's lookin
 'charm' container for the deployed instance. The file does exist in the model operator, however.
 
 This has been filed as https://bugs.launchpad.net/juju/+bug/1920102.
+
+To work around this, we've added a `kube-config` config option. This should be the contents of your
+kubernetes client configuration. If you're using microk8s you can get this via `microk8s config`,
+and you'd then deploy the charm as follows:
+```
+juju deploy ./k8s-ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+```
 
 ## Testing
 

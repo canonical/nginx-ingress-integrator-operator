@@ -1,6 +1,10 @@
 # Copyright 2021 Tom Haddon
 # See LICENSE file for licensing details.
 options:
+  kube-config:
+    default: ""
+    description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.
+    type: string
   thing:
     default: 🎁
     description: A thing used by the charm.

@@ -18,10 +18,12 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    @mock.patch('charm.CharmK8SIngressCharm._report_service_ips')
     @mock.patch('charm.CharmK8SIngressCharm._define_ingress')
     @mock.patch('charm.CharmK8SIngressCharm._define_service')
-    def test_config_changed(self, _define_service, _define_ingress):
+    def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
+        _report_service_ips.return_value = ["10.0.1.12"]
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
@@ -35,7 +37,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
         # Confirm status is as expected.
-        self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
+        self.assertEqual(self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12'))
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

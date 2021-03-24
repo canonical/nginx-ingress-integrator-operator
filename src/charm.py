@@ -132,6 +132,13 @@ class CharmK8SIngressCharm(CharmBase):
             ),
         )
 
+    def _report_service_ips(self):
+        """Report on service IP(s)."""
+        self.k8s_auth()
+        api = _core_v1_api()
+        services = api.list_namespaced_service(namespace=self.config["service-namespace"])
+        return [x.spec.cluster_ip for x in services.items if x.metadata.name == self.config["service-name"]]
+
     def _define_service(self):
         """Create or update a service in kubernetes."""
         self.k8s_auth()
@@ -200,10 +207,12 @@ class CharmK8SIngressCharm(CharmBase):
 
     def _on_config_changed(self, _):
         """Handle the config changed event."""
+        msg = ""
         if self.config["service-name"]:
             self._define_service()
             self._define_ingress()
-        self.unit.status = ActiveStatus()
+            msg = "Ingress with service IP(s): {}".format(", ".join(self._report_service_ips()))
+        self.unit.status = ActiveStatus(msg)
 
 
 if __name__ == "__main__":

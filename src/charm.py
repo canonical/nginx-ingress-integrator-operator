@@ -34,7 +34,6 @@ def _core_v1_api():
 
 def _networking_v1_beta1_api():
     """Use the v1 beta1 networking API."""
-    apps_v1_api = kubernetes.client.AppsV1Api()
     return kubernetes.client.NetworkingV1beta1Api()
 
 
@@ -85,28 +84,31 @@ class CharmK8SIngressCharm(CharmBase):
         body = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
-            metadata=kubernetes.client.V1ObjectMeta(name=ingress_name,
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
-                }
+                },
             ),
             spec=kubernetes.client.NetworkingV1beta1IngressSpec(
-                rules=[kubernetes.client.NetworkingV1beta1IngressRule(
-                    host=self.config["service-hostname"],
-                    http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
-                        paths=[kubernetes.client.NetworkingV1beta1HTTPIngressPath(
-                            path="/",
-                            backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                service_port=self.config["service-port"],
-                                service_name=self.config["service-name"],
-                            )
-
-                        )]
+                rules=[
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host=self.config["service-hostname"],
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=self.config["service-port"],
+                                        service_name=self.config["service-name"],
+                                    ),
+                                )
+                            ]
+                        ),
                     )
-                )
                 ]
-            )
+            ),
         )
         ingresses = api.list_namespaced_ingress(namespace=self.config["service-namespace"])
         if ingress_name in [x.metadata.name for x in ingresses.items]:
@@ -115,15 +117,21 @@ class CharmK8SIngressCharm(CharmBase):
                 namespace=self.config["service-namespace"],
                 body=body,
             )
-            logger.info("Ingress updated in namespace %s with name %s", self.config["service-namespace"],
-                    self.config["service-name"])
+            logger.info(
+                "Ingress updated in namespace %s with name %s",
+                self.config["service-namespace"],
+                self.config["service-name"],
+            )
         else:
             api.create_namespaced_ingress(
                 namespace=self.config["service-namespace"],
                 body=body,
             )
-            logger.info("Ingress created in namespace %s with name %s", self.config["service-namespace"],
-                self.config["service-name"])
+            logger.info(
+                "Ingress created in namespace %s with name %s",
+                self.config["service-namespace"],
+                self.config["service-name"],
+            )
 
     def _on_config_changed(self, _):
         current = self.config["thing"]

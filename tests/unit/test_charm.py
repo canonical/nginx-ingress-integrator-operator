@@ -9,9 +9,8 @@ from charm import CharmK8SIngressCharm
 
 
 class TestCharm(unittest.TestCase):
-    @mock.patch('charm.CharmK8SIngressCharm._get_pods')
-    def test_config_changed(self, _get_pods):
-        _get_pods.return_value = ""
+    @mock.patch('charm.CharmK8SIngressCharm._create_ingress')
+    def test_config_changed(self, _create_ingress):
         harness = Harness(CharmK8SIngressCharm)
         self.addCleanup(harness.cleanup)
         harness.begin()

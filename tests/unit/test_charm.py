@@ -4,6 +4,7 @@
 import mock
 import unittest
 
+from ops.model import ActiveStatus
 from ops.testing import Harness
 from charm import CharmK8SIngressCharm
 
@@ -15,6 +16,17 @@ class TestCharm(unittest.TestCase):
         harness = Harness(CharmK8SIngressCharm)
         self.addCleanup(harness.cleanup)
         harness.begin()
-        self.assertEqual(list(harness.charm._stored.things), [])
-        harness.update_config({"thing": "foo"})
-        self.assertEqual(list(harness.charm._stored.things), ["foo"])
+        # Confirm our _define_ingress and _define_service methods haven't been called.
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        # Test if config-changed is called with service-name empty, our methods still
+        # aren't called.
+        harness.update_config({"service-name": ""})
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        # And now test if we set a service-name config, our methods are called.
+        harness.update_config({"service-name": "gunicorn"})
+        self.assertEqual(_define_ingress.call_count, 1)
+        self.assertEqual(_define_service.call_count, 1)
+        # Confirm status is as expected.
+        self.assertEqual(harness.charm.unit.status, ActiveStatus())

@@ -21,7 +21,6 @@ import kubernetes
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus
-from ops.framework import StoredState
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +48,10 @@ class CharmK8SIngressCharm(CharmBase):
     """Charm the service."""
 
     _authed = False
-    _stored = StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self._stored.set_default(things=[])
 
     def k8s_auth(self):
         """Authenticate to kubernetes."""
@@ -192,10 +189,6 @@ class CharmK8SIngressCharm(CharmBase):
 
     def _on_config_changed(self, _):
         """Handle the config changed event."""
-        current = self.config["thing"]
-        if current not in self._stored.things:
-            logger.debug("found a new thing: %r", current)
-            self._stored.things.append(current)
         if self.config["service-name"]:
             self._define_service()
             self._define_ingress()

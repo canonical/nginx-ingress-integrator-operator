@@ -79,10 +79,13 @@ class CharmK8SIngressCharm(CharmBase):
         self.k8s_auth()
         api = _networking_v1_beta1_api()
 
+        # Follow the same naming convention as Juju.
+        ingress_name = "{}-ingress".format(self.config["service-name"])
+
         body = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
-            metadata=kubernetes.client.V1ObjectMeta(name="{}-ingress".format(self.config["service-name"]),
+            metadata=kubernetes.client.V1ObjectMeta(name=ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -105,15 +108,22 @@ class CharmK8SIngressCharm(CharmBase):
                 ]
             )
         )
-        # Creation of the Deployment in specified namespace.
-        # XXX: We need to check if it already exists and patch it if so,
-        #      possibly by just 's/create_/patch_/'.
-        api.create_namespaced_ingress(
-            namespace=self.config["service-namespace"],
-            body=body
-        )
-        logger.info("Ingress created in namespace {} with name {}".format(
-            self.config["service-namespace"], self.config["service-name"]))
+        ingresses = api.list_namespaced_ingress(namespace=self.config["service-namespace"])
+        if ingress_name in [x.metadata.name for x in ingresses.items]:
+            api.patch_namespaced_ingress(
+                name=ingress_name,
+                namespace=self.config["service-namespace"],
+                body=body,
+            )
+            logger.info("Ingress updated in namespace %s with name %s", self.config["service-namespace"],
+                    self.config["service-name"])
+        else:
+            api.create_namespaced_ingress(
+                namespace=self.config["service-namespace"],
+                body=body,
+            )
+            logger.info("Ingress created in namespace %s with name %s", self.config["service-namespace"],
+                self.config["service-name"])
 
     def _on_config_changed(self, _):
         current = self.config["thing"]

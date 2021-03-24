@@ -137,7 +137,7 @@ class CharmK8SIngressCharm(CharmBase):
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self.config["service-namespace"])
-        return [x.spec.cluster_ip for x in services.items if x.metadata.name == self.config["service-name"]]
+        return [x.spec.cluster_ip for x in services.items if x.metadata.name == self._service_name]
 
     def _define_service(self):
         """Create or update a service in kubernetes."""
@@ -211,6 +211,8 @@ class CharmK8SIngressCharm(CharmBase):
         if self.config["service-name"]:
             self._define_service()
             self._define_ingress()
+            # It's not recommended to do this via ActiveStatus, but we don't
+            # have another way of reporting status yet.
             msg = "Ingress with service IP(s): {}".format(", ".join(self._report_service_ips()))
         self.unit.status = ActiveStatus(msg)
 

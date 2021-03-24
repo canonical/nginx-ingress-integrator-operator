@@ -70,7 +70,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_ingress("gunicorn-ingress", "gunicorn-service"), expected)
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""
@@ -91,4 +91,4 @@ class TestCharm(unittest.TestCase):
                 ],
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_service("gunicorn-service"), expected)
+        self.assertEqual(self.harness.charm._get_k8s_service(), expected)

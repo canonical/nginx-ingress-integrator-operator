@@ -53,6 +53,18 @@ class CharmK8SIngressCharm(CharmBase):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
+    @property
+    def _ingress_name(self):
+        """Return an ingress name for use creating a k8s ingress."""
+        # Follow the same naming convention as Juju.
+        return "{}-ingress".format(self.config["service-name"])
+
+    @property
+    def _service_name(self):
+        """Return a service name for the use creating a k8s service."""
+        # Avoid collision with service name created by Juju.
+        return "{}-service".format(self.config["service-name"])
+
     def k8s_auth(self):
         """Authenticate to kubernetes."""
         if self._authed:
@@ -70,12 +82,12 @@ class CharmK8SIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _get_k8s_service(self, service_name):
+    def _get_k8s_service(self):
         """Get a K8s service definition."""
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=kubernetes.client.V1ObjectMeta(name=service_name),
+            metadata=kubernetes.client.V1ObjectMeta(name=self._service_name),
             spec=kubernetes.client.V1ServiceSpec(
                 selector={"app.kubernetes.io/name": self.config["service-name"]},
                 ports=[
@@ -88,13 +100,13 @@ class CharmK8SIngressCharm(CharmBase):
             ),
         )
 
-    def _get_k8s_ingress(self, ingress_name, service_name):
+    def _get_k8s_ingress(self):
         """Get a K8s ingress definition."""
         return kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=ingress_name,
+                name=self._ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -110,7 +122,7 @@ class CharmK8SIngressCharm(CharmBase):
                                     path="/",
                                     backend=kubernetes.client.NetworkingV1beta1IngressBackend(
                                         service_port=self.config["service-port"],
-                                        service_name=service_name,
+                                        service_name=self._service_name,
                                     ),
                                 )
                             ]
@@ -120,13 +132,13 @@ class CharmK8SIngressCharm(CharmBase):
             ),
         )
 
-    def _define_service(self, service_name):
+    def _define_service(self):
         """Create or update a service in kubernetes."""
         self.k8s_auth()
         api = _core_v1_api()
-        body = self._get_k8s_service(service_name)
+        body = self._get_k8s_service()
         services = api.list_namespaced_service(namespace=self.config["service-namespace"])
-        if service_name in [x.metadata.name for x in services.items]:
+        if self._service_name in [x.metadata.name for x in services.items]:
             # Currently failing with port[1].name required but we're only
             # defining one port above...
             # api.patch_namespaced_service(
@@ -135,7 +147,7 @@ class CharmK8SIngressCharm(CharmBase):
             #    body=body,
             # )
             api.delete_namespaced_service(
-                name=service_name,
+                name=self._service_name,
                 namespace=self.config["service-namespace"],
             )
             api.create_namespaced_service(
@@ -158,15 +170,15 @@ class CharmK8SIngressCharm(CharmBase):
                 self.config["service-name"],
             )
 
-    def _define_ingress(self, ingress_name, service_name):
+    def _define_ingress(self):
         """Create or update an ingress in kubernetes."""
         self.k8s_auth()
         api = _networking_v1_beta1_api()
-        body = self._get_k8s_ingress(ingress_name, service_name)
+        body = self._get_k8s_ingress()
         ingresses = api.list_namespaced_ingress(namespace=self.config["service-namespace"])
-        if ingress_name in [x.metadata.name for x in ingresses.items]:
+        if self._ingress_name in [x.metadata.name for x in ingresses.items]:
             api.patch_namespaced_ingress(
-                name=ingress_name,
+                name=self._ingress_name,
                 namespace=self.config["service-namespace"],
                 body=body,
             )
@@ -189,13 +201,8 @@ class CharmK8SIngressCharm(CharmBase):
     def _on_config_changed(self, _):
         """Handle the config changed event."""
         if self.config["service-name"]:
-            # Juju will create a service named the same as the application. We
-            # need to use a different name to avoid collision.
-            service_name = "{}-service".format(self.config["service-name"])
-            self._define_service(service_name)
-            # Follow the same naming convention as Juju.
-            ingress_name = "{}-ingress".format(self.config["service-name"])
-            self._define_ingress(ingress_name, service_name)
+            self._define_service()
+            self._define_ingress()
         self.unit.status = ActiveStatus()
 
 

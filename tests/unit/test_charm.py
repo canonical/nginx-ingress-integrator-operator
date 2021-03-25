@@ -64,6 +64,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -95,6 +96,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
             ),
@@ -121,7 +123,46 @@ class TestCharm(unittest.TestCase):
                 ),
             ),
         )
-        self.harness.update_config({"tls_secret_name": "gunicorn_tls"})
+        self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        # Test max_body_size and session-cookie-max-age config options.
+        self.harness.update_config({"tls-secret-name": "", "max-body-size": 0, "session-cookie-max-age": 3600})
+        expected = kubernetes.client.NetworkingV1beta1Ingress(
+            api_version="networking.k8s.io/v1beta1",
+            kind="Ingress",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-ingress",
+                annotations={
+                    "nginx.ingress.kubernetes.io/affinity": "cookie",
+                    "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
+                    "nginx.ingress.kubernetes.io/session-cookie-change-on-failure": "true",
+                    "nginx.ingress.kubernetes.io/session-cookie-max-age": "3600",
+                    "nginx.ingress.kubernetes.io/session-cookie-name": "GUNICORN_AFFINITY",
+                    "nginx.ingress.kubernetes.io/session-cookie-samesite": "Lax",
+                    "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+                },
+            ),
+            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+                rules=[
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="foo.internal",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    )
+                ]
+            ),
+        )
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
 
     def test_get_k8s_service(self):

@@ -5,6 +5,10 @@ options:
     default: ""
     description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.
     type: string
+  max-body-size:
+    default: 20
+    description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
+    type: int
   service-hostname:
     default: ""
     description: The hostname of the service to create an ingress for.
@@ -21,7 +25,11 @@ options:
     default: 0
     description: The port of the service to create an ingress for.
     type: int
-  tls_secret_name:
+  session-cookie-max-age:
+    default: 0
+    description: The max age to configure a session cookie for. Leaving unset or setting to 0 will disable session cookies and cookie-based affinity.
+    type: int
+  tls-secret-name:
     default: ""
-    description: The name of the TLS secret to use. Leaving this empty will configure an Ingress with TLS disabled.
+    description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled.
     type: string

@@ -102,34 +102,44 @@ class CharmK8SIngressCharm(CharmBase):
 
     def _get_k8s_ingress(self):
         """Get a K8s ingress definition."""
+        spec = kubernetes.client.NetworkingV1beta1IngressSpec(
+            rules=[
+                kubernetes.client.NetworkingV1beta1IngressRule(
+                    host=self.config["service-hostname"],
+                    http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        paths=[
+                            kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                path="/",
+                                backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                    service_port=self.config["service-port"],
+                                    service_name=self._service_name,
+                                ),
+                            )
+                        ]
+                    ),
+                )
+            ]
+        )
+        annotations = {
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+        }
+        tls_secret_name = self.config.get("tls_secret_name")
+        if tls_secret_name:
+            spec.tls = kubernetes.client.NetworkingV1beta1IngressTLS(
+                hosts=[self.config["service-hostname"]],
+                secret_name=tls_secret_name,
+            )
+        else:
+            annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
+
         return kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=self._ingress_name,
-                annotations={
-                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
-                    "nginx.ingress.kubernetes.io/ssl-redirect": "false",
-                },
+                annotations=annotations,
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
-                rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
-                        host=self.config["service-hostname"],
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
-                            paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
-                                    path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=self.config["service-port"],
-                                        service_name=self._service_name,
-                                    ),
-                                )
-                            ]
-                        ),
-                    )
-                ]
-            ),
+            spec=spec,
         )
 
     def _report_service_ips(self):

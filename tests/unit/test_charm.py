@@ -23,6 +23,8 @@ class TestCharm(unittest.TestCase):
     @mock.patch('charm.CharmK8SIngressCharm._define_service')
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
+        # First of all test, with leader set to True.
+        self.harness.set_leader(True)
         _report_service_ips.return_value = ["10.0.1.12"]
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
@@ -38,6 +40,19 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(_define_service.call_count, 1)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12'))
+        # And now test with leader is False.
+        _define_ingress.reset_mock()
+        _define_service.reset_mock()
+        self.harness.set_leader(False)
+        self.harness.update_config({"service-name": ""})
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        # Leader False, but service-name defined should still do nothing.
+        self.harness.update_config({"service-name": "gunicorn"})
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        # Confirm status is as expected.
+        self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

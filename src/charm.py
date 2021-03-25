@@ -208,7 +208,9 @@ class CharmK8SIngressCharm(CharmBase):
     def _on_config_changed(self, _):
         """Handle the config changed event."""
         msg = ""
-        if self.config["service-name"]:
+        # We only want to do anything here if we're the leader to avoid
+        # collision if we've scaled out this application.
+        if self.unit.is_leader() and self.config["service-name"]:
             self._define_service()
             self._define_ingress()
             # It's not recommended to do this via ActiveStatus, but we don't

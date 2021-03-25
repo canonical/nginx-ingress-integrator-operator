@@ -15,7 +15,7 @@ options:
     type: string
   service-namespace:
     default: ""
-    description: The namespace of the service to create an ingress for.
+    description: The namespace of the service to create an ingress for. Will default to the namespace this charm is deployed into.
     type: string
   service-port:
     default: 0

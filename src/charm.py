@@ -60,6 +60,11 @@ class CharmK8SIngressCharm(CharmBase):
         return "{}-ingress".format(self.config["service-name"])
 
     @property
+    def _namespace(self):
+        """Return the namespace to operate on."""
+        return self.config["service-namespace"] or self.model.name
+
+    @property
     def _service_name(self):
         """Return a service name for the use creating a k8s service."""
         # Avoid collision with service name created by Juju.
@@ -146,7 +151,7 @@ class CharmK8SIngressCharm(CharmBase):
         """Report on service IP(s)."""
         self.k8s_auth()
         api = _core_v1_api()
-        services = api.list_namespaced_service(namespace=self.config["service-namespace"])
+        services = api.list_namespaced_service(namespace=self._namespace)
         return [x.spec.cluster_ip for x in services.items if x.metadata.name == self._service_name]
 
     def _define_service(self):
@@ -154,36 +159,36 @@ class CharmK8SIngressCharm(CharmBase):
         self.k8s_auth()
         api = _core_v1_api()
         body = self._get_k8s_service()
-        services = api.list_namespaced_service(namespace=self.config["service-namespace"])
+        services = api.list_namespaced_service(namespace=self._namespace)
         if self._service_name in [x.metadata.name for x in services.items]:
             # Currently failing with port[1].name required but we're only
             # defining one port above...
             # api.patch_namespaced_service(
             #    name=service_name,
-            #    namespace=self.config["service-namespace"],
+            #    namespace=self._namespace,
             #    body=body,
             # )
             api.delete_namespaced_service(
                 name=self._service_name,
-                namespace=self.config["service-namespace"],
+                namespace=self._namespace,
             )
             api.create_namespaced_service(
-                namespace=self.config["service-namespace"],
+                namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Service updated in namespace %s with name %s",
-                self.config["service-namespace"],
+                self._namespace,
                 self.config["service-name"],
             )
         else:
             api.create_namespaced_service(
-                namespace=self.config["service-namespace"],
+                namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Service created in namespace %s with name %s",
-                self.config["service-namespace"],
+                self._namespace,
                 self.config["service-name"],
             )
 
@@ -192,26 +197,26 @@ class CharmK8SIngressCharm(CharmBase):
         self.k8s_auth()
         api = _networking_v1_beta1_api()
         body = self._get_k8s_ingress()
-        ingresses = api.list_namespaced_ingress(namespace=self.config["service-namespace"])
+        ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if self._ingress_name in [x.metadata.name for x in ingresses.items]:
             api.patch_namespaced_ingress(
                 name=self._ingress_name,
-                namespace=self.config["service-namespace"],
+                namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Ingress updated in namespace %s with name %s",
-                self.config["service-namespace"],
+                self._namespace,
                 self.config["service-name"],
             )
         else:
             api.create_namespaced_ingress(
-                namespace=self.config["service-namespace"],
+                namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Ingress created in namespace %s with name %s",
-                self.config["service-namespace"],
+                self._namespace,
                 self.config["service-name"],
             )
 

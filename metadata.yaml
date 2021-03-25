@@ -5,11 +5,8 @@ description: |
   An operator to configure a kubernetes ingress.
 summary: |
   An operator to configure a kubernetes ingress.
-min-juju-version: 2.9.0
-platforms:
-  - kubernetes
-systems:
-  - os: ubuntu
+bases:
+  - name: ubuntu
     channel: 20.04/stable
 
 containers:

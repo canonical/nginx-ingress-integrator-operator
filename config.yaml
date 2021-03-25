@@ -21,3 +21,7 @@ options:
     default: 0
     description: The port of the service to create an ingress for.
     type: int
+  tls_secret_name:
+    default: ""
+    description: The name of the TLS secret to use. Leaving this empty will configure an Ingress with TLS disabled.
+    type: string

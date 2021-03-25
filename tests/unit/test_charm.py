@@ -88,6 +88,41 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        # Test with TLS.
+        expected = kubernetes.client.NetworkingV1beta1Ingress(
+            api_version="networking.k8s.io/v1beta1",
+            kind="Ingress",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-ingress",
+                annotations={
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
+                },
+            ),
+            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+                rules=[
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="foo.internal",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    )
+                ],
+                tls=kubernetes.client.NetworkingV1beta1IngressTLS(
+                    hosts=["foo.internal"],
+                    secret_name="gunicorn_tls",
+                ),
+            ),
+        )
+        self.harness.update_config({"tls_secret_name": "gunicorn_tls"})
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""

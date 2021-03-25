@@ -54,6 +54,13 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
+    def test_namespace(self):
+        """Test for the namespace property."""
+        self.assertEqual(self.harness.charm.config["service-namespace"], "")
+        self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
+        self.harness.update_config({"service-namespace": "mymodelname"})
+        self.assertEqual(self.harness.charm._namespace, "mymodelname")
+
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""
         self.harness.disable_hooks()

@@ -17,7 +17,7 @@ clean:
 	@echo "Cleaning files"
 	@git clean -fXd
 
-mattermost.charm: src/*.py requirements.txt
+k8s-ingress.charm: src/*.py requirements.txt
 	charmcraft build
 
 .PHONY: lint test unittest clean

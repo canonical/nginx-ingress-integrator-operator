@@ -21,7 +21,3 @@ options:
     default: 0
     description: The port of the service to create an ingress for.
     type: int
-  thing:
-    default: 🎁
-    description: A thing used by the charm.
-    type: string

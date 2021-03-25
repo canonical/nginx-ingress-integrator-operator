@@ -122,8 +122,20 @@ class CharmK8SIngressCharm(CharmBase):
         )
         annotations = {
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/proxy-body-size": "{}m".format(self.config["max-body-size"]),
         }
-        tls_secret_name = self.config.get("tls_secret_name")
+        if self.config["session-cookie-max-age"]:
+            annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
+            annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
+            annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
+            annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = "{}".format(
+                self.config["session-cookie-max-age"]
+            )
+            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
+                self.config["service-name"].upper()
+            )
+            annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
+        tls_secret_name = self.config["tls-secret-name"]
         if tls_secret_name:
             spec.tls = kubernetes.client.NetworkingV1beta1IngressTLS(
                 hosts=[self.config["service-hostname"]],

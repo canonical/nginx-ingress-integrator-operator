@@ -11,8 +11,7 @@ bases:
 
 containers:
   placeholder:
-    systems:
-      - resource: placeholder-image
+    resource: placeholder-image
 
 resources:
   placeholder-image:

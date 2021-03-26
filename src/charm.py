@@ -96,6 +96,9 @@ class CharmK8SIngressCharm(CharmBase):
         # library implemented by the PostgreSQL k8s charm.
         self._stored.ingress_relation_data = ingress_fields
 
+        # Now trigger our config_changed handler.
+        self._on_config_changed(event)
+
     @property
     def _ingress_name(self):
         """Return an ingress name for use creating a k8s ingress."""

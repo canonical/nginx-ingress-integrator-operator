@@ -1,10 +1,9 @@
 # Copyright 2021 Tom Haddon
 # See LICENSE file for licensing details.
 
-import mock
 import unittest
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import kubernetes
 
@@ -20,9 +19,9 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @mock.patch('charm.CharmK8SIngressCharm._report_service_ips')
-    @mock.patch('charm.CharmK8SIngressCharm._define_ingress')
-    @mock.patch('charm.CharmK8SIngressCharm._define_service')
+    @patch('charm.CharmK8SIngressCharm._report_service_ips')
+    @patch('charm.CharmK8SIngressCharm._define_ingress')
+    @patch('charm.CharmK8SIngressCharm._define_service')
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
@@ -69,7 +68,8 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
-    def test_on_ingress_relation_changed(self):
+    @patch('charm.CharmK8SIngressCharm._on_config_changed')
+    def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.
         self.assertFalse(self.harness.charm.unit.is_leader())
@@ -78,6 +78,8 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._on_ingress_relation_changed(mock_event)
         # Confirm no relation data has been set.
         self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+        # Confirm config_changed hasn't been called.
+        _on_config_changed.assert_not_called()
 
         # Now test on the leader, but with missing fields in the relation data.
         # We don't want leader-set to fire.
@@ -91,6 +93,8 @@ class TestCharm(unittest.TestCase):
             self.assertEqual(sorted(logger.output), [msg])
             # Confirm no relation data has been set.
             self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+            # Confirm config_changed hasn't been called.
+            _on_config_changed.assert_not_called()
 
         # Now test with complete relation data.
         mock_event.relation.data = {
@@ -111,6 +115,8 @@ class TestCharm(unittest.TestCase):
             "tls-secret-name": None,
         }
         self.assertEqual(self.harness.charm._stored.ingress_relation_data, expected)
+        # Confirm config_changed has been called.
+        _on_config_changed.assert_called_once()
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

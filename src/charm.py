@@ -129,6 +129,13 @@ class CharmK8SIngressCharm(CharmBase):
         """Return the name of the service we're connecting to."""
         return self._stored.ingress_relation_data.get("service-name") or self.config["service-name"]
 
+    @property
+    def _service_port(self):
+        """Return the port for the service we're connecting to."""
+        if self._stored.ingress_relation_data.get("service-port"):
+            return int(self._stored.ingress_relation_data.get("service-port"))
+        return self.config["service-port"]
+
     def k8s_auth(self):
         """Authenticate to kubernetes."""
         if self._authed:
@@ -156,9 +163,9 @@ class CharmK8SIngressCharm(CharmBase):
                 selector={"app.kubernetes.io/name": self._service_name},
                 ports=[
                     kubernetes.client.V1ServicePort(
-                        name="tcp-{}".format(self.config["service-port"]),
-                        port=self.config["service-port"],
-                        target_port=self.config["service-port"],
+                        name="tcp-{}".format(self._service_port),
+                        port=self._service_port,
+                        target_port=self._service_port,
                     )
                 ],
             ),
@@ -175,7 +182,7 @@ class CharmK8SIngressCharm(CharmBase):
                             kubernetes.client.NetworkingV1beta1HTTPIngressPath(
                                 path="/",
                                 backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                    service_port=self.config["service-port"],
+                                    service_port=self._service_port,
                                     service_name=self._k8s_service_name,
                                 ),
                             )

@@ -68,6 +68,16 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
+    def test_service_port(self):
+        """Test the service-port property."""
+        # First set via config.
+        self.harness.update_config({"service-port": 80})
+        self.assertEqual(self.harness.charm._service_port, 80)
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["service-port"] = "88"
+        self.assertEqual(self.harness.charm._service_port, 88)
+
     @patch('charm.CharmK8SIngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""
@@ -101,7 +111,7 @@ class TestCharm(unittest.TestCase):
             "gunicorn-0": {
                 "service-hostname": "foo.internal",
                 "service-name": "gunicorn",
-                "service-port": 80,
+                "service-port": "80",
             }
         }
         self.harness.charm._on_ingress_relation_changed(mock_event)
@@ -110,7 +120,7 @@ class TestCharm(unittest.TestCase):
             "service-hostname": "foo.internal",
             "service-name": "gunicorn",
             "service-namespace": None,
-            "service-port": 80,
+            "service-port": "80",
             "session-cookie-max-age": None,
             "tls-secret-name": None,
         }

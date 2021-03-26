@@ -4,6 +4,8 @@
 import mock
 import unittest
 
+from unittest.mock import MagicMock
+
 import kubernetes
 
 from ops.model import ActiveStatus
@@ -70,6 +72,45 @@ class TestCharm(unittest.TestCase):
     def test_on_ingress_relation_changed(self):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.
+        self.assertFalse(self.harness.charm.unit.is_leader())
+        mock_event = MagicMock()
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+        self.harness.charm._on_ingress_relation_changed(mock_event)
+        # Confirm no relation data has been set.
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+
+        # Now test on the leader, but with missing fields in the relation data.
+        # We don't want leader-set to fire.
+        self.harness.disable_hooks()
+        self.harness.set_leader(True)
+        mock_event.unit = "gunicorn-0"
+        mock_event.relation.data = {"gunicorn-0": {"service-name": "gunicorn"}}
+        with self.assertLogs(level="ERROR") as logger:
+            self.harness.charm._on_ingress_relation_changed(mock_event)
+            msg = "ERROR:charm:Missing required data fields for ingress relation: service-hostname, service-port"
+            self.assertEqual(sorted(logger.output), [msg])
+            # Confirm no relation data has been set.
+            self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+
+        # Now test with complete relation data.
+        mock_event.relation.data = {
+            "gunicorn-0": {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": 80,
+            }
+        }
+        self.harness.charm._on_ingress_relation_changed(mock_event)
+        expected = {
+            "max-body-size": None,
+            "service-hostname": "foo.internal",
+            "service-name": "gunicorn",
+            "service-namespace": None,
+            "service-port": 80,
+            "session-cookie-max-age": None,
+            "tls-secret-name": None,
+        }
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, expected)
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

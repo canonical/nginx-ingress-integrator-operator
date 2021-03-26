@@ -30,9 +30,13 @@ export PATH="/home/${USER}/go/bin:$PATH"
 juju bootstrap microk8s --no-gui
 juju add-model ingress-test
 ```
-The `kube-config` config option should be set to the contents of your
-kubernetes client configuration. If you're using microk8s you can get
-this via `microk8s config`, and you'd then deploy the charm as follows:
+Once https://bugs.launchpad.net/juju/+bug/1920102 has been addressed, this
+charm will be able to use the credentials provided in cluster. However, for
+now, you will need to provide this charm with credentials to be able to talk
+to the K8s API directly. This is done via the `kube-config` config option,
+which should be set to the contents of your kubernetes client configuration.
+If you're using microk8s you can get this via `microk8s config`. As an example
+you could deploy this charm as follows:
 ```
 juju deploy ./ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
 ```
@@ -43,8 +47,9 @@ juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicor
 juju relate ingress:ingress gunicorn:ingress
 ```
 This will create an K8s ingress called `gunicorn-ingress` and a K8s service
-called `gunicorn-service`. The gunicorn charm in question implements the
-relation as follows, as a trivial example:
+called `gunicorn-service`. The gunicorn charm in question, which can be found
+https://code.launchpad.net/~mthaddon/charm-k8s-gunicorn/+git/charm-k8s-gunicorn/+ref/pebble
+implements the relation as follows, as a trivial example:
 ```
 # In __init__:
 self.framework.observe(self.on['ingress'].relation_changed, self._on_ingress_changed)

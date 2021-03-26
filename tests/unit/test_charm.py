@@ -56,10 +56,20 @@ class TestCharm(unittest.TestCase):
 
     def test_namespace(self):
         """Test for the namespace property."""
+        # If charm config and _stored is empty, use model name.
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data.get("service-namespace"), None)
         self.assertEqual(self.harness.charm.config["service-namespace"], "")
         self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
+        # If we set config, that takes precedence.
         self.harness.update_config({"service-namespace": "mymodelname"})
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
+        # And if we set _stored, that takes precedence.
+        self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
+        self.assertEqual(self.harness.charm._namespace, "relationnamespace")
+
+    def test_on_ingress_relation_changed(self):
+        """Test ingress relation changed handler."""
+        # Confirm we do nothing if we're not the leader.
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

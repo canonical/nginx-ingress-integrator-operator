@@ -1,6 +1,6 @@
 # Copyright 2021 Tom Haddon
 # See LICENSE file for licensing details.
-name: k8s-ingress
+name: ingress
 description: |
   An operator to configure a kubernetes ingress.
 summary: |

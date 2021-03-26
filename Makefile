@@ -8,7 +8,7 @@ lint: blacken
 
 # We actually use the build directory created by charmcraft,
 # but the .charm file makes a much more convenient sentinel.
-unittest: k8s-ingress.charm
+unittest: ingress.charm
 	@tox -e unit
 
 test: lint unittest
@@ -17,7 +17,7 @@ clean:
 	@echo "Cleaning files"
 	@git clean -fXd
 
-k8s-ingress.charm: src/*.py requirements.txt
+ingress.charm: src/*.py requirements.txt
 	charmcraft build
 
 .PHONY: lint test unittest clean

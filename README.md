@@ -44,7 +44,7 @@ To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:
 ```
 juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
-juju relate ingress:ingress gunicorn:ingress
+juju relate ingress gunicorn
 ```
 This will create an K8s ingress called `gunicorn-ingress` and a K8s service
 called `gunicorn-service`. The gunicorn charm in question, which can be found

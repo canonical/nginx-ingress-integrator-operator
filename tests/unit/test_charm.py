@@ -66,6 +66,10 @@ class TestCharm(unittest.TestCase):
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
         self.harness.charm._stored.ingress_relation_data["max-body-size"] = "88"
+        # Still 80 because it's set via config.
+        self.assertEqual(self.harness.charm._max_body_size, "80m")
+        self.harness.update_config({"max-body-size": 0})
+        # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._max_body_size, "88m")
 
     def test_namespace(self):
@@ -77,8 +81,11 @@ class TestCharm(unittest.TestCase):
         # If we set config, that takes precedence.
         self.harness.update_config({"service-namespace": "mymodelname"})
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
-        # And if we set _stored, that takes precedence.
+        # And if we set _stored, config still takes precedence.
         self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
+        self.assertEqual(self.harness.charm._namespace, "mymodelname")
+        self.harness.update_config({"service-namespace": ""})
+        # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
     def test_service_port(self):
@@ -89,6 +96,10 @@ class TestCharm(unittest.TestCase):
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
         self.harness.charm._stored.ingress_relation_data["service-port"] = "88"
+        # Config still overrides the relation value.
+        self.assertEqual(self.harness.charm._service_port, 80)
+        self.harness.update_config({"service-port": 0})
+        # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._service_port, 88)
 
     def test_service_hostname(self):
@@ -99,6 +110,10 @@ class TestCharm(unittest.TestCase):
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
         self.harness.charm._stored.ingress_relation_data["service-hostname"] = "foo-bar.internal"
+        # Config still overrides the relation value.
+        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        self.harness.update_config({"service-hostname": ""})
+        # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._service_hostname, "foo-bar.internal")
 
     def test_session_cookie_max_age(self):
@@ -122,6 +137,10 @@ class TestCharm(unittest.TestCase):
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
         self.harness.charm._stored.ingress_relation_data["tls-secret-name"] = "gunicorn-tls-new"
+        # Config still overrides the relation data.
+        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
+        self.harness.update_config({"tls-secret-name": ""})
+        # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
 
     @patch('charm.CharmK8SIngressCharm._on_config_changed')
@@ -189,7 +208,6 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -221,7 +239,6 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
             ),
@@ -251,7 +268,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
         # Test max_body_size and session-cookie-max-age config options.
-        self.harness.update_config({"tls-secret-name": "", "max-body-size": 0, "session-cookie-max-age": 3600})
+        self.harness.update_config({"tls-secret-name": "", "max-body-size": 20, "session-cookie-max-age": 3600})
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
@@ -260,7 +277,7 @@ class TestCharm(unittest.TestCase):
                 annotations={
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/session-cookie-change-on-failure": "true",
                     "nginx.ingress.kubernetes.io/session-cookie-max-age": "3600",

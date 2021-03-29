@@ -54,6 +54,7 @@ implements the relation as follows, as a trivial example:
 # In __init__:
 self.framework.observe(self.on['ingress'].relation_changed, self._on_ingress_changed)
 
+# And the _on_ingress_changed method.
 def _on_ingress_changed(self, event: ops.framework.EventBase) -> None:
     """Handle the ingress relation changed event."""
     if self.unit.is_leader():
@@ -61,12 +62,26 @@ def _on_ingress_changed(self, event: ops.framework.EventBase) -> None:
         event.relation.data[self.app]["service-name"] = self.model.name
         event.relation.data[self.app]["service-port"] = "80"
 ```
+All of the config items in `config.yaml` with the exception of `kube-config` can
+be set via the relation, e.g. `tls-secret-name` or `max-body-size`.
 
 Alternatively, you can configure the same ingress via Juju config options, to
 avoid needing to modify the charm you're deploying it alongside. As an example:
 ```
 juju config ingress service-name=gunicorn service-port=80 service-hostname=foo.internal
 ```
+Finally, if the charm you're relating to implements the ingress relation, you
+can still override the configuration of the ingress using Juju config. Using
+the above example, where your charm sets the `service-port` as "80" in the
+relation, you could override this by doing the following:
+```
+juju deploy ./ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
+juju relate ingress gunicorn
+juju config ingress service-port=8080
+```
+In this case, the charm will use the `service-hostname` and `service-name` as
+sent by the relation, but will use a `service-port` of 8080.
 
 ## Testing
 

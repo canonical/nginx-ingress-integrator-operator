@@ -103,12 +103,26 @@ class CharmK8SIngressCharm(CharmBase):
         self._on_config_changed(event)
 
     @property
+    def _k8s_service_name(self):
+        """Return a service name for the use creating a k8s service."""
+        # Avoid collision with service name created by Juju. Currently
+        # Juju creates a K8s service listening on port 65535/TCP so we
+        # need to create a separate one.
+        return "{}-service".format(self._service_name)
+
+    @property
     def _ingress_name(self):
         """Return an ingress name for use creating a k8s ingress."""
         # Follow the same naming convention as Juju.
         return "{}-ingress".format(
             self._stored.ingress_relation_data.get("service-name") or self.config["service-name"]
         )
+
+    @property
+    def _max_body_size(self):
+        """Return the max-body-size to use for k8s ingress."""
+        max_body_size = self._stored.ingress_relation_data.get("max-body-size") or self.config["max-body-size"]
+        return "{}m".format(max_body_size)
 
     @property
     def _namespace(self):
@@ -118,14 +132,6 @@ class CharmK8SIngressCharm(CharmBase):
             or self.config["service-namespace"]
             or self.model.name
         )
-
-    @property
-    def _k8s_service_name(self):
-        """Return a service name for the use creating a k8s service."""
-        # Avoid collision with service name created by Juju. Currently
-        # Juju creates a K8s service listening on port 65535/TCP so we
-        # need to create a separate one.
-        return "{}-service".format(self._service_name)
 
     @property
     def _service_hostname(self):
@@ -143,6 +149,22 @@ class CharmK8SIngressCharm(CharmBase):
         if self._stored.ingress_relation_data.get("service-port"):
             return int(self._stored.ingress_relation_data.get("service-port"))
         return self.config["service-port"]
+
+    @property
+    def _session_cookie_max_age(self):
+        """Return the session-cookie-max-age to use for k8s ingress."""
+        session_cookie_max_age = (
+            self._stored.ingress_relation_data.get("session-cookie-max-age") or self.config["session-cookie-max-age"]
+        )
+        if session_cookie_max_age:
+            return str(session_cookie_max_age)
+        # Don't return "0" which would evaluate to True.
+        return ""
+
+    @property
+    def _tls_secret_name(self):
+        """Return the tls-secret-name to use for k8s ingress (if any)."""
+        return self._stored.ingress_relation_data.get("tls-secret-name") or self.config["tls-secret-name"]
 
     def k8s_auth(self):
         """Authenticate to kubernetes."""
@@ -201,24 +223,21 @@ class CharmK8SIngressCharm(CharmBase):
         )
         annotations = {
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
-            "nginx.ingress.kubernetes.io/proxy-body-size": "{}m".format(self.config["max-body-size"]),
+            "nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size,
         }
-        if self.config["session-cookie-max-age"]:
+        if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
             annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
-            annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = "{}".format(
-                self.config["session-cookie-max-age"]
-            )
+            annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = self._session_cookie_max_age
             annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
                 self._service_name.upper()
             )
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
-        tls_secret_name = self.config["tls-secret-name"]
-        if tls_secret_name:
+        if self._tls_secret_name:
             spec.tls = kubernetes.client.NetworkingV1beta1IngressTLS(
                 hosts=[self._service_hostname],
-                secret_name=tls_secret_name,
+                secret_name=self._tls_secret_name,
             )
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"

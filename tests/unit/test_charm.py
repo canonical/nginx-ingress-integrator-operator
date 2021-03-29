@@ -58,6 +58,16 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
+    def test_max_body_size(self):
+        """Test for the max-body-size property."""
+        # First set via config.
+        self.harness.update_config({"max-body-size": 80})
+        self.assertEqual(self.harness.charm._max_body_size, "80m")
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["max-body-size"] = "88"
+        self.assertEqual(self.harness.charm._max_body_size, "88m")
+
     def test_namespace(self):
         """Test for the namespace property."""
         # If charm config and _stored is empty, use model name.
@@ -90,6 +100,29 @@ class TestCharm(unittest.TestCase):
         # relation data must be a string.
         self.harness.charm._stored.ingress_relation_data["service-hostname"] = "foo-bar.internal"
         self.assertEqual(self.harness.charm._service_hostname, "foo-bar.internal")
+
+    def test_session_cookie_max_age(self):
+        """Test the session-cookie-max-age property."""
+        # First set via config.
+        self.harness.update_config({"session-cookie-max-age": 3600})
+        self.assertEqual(self.harness.charm._session_cookie_max_age, "3600")
+        # Confirm if we set this to 0 we get a False value, e.g. it doesn't
+        # return a string of "0" which would be evaluated to True.
+        self.harness.update_config({"session-cookie-max-age": 0})
+        self.assertFalse(self.harness.charm._session_cookie_max_age)
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["session-cookie-max-age"] = "3688"
+        self.assertEqual(self.harness.charm._session_cookie_max_age, "3688")
+
+    def test_tls_secret_name(self):
+        """Test the tls-secret-name property."""
+        self.harness.update_config({"tls-secret-name": "gunicorn-tls"})
+        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["tls-secret-name"] = "gunicorn-tls-new"
+        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
 
     @patch('charm.CharmK8SIngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
@@ -149,7 +182,7 @@ class TestCharm(unittest.TestCase):
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""
         self.harness.disable_hooks()
-        self.harness.update_config({"service-name": "gunicorn", "service-port": 80, "service-hostname": "foo.internal"})
+        self.harness.update_config({"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80})
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",

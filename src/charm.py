@@ -21,7 +21,11 @@ import kubernetes
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus
+from ops.model import (
+    ActiveStatus,
+    BlockedStatus,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +83,7 @@ class CharmK8SIngressCharm(CharmBase):
             return
 
         ingress_fields = {
-            field: event.relation.data[event.unit].get(field)
+            field: event.relation.data[event.app].get(field)
             for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
         }
 
@@ -89,11 +93,10 @@ class CharmK8SIngressCharm(CharmBase):
 
         if missing_fields:
             logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
+            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
             return
 
-        # Set our relation data to stored_state. Do we risk losing data here
-        # if the leader changes? If so we'll likely need to use the leadership
-        # library implemented by the PostgreSQL k8s charm.
+        # Set our relation data to stored_state.
         self._stored.ingress_relation_data = ingress_fields
 
         # Now trigger our config_changed handler.

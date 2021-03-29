@@ -7,7 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import kubernetes
 
-from ops.model import ActiveStatus
+from ops.model import (
+    ActiveStatus,
+    BlockedStatus,
+)
 from ops.testing import Harness
 from charm import CharmK8SIngressCharm
 
@@ -95,8 +98,8 @@ class TestCharm(unittest.TestCase):
         # We don't want leader-set to fire.
         self.harness.disable_hooks()
         self.harness.set_leader(True)
-        mock_event.unit = "gunicorn-0"
-        mock_event.relation.data = {"gunicorn-0": {"service-name": "gunicorn"}}
+        mock_event.app = "gunicorn"
+        mock_event.relation.data = {"gunicorn": {"service-name": "gunicorn"}}
         with self.assertLogs(level="ERROR") as logger:
             self.harness.charm._on_ingress_relation_changed(mock_event)
             msg = "ERROR:charm:Missing required data fields for ingress relation: service-hostname, service-port"
@@ -105,10 +108,15 @@ class TestCharm(unittest.TestCase):
             self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
             # Confirm config_changed hasn't been called.
             _on_config_changed.assert_not_called()
+            # Confirm blocked status.
+            self.assertEqual(
+                self.harness.charm.unit.status,
+                BlockedStatus("Missing fields for ingress: service-hostname, service-port"),
+            )
 
         # Now test with complete relation data.
         mock_event.relation.data = {
-            "gunicorn-0": {
+            "gunicorn": {
                 "service-hostname": "foo.internal",
                 "service-name": "gunicorn",
                 "service-port": "80",

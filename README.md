@@ -56,9 +56,10 @@ self.framework.observe(self.on['ingress'].relation_changed, self._on_ingress_cha
 
 def _on_ingress_changed(self, event: ops.framework.EventBase) -> None:
     """Handle the ingress relation changed event."""
-    event.relation.data[self.unit]["service-hostname"] = self.config["external_hostname"]
-    event.relation.data[self.unit]["service-name"] = self.model.name
-    event.relation.data[self.unit]["service-port"] = "80"
+    if self.unit.is_leader():
+        event.relation.data[self.app]["service-hostname"] = self.config["external_hostname"]
+        event.relation.data[self.app]["service-name"] = self.model.name
+        event.relation.data[self.app]["service-port"] = "80"
 ```
 
 Alternatively, you can configure the same ingress via Juju config options, to

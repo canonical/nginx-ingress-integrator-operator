@@ -6,7 +6,7 @@ options:
     description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.
     type: string
   max-body-size:
-    default: 20
+    default: 0
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
   service-hostname:

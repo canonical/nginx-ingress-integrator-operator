@@ -115,46 +115,47 @@ class CharmK8SIngressCharm(CharmBase):
         """Return an ingress name for use creating a k8s ingress."""
         # Follow the same naming convention as Juju.
         return "{}-ingress".format(
-            self._stored.ingress_relation_data.get("service-name") or self.config["service-name"]
+            self.config["service-name"] or self._stored.ingress_relation_data.get("service-name")
         )
 
     @property
     def _max_body_size(self):
         """Return the max-body-size to use for k8s ingress."""
-        max_body_size = self._stored.ingress_relation_data.get("max-body-size") or self.config["max-body-size"]
-        return "{}m".format(max_body_size)
+        max_body_size = self.config["max-body-size"] or self._stored.ingress_relation_data.get("max-body-size")
+        if max_body_size:
+            return "{}m".format(max_body_size)
+        # Don't return "0m" which would evaluate to True.
+        return ""
 
     @property
     def _namespace(self):
         """Return the namespace to operate on."""
         return (
-            self._stored.ingress_relation_data.get("service-namespace")
-            or self.config["service-namespace"]
+            self.config["service-namespace"]
+            or self._stored.ingress_relation_data.get("service-namespace")
             or self.model.name
         )
 
     @property
     def _service_hostname(self):
         """Return the hostname for the service we're connecting to."""
-        return self._stored.ingress_relation_data.get("service-hostname") or self.config["service-hostname"]
+        return self.config["service-hostname"] or self._stored.ingress_relation_data.get("service-hostname")
 
     @property
     def _service_name(self):
         """Return the name of the service we're connecting to."""
-        return self._stored.ingress_relation_data.get("service-name") or self.config["service-name"]
+        return self.config["service-name"] or self._stored.ingress_relation_data.get("service-name")
 
     @property
     def _service_port(self):
         """Return the port for the service we're connecting to."""
-        if self._stored.ingress_relation_data.get("service-port"):
-            return int(self._stored.ingress_relation_data.get("service-port"))
-        return self.config["service-port"]
+        return self.config["service-port"] or int(self._stored.ingress_relation_data.get("service-port"))
 
     @property
     def _session_cookie_max_age(self):
         """Return the session-cookie-max-age to use for k8s ingress."""
-        session_cookie_max_age = (
-            self._stored.ingress_relation_data.get("session-cookie-max-age") or self.config["session-cookie-max-age"]
+        session_cookie_max_age = self.config["session-cookie-max-age"] or self._stored.ingress_relation_data.get(
+            "session-cookie-max-age"
         )
         if session_cookie_max_age:
             return str(session_cookie_max_age)
@@ -164,7 +165,7 @@ class CharmK8SIngressCharm(CharmBase):
     @property
     def _tls_secret_name(self):
         """Return the tls-secret-name to use for k8s ingress (if any)."""
-        return self._stored.ingress_relation_data.get("tls-secret-name") or self.config["tls-secret-name"]
+        return self.config["tls-secret-name"] or self._stored.ingress_relation_data.get("tls-secret-name")
 
     def k8s_auth(self):
         """Authenticate to kubernetes."""
@@ -223,8 +224,9 @@ class CharmK8SIngressCharm(CharmBase):
         )
         annotations = {
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
-            "nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size,
         }
+        if self._max_body_size:
+            annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"

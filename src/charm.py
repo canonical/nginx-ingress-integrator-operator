@@ -128,6 +128,11 @@ class CharmK8SIngressCharm(CharmBase):
         return "{}-service".format(self._service_name)
 
     @property
+    def _service_hostname(self):
+        """Return the hostname for the service we're connecting to."""
+        return self._stored.ingress_relation_data.get("service-hostname") or self.config["service-hostname"]
+
+    @property
     def _service_name(self):
         """Return the name of the service we're connecting to."""
         return self._stored.ingress_relation_data.get("service-name") or self.config["service-name"]
@@ -179,7 +184,7 @@ class CharmK8SIngressCharm(CharmBase):
         spec = kubernetes.client.NetworkingV1beta1IngressSpec(
             rules=[
                 kubernetes.client.NetworkingV1beta1IngressRule(
-                    host=self.config["service-hostname"],
+                    host=self._service_hostname,
                     http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
                         paths=[
                             kubernetes.client.NetworkingV1beta1HTTPIngressPath(
@@ -212,7 +217,7 @@ class CharmK8SIngressCharm(CharmBase):
         tls_secret_name = self.config["tls-secret-name"]
         if tls_secret_name:
             spec.tls = kubernetes.client.NetworkingV1beta1IngressTLS(
-                hosts=[self.config["service-hostname"]],
+                hosts=[self._service_hostname],
                 secret_name=tls_secret_name,
             )
         else:

@@ -81,6 +81,16 @@ class TestCharm(unittest.TestCase):
         self.harness.charm._stored.ingress_relation_data["service-port"] = "88"
         self.assertEqual(self.harness.charm._service_port, 88)
 
+    def test_service_hostname(self):
+        """Test the service-hostname property."""
+        # First set via config.
+        self.harness.update_config({"service-hostname": "foo.internal"})
+        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["service-hostname"] = "foo-bar.internal"
+        self.assertEqual(self.harness.charm._service_hostname, "foo-bar.internal")
+
     @patch('charm.CharmK8SIngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""

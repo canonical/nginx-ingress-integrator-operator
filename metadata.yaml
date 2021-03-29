@@ -17,3 +17,8 @@ resources:
   placeholder-image:
     type: oci-image
     description: A placeholder image, operator code won't do anything with it.
+
+requires:
+  ingress:
+    interface: ingress
+    limit: 1

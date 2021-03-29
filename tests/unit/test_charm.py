@@ -1,12 +1,16 @@
 # Copyright 2021 Tom Haddon
 # See LICENSE file for licensing details.
 
-import mock
 import unittest
+
+from unittest.mock import MagicMock, patch
 
 import kubernetes
 
-from ops.model import ActiveStatus
+from ops.model import (
+    ActiveStatus,
+    BlockedStatus,
+)
 from ops.testing import Harness
 from charm import CharmK8SIngressCharm
 
@@ -18,9 +22,9 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @mock.patch('charm.CharmK8SIngressCharm._report_service_ips')
-    @mock.patch('charm.CharmK8SIngressCharm._define_ingress')
-    @mock.patch('charm.CharmK8SIngressCharm._define_service')
+    @patch('charm.CharmK8SIngressCharm._report_service_ips')
+    @patch('charm.CharmK8SIngressCharm._define_ingress')
+    @patch('charm.CharmK8SIngressCharm._define_service')
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
@@ -56,10 +60,81 @@ class TestCharm(unittest.TestCase):
 
     def test_namespace(self):
         """Test for the namespace property."""
+        # If charm config and _stored is empty, use model name.
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data.get("service-namespace"), None)
         self.assertEqual(self.harness.charm.config["service-namespace"], "")
         self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
+        # If we set config, that takes precedence.
         self.harness.update_config({"service-namespace": "mymodelname"})
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
+        # And if we set _stored, that takes precedence.
+        self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
+        self.assertEqual(self.harness.charm._namespace, "relationnamespace")
+
+    def test_service_port(self):
+        """Test the service-port property."""
+        # First set via config.
+        self.harness.update_config({"service-port": 80})
+        self.assertEqual(self.harness.charm._service_port, 80)
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        self.harness.charm._stored.ingress_relation_data["service-port"] = "88"
+        self.assertEqual(self.harness.charm._service_port, 88)
+
+    @patch('charm.CharmK8SIngressCharm._on_config_changed')
+    def test_on_ingress_relation_changed(self, _on_config_changed):
+        """Test ingress relation changed handler."""
+        # Confirm we do nothing if we're not the leader.
+        self.assertFalse(self.harness.charm.unit.is_leader())
+        mock_event = MagicMock()
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+        self.harness.charm._on_ingress_relation_changed(mock_event)
+        # Confirm no relation data has been set.
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+        # Confirm config_changed hasn't been called.
+        _on_config_changed.assert_not_called()
+
+        # Now test on the leader, but with missing fields in the relation data.
+        # We don't want leader-set to fire.
+        self.harness.disable_hooks()
+        self.harness.set_leader(True)
+        mock_event.app = "gunicorn"
+        mock_event.relation.data = {"gunicorn": {"service-name": "gunicorn"}}
+        with self.assertLogs(level="ERROR") as logger:
+            self.harness.charm._on_ingress_relation_changed(mock_event)
+            msg = "ERROR:charm:Missing required data fields for ingress relation: service-hostname, service-port"
+            self.assertEqual(sorted(logger.output), [msg])
+            # Confirm no relation data has been set.
+            self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+            # Confirm config_changed hasn't been called.
+            _on_config_changed.assert_not_called()
+            # Confirm blocked status.
+            self.assertEqual(
+                self.harness.charm.unit.status,
+                BlockedStatus("Missing fields for ingress: service-hostname, service-port"),
+            )
+
+        # Now test with complete relation data.
+        mock_event.relation.data = {
+            "gunicorn": {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": "80",
+            }
+        }
+        self.harness.charm._on_ingress_relation_changed(mock_event)
+        expected = {
+            "max-body-size": None,
+            "service-hostname": "foo.internal",
+            "service-name": "gunicorn",
+            "service-namespace": None,
+            "service-port": "80",
+            "session-cookie-max-age": None,
+            "tls-secret-name": None,
+        }
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, expected)
+        # Confirm config_changed has been called.
+        _on_config_changed.assert_called_once()
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

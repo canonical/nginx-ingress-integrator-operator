@@ -59,7 +59,7 @@ def _on_ingress_changed(self, event: ops.framework.EventBase) -> None:
     """Handle the ingress relation changed event."""
     if self.unit.is_leader():
         event.relation.data[self.app]["service-hostname"] = self.config["external_hostname"]
-        event.relation.data[self.app]["service-name"] = self.model.name
+        event.relation.data[self.app]["service-name"] = self.app.name
         event.relation.data[self.app]["service-port"] = "80"
 ```
 All of the config items in `config.yaml` with the exception of `kube-config` can

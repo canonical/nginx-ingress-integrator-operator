@@ -58,6 +58,21 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
+    def test_get_ingress_relation_data(self):
+        """Test for getting our ingress relation data."""
+        self.harness.disable_hooks()  # no need for hooks to fire for this test
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
+        self.harness.charm._get_ingress_relation_data()
+        self.assertEqual(dict(self.harness.charm._stored.ingress_relation_data), relations_data)
+
     def test_max_body_size(self):
         """Test for the max-body-size property."""
         # First set via config.

@@ -19,17 +19,8 @@ below.
 
 To build the charm, run `charmcraft build`.
 
-You'll need version 1.14 or later of Go (`go version` will confirm your current version), and a custom version of the Juju 2.9 branch, as below:
+You'll need version to be using Juju [version 2.9-rc8](https://discourse.charmhub.io/t/juju-2-9-rc8-release-notes/4394/) or later.
 
-```
-git clone -b 2.9 https://github.com/juju/juju
-cd juju
-make install
-make microk8s-operator-update  # to make the microk8s image and push to Docker
-export PATH="/home/${USER}/go/bin:$PATH"
-juju bootstrap microk8s --no-gui
-juju add-model ingress-test
-```
 Once https://bugs.launchpad.net/juju/+bug/1920102 has been addressed, this
 charm will be able to use the credentials provided in cluster. However, for
 now, you will need to provide this charm with credentials to be able to talk

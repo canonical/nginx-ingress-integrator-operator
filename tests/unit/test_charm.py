@@ -69,8 +69,11 @@ class TestCharm(unittest.TestCase):
             "service-port": "80",
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        # Confirm we don't have any relation data yet in StoredState.
         self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
         self.harness.charm._get_ingress_relation_data()
+        # And now confirm we have the expected data in StoredState since we've
+        # run the _get_ingress_relation_data method.
         self.assertEqual(dict(self.harness.charm._stored.ingress_relation_data), relations_data)
 
     def test_max_body_size(self):

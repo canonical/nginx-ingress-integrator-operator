@@ -75,29 +75,64 @@ class CharmK8SIngressCharm(CharmBase):
         # ingress relation handling.
         self.framework.observe(self.on["ingress"].relation_changed, self._on_ingress_relation_changed)
 
+        self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
+
         self._stored.set_default(ingress_relation_data=dict())
+
+    def _ingress_relation_errors(self, ingress_data):
+        """Confirm if we have any errors in our ingress relation.
+
+        Return True if we have errors, or False if we don't."""
+        missing_fields = sorted(
+            [field for field in REQUIRED_INGRESS_RELATION_FIELDS if ingress_data.get(field) is None]
+        )
+
+        if missing_fields:
+            logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
+            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
+            return True
+        return False
+
+    def _get_ingress_relation_data(self):
+        """Get ingress relation data, and add to StoredState."""
+        for relations in self.model.relations.values():
+            if relations:
+                relation = relations[0]
+                if len(relations) > 1:
+                    logger.warning(
+                        'Multiple relations of type "%s" detected,'
+                        ' using only the first one (id: %s) for relation data.',
+                        relation.name,
+                        relation.id,
+                    )
+                if relation.name == "ingress":
+                    ingress_data = dict(relation.data[relation.app].items())
+                    if self._ingress_relation_errors(ingress_data):
+                        return
+                    self._stored.ingress_relation_data = ingress_data
+
+    def _on_upgrade_charm(self, event):
+        """Handle upgrade charm event."""
+        # StoredState gets reset, so we need to resync the ingress relation
+        # data. A config-changed event will be triggered after the upgrade-charm
+        # to progress from there.
+        self._get_ingress_relation_data()
 
     def _on_ingress_relation_changed(self, event):
         """Handle a change to the ingress relation."""
         if not self.unit.is_leader():
             return
 
-        ingress_fields = {
+        ingress_data = {
             field: event.relation.data[event.app].get(field)
             for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
         }
 
-        missing_fields = sorted(
-            [field for field in REQUIRED_INGRESS_RELATION_FIELDS if ingress_fields.get(field) is None]
-        )
-
-        if missing_fields:
-            logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
-            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
+        if self._ingress_relation_errors(ingress_data):
             return
 
         # Set our relation data to stored_state.
-        self._stored.ingress_relation_data = ingress_fields
+        self._stored.ingress_relation_data = ingress_data
 
         # Now trigger our config_changed handler.
         self._on_config_changed(event)

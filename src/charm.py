@@ -268,18 +268,8 @@ class CharmK8SIngressCharm(CharmBase):
         body = self._get_k8s_service()
         services = api.list_namespaced_service(namespace=self._namespace)
         if self._k8s_service_name in [x.metadata.name for x in services.items]:
-            # Currently failing with port[1].name required but we're only
-            # defining one port above...
-            # api.patch_namespaced_service(
-            #    name=service_name,
-            #    namespace=self._namespace,
-            #    body=body,
-            # )
-            api.delete_namespaced_service(
+            api.patch_namespaced_service(
                 name=self._k8s_service_name,
-                namespace=self._namespace,
-            )
-            api.create_namespaced_service(
                 namespace=self._namespace,
                 body=body,
             )
@@ -341,5 +331,5 @@ class CharmK8SIngressCharm(CharmBase):
         self.unit.status = ActiveStatus(msg)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main(CharmK8SIngressCharm)

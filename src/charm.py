@@ -133,7 +133,7 @@ class CharmK8SIngressCharm(CharmBase):
     @property
     def _namespace(self):
         """Return the namespace to operate on."""
-        return self._get_config_or_relation_data("service-namespace", "") or self.model.name
+        return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
     def _service_hostname(self):

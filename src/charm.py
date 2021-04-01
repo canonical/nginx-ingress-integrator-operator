@@ -283,7 +283,7 @@ class IngressCharm(CharmBase):
         body = self._get_k8s_ingress()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if self._ingress_name in [x.metadata.name for x in ingresses.items]:
-            api.patch_namespaced_ingress(
+            api.replace_namespaced_ingress(
                 name=self._ingress_name,
                 namespace=self._namespace,
                 body=body,

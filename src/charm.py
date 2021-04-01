@@ -75,6 +75,7 @@ class CharmK8SIngressCharm(CharmBase):
         # ingress relation handling.
         self.framework.observe(self.on["ingress"].relation_changed, self._on_ingress_relation_changed)
 
+        self.framework.observe(self.on.leader_elected, self._on_leader_elected)
         self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
 
         self._stored.set_default(ingress_relation_data=dict())
@@ -111,11 +112,18 @@ class CharmK8SIngressCharm(CharmBase):
                         return
                     self._stored.ingress_relation_data = ingress_data
 
+    def _on_leader_elected(self, event):
+        """Handle leader-elected event."""
+        # StoredState won't have been created yet for this unit, so we need to
+        # resync the ingress relation data. A config-changed event will be
+        # triggered after the leader-elected event to progress from there.
+        self._get_ingress_relation_data()
+
     def _on_upgrade_charm(self, event):
-        """Handle upgrade charm event."""
+        """Handle upgrade-charm event."""
         # StoredState gets reset, so we need to resync the ingress relation
         # data. A config-changed event will be triggered after the upgrade-charm
-        # to progress from there.
+        # event to progress from there.
         self._get_ingress_relation_data()
 
     def _on_ingress_relation_changed(self, event):

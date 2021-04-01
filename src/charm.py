@@ -19,7 +19,6 @@ import kubernetes
 # from kubernetes.client.rest import ApiException as K8sApiException
 
 from ops.charm import CharmBase
-from ops.framework import StoredState
 from ops.main import main
 from ops.model import (
     ActiveStatus,
@@ -66,7 +65,6 @@ class CharmK8SIngressCharm(CharmBase):
     """Charm the service."""
 
     _authed = False
-    _stored = StoredState()
 
     def __init__(self, *args):
         super().__init__(*args)
@@ -75,59 +73,10 @@ class CharmK8SIngressCharm(CharmBase):
         # ingress relation handling.
         self.framework.observe(self.on["ingress"].relation_changed, self._on_ingress_relation_changed)
 
-        self.framework.observe(self.on.leader_elected, self._on_leader_elected)
-        self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
-
-        self._stored.set_default(ingress_relation_data=dict())
-
-    def _ingress_relation_errors(self, ingress_data):
-        """Confirm if we have any errors in our ingress relation.
-
-        Return True if we have errors, or False if we don't."""
-        missing_fields = sorted(
-            [field for field in REQUIRED_INGRESS_RELATION_FIELDS if ingress_data.get(field) is None]
-        )
-
-        if missing_fields:
-            logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
-            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
-            return True
-        return False
-
-    def _get_ingress_relation_data(self):
-        """Get ingress relation data, and add to StoredState."""
-        for relations in self.model.relations.values():
-            if relations:
-                relation = relations[0]
-                if len(relations) > 1:
-                    logger.warning(
-                        'Multiple relations of type "%s" detected,'
-                        ' using only the first one (id: %s) for relation data.',
-                        relation.name,
-                        relation.id,
-                    )
-                if relation.name == "ingress":
-                    ingress_data = dict(relation.data[relation.app].items())
-                    if self._ingress_relation_errors(ingress_data):
-                        return
-                    self._stored.ingress_relation_data = ingress_data
-
-    def _on_leader_elected(self, event):
-        """Handle leader-elected event."""
-        # StoredState won't have been created yet for this unit, so we need to
-        # resync the ingress relation data. A config-changed event will be
-        # triggered after the leader-elected event to progress from there.
-        self._get_ingress_relation_data()
-
-    def _on_upgrade_charm(self, event):
-        """Handle upgrade-charm event."""
-        # StoredState gets reset, so we need to resync the ingress relation
-        # data. A config-changed event will be triggered after the upgrade-charm
-        # event to progress from there.
-        self._get_ingress_relation_data()
-
     def _on_ingress_relation_changed(self, event):
-        """Handle a change to the ingress relation."""
+        """Handle a change to the ingress relation.
+
+        Confirm we have the fields we expect to receive."""
         if not self.unit.is_leader():
             return
 
@@ -136,14 +85,23 @@ class CharmK8SIngressCharm(CharmBase):
             for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
         }
 
-        if self._ingress_relation_errors(ingress_data):
-            return
+        missing_fields = sorted(
+            [field for field in REQUIRED_INGRESS_RELATION_FIELDS if ingress_data.get(field) is None]
+        )
 
-        # Set our relation data to stored_state.
-        self._stored.ingress_relation_data = ingress_data
+        if missing_fields:
+            logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
+            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
 
-        # Now trigger our config_changed handler.
-        self._on_config_changed(event)
+    def _get_config_or_relation_data(self, field, fallback):
+        """Helper method to get data from config or the ingress relation."""
+        config_data = self.config[field]
+        if config_data:
+            return config_data
+        relation = self.model.get_relation("ingress")
+        if relation:
+            return relation.data[relation.app][field]
+        return fallback
 
     @property
     def _k8s_service_name(self):
@@ -157,14 +115,12 @@ class CharmK8SIngressCharm(CharmBase):
     def _ingress_name(self):
         """Return an ingress name for use creating a k8s ingress."""
         # Follow the same naming convention as Juju.
-        return "{}-ingress".format(
-            self.config["service-name"] or self._stored.ingress_relation_data.get("service-name")
-        )
+        return "{}-ingress".format(self._get_config_or_relation_data("service-name", ""))
 
     @property
     def _max_body_size(self):
         """Return the max-body-size to use for k8s ingress."""
-        max_body_size = self.config["max-body-size"] or self._stored.ingress_relation_data.get("max-body-size")
+        max_body_size = self._get_config_or_relation_data("max-body-size", 0)
         if max_body_size:
             return "{}m".format(max_body_size)
         # Don't return "0m" which would evaluate to True.
@@ -173,33 +129,27 @@ class CharmK8SIngressCharm(CharmBase):
     @property
     def _namespace(self):
         """Return the namespace to operate on."""
-        return (
-            self.config["service-namespace"]
-            or self._stored.ingress_relation_data.get("service-namespace")
-            or self.model.name
-        )
+        return self._get_config_or_relation_data("service-namespace", "") or self.model.name
 
     @property
     def _service_hostname(self):
         """Return the hostname for the service we're connecting to."""
-        return self.config["service-hostname"] or self._stored.ingress_relation_data.get("service-hostname")
+        return self._get_config_or_relation_data("service-hostname", "")
 
     @property
     def _service_name(self):
         """Return the name of the service we're connecting to."""
-        return self.config["service-name"] or self._stored.ingress_relation_data.get("service-name")
+        return self._get_config_or_relation_data("service-name", "")
 
     @property
     def _service_port(self):
         """Return the port for the service we're connecting to."""
-        return self.config["service-port"] or int(self._stored.ingress_relation_data.get("service-port"))
+        return int(self._get_config_or_relation_data("service-port", 0))
 
     @property
     def _session_cookie_max_age(self):
         """Return the session-cookie-max-age to use for k8s ingress."""
-        session_cookie_max_age = self.config["session-cookie-max-age"] or self._stored.ingress_relation_data.get(
-            "session-cookie-max-age"
-        )
+        session_cookie_max_age = self._get_config_or_relation_data("session-cookie-max-age", 0)
         if session_cookie_max_age:
             return str(session_cookie_max_age)
         # Don't return "0" which would evaluate to True.
@@ -208,7 +158,7 @@ class CharmK8SIngressCharm(CharmBase):
     @property
     def _tls_secret_name(self):
         """Return the tls-secret-name to use for k8s ingress (if any)."""
-        return self.config["tls-secret-name"] or self._stored.ingress_relation_data.get("tls-secret-name")
+        return self._get_config_or_relation_data("tls-secret-name", "")
 
     def k8s_auth(self):
         """Authenticate to kubernetes."""

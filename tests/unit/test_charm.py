@@ -3,7 +3,7 @@
 
 import unittest
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import kubernetes
 
@@ -60,7 +60,10 @@ class TestCharm(unittest.TestCase):
 
     def test_get_ingress_relation_data(self):
         """Test for getting our ingress relation data."""
-        self.harness.disable_hooks()  # no need for hooks to fire for this test
+        # Confirm we don't have any relation data yet in the relevant properties
+        self.assertEqual(self.harness.charm._service_name, "")
+        self.assertEqual(self.harness.charm._service_hostname, "")
+        self.assertEqual(self.harness.charm._service_port, 0)
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
         relations_data = {
@@ -69,12 +72,10 @@ class TestCharm(unittest.TestCase):
             "service-port": "80",
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
-        # Confirm we don't have any relation data yet in StoredState.
-        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
-        self.harness.charm._get_ingress_relation_data()
-        # And now confirm we have the expected data in StoredState since we've
-        # run the _get_ingress_relation_data method.
-        self.assertEqual(dict(self.harness.charm._stored.ingress_relation_data), relations_data)
+        # And now confirm we have the expected data in the relevant properties.
+        self.assertEqual(self.harness.charm._service_name, "gunicorn")
+        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        self.assertEqual(self.harness.charm._service_port, 80)
 
     def test_max_body_size(self):
         """Test for the max-body-size property."""
@@ -83,7 +84,15 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._max_body_size, "80m")
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
-        self.harness.charm._stored.ingress_relation_data["max-body-size"] = "88"
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "max-body-size": "88",
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Still 80 because it's set via config.
         self.assertEqual(self.harness.charm._max_body_size, "80m")
         self.harness.update_config({"max-body-size": 0})
@@ -92,18 +101,35 @@ class TestCharm(unittest.TestCase):
 
     def test_namespace(self):
         """Test for the namespace property."""
-        # If charm config and _stored is empty, use model name.
-        self.assertEqual(self.harness.charm._stored.ingress_relation_data.get("service-namespace"), None)
+        # If charm config and relation data is empty, use model name.
+        self.assertEqual(self.harness.charm.model.get_relation("ingress"), None)
         self.assertEqual(self.harness.charm.config["service-namespace"], "")
         self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
         # If we set config, that takes precedence.
         self.harness.update_config({"service-namespace": "mymodelname"})
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
-        # And if we set _stored, config still takes precedence.
-        self.harness.charm._stored.ingress_relation_data["service-namespace"] = "relationnamespace"
+        # And if we set relation data, config still takes precedence.
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
         self.harness.update_config({"service-namespace": ""})
-        # Now it's the value from the relation.
+        # Now it reverts to the model name, because the relation isn't passing it.
+        self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
+        # And check if we're passing relation data including the service-namespace
+        # it gets set based on that.
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-namespace": "relationnamespace",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
     def test_service_port(self):
@@ -111,9 +137,15 @@ class TestCharm(unittest.TestCase):
         # First set via config.
         self.harness.update_config({"service-port": 80})
         self.assertEqual(self.harness.charm._service_port, 80)
-        # Now set via the StoredState. This will be set to a string, as all
-        # relation data must be a string.
-        self.harness.charm._stored.ingress_relation_data["service-port"] = "88"
+        # Now set via the relation.
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "88",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation value.
         self.assertEqual(self.harness.charm._service_port, 80)
         self.harness.update_config({"service-port": 0})
@@ -125,9 +157,15 @@ class TestCharm(unittest.TestCase):
         # First set via config.
         self.harness.update_config({"service-hostname": "foo.internal"})
         self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
-        # Now set via the StoredState. This will be set to a string, as all
-        # relation data must be a string.
-        self.harness.charm._stored.ingress_relation_data["service-hostname"] = "foo-bar.internal"
+        # Now set via the relation.
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo-bar.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation value.
         self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
         self.harness.update_config({"service-hostname": ""})
@@ -143,18 +181,32 @@ class TestCharm(unittest.TestCase):
         # return a string of "0" which would be evaluated to True.
         self.harness.update_config({"session-cookie-max-age": 0})
         self.assertFalse(self.harness.charm._session_cookie_max_age)
-        # Now set via the StoredState. This will be set to a string, as all
-        # relation data must be a string.
-        self.harness.charm._stored.ingress_relation_data["session-cookie-max-age"] = "3688"
+        # Now set via the relation.
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+            "session-cookie-max-age": "3688",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._session_cookie_max_age, "3688")
 
     def test_tls_secret_name(self):
         """Test the tls-secret-name property."""
         self.harness.update_config({"tls-secret-name": "gunicorn-tls"})
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
-        # Now set via the StoredState. This will be set to a string, as all
-        # relation data must be a string.
-        self.harness.charm._stored.ingress_relation_data["tls-secret-name"] = "gunicorn-tls-new"
+        # Now set via the relation.
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+            "tls-secret-name": "gunicorn-tls-new",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation data.
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
         self.harness.update_config({"tls-secret-name": ""})
@@ -166,28 +218,21 @@ class TestCharm(unittest.TestCase):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.
         self.assertFalse(self.harness.charm.unit.is_leader())
-        mock_event = MagicMock()
-        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
-        self.harness.charm._on_ingress_relation_changed(mock_event)
-        # Confirm no relation data has been set.
-        self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
         # Confirm config_changed hasn't been called.
         _on_config_changed.assert_not_called()
 
         # Now test on the leader, but with missing fields in the relation data.
         # We don't want leader-set to fire.
-        self.harness.disable_hooks()
         self.harness.set_leader(True)
-        mock_event.app = "gunicorn"
-        mock_event.relation.data = {"gunicorn": {"service-name": "gunicorn"}}
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+        }
         with self.assertLogs(level="ERROR") as logger:
-            self.harness.charm._on_ingress_relation_changed(mock_event)
+            self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
             msg = "ERROR:charm:Missing required data fields for ingress relation: service-hostname, service-port"
             self.assertEqual(sorted(logger.output), [msg])
-            # Confirm no relation data has been set.
-            self.assertEqual(self.harness.charm._stored.ingress_relation_data, {})
-            # Confirm config_changed hasn't been called.
-            _on_config_changed.assert_not_called()
             # Confirm blocked status.
             self.assertEqual(
                 self.harness.charm.unit.status,
@@ -195,26 +240,16 @@ class TestCharm(unittest.TestCase):
             )
 
         # Now test with complete relation data.
-        mock_event.relation.data = {
-            "gunicorn": {
-                "service-hostname": "foo.internal",
-                "service-name": "gunicorn",
-                "service-port": "80",
-            }
-        }
-        self.harness.charm._on_ingress_relation_changed(mock_event)
-        expected = {
-            "max-body-size": None,
-            "service-hostname": "foo.internal",
+        relations_data = {
             "service-name": "gunicorn",
-            "service-namespace": None,
+            "service-hostname": "foo.internal",
             "service-port": "80",
-            "session-cookie-max-age": None,
-            "tls-secret-name": None,
         }
-        self.assertEqual(self.harness.charm._stored.ingress_relation_data, expected)
-        # Confirm config_changed has been called.
-        _on_config_changed.assert_called_once()
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        # Test we get the values we expect:
+        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        self.assertEqual(self.harness.charm._service_name, "gunicorn")
+        self.assertEqual(self.harness.charm._service_port, 80)
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

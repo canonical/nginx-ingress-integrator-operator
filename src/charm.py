@@ -1,22 +1,12 @@
 #!/usr/bin/env python3
-# Copyright 2021 Tom Haddon
+# Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
-
-"""Charm the service.
-
-Refer to the following post for a quick-start guide that will help you
-develop a new k8s charm using the Operator Framework:
-
-    https://discourse.charmhub.io/t/4208
-"""
 
 import logging
 import os
 from pathlib import Path
 
 import kubernetes
-
-# from kubernetes.client.rest import ApiException as K8sApiException
 
 from ops.charm import CharmBase
 from ops.main import main
@@ -61,7 +51,7 @@ def _fix_lp_1892255():
     )
 
 
-class CharmK8SIngressCharm(CharmBase):
+class IngressCharm(CharmBase):
     """Charm the service."""
 
     _authed = False
@@ -329,4 +319,4 @@ class CharmK8SIngressCharm(CharmBase):
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main(CharmK8SIngressCharm)
+    main(IngressCharm)

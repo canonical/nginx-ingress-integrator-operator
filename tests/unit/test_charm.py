@@ -1,4 +1,4 @@
-# Copyright 2021 Tom Haddon
+# Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import unittest
@@ -12,19 +12,19 @@ from ops.model import (
     BlockedStatus,
 )
 from ops.testing import Harness
-from charm import CharmK8SIngressCharm
+from charm import IngressCharm
 
 
 class TestCharm(unittest.TestCase):
     def setUp(self):
         """Setup the harness object."""
-        self.harness = Harness(CharmK8SIngressCharm)
+        self.harness = Harness(IngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @patch('charm.CharmK8SIngressCharm._report_service_ips')
-    @patch('charm.CharmK8SIngressCharm._define_ingress')
-    @patch('charm.CharmK8SIngressCharm._define_service')
+    @patch('charm.IngressCharm._report_service_ips')
+    @patch('charm.IngressCharm._define_ingress')
+    @patch('charm.IngressCharm._define_service')
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
@@ -213,7 +213,7 @@ class TestCharm(unittest.TestCase):
         # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
 
-    @patch('charm.CharmK8SIngressCharm._on_config_changed')
+    @patch('charm.IngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.

@@ -100,7 +100,11 @@ class CharmK8SIngressCharm(CharmBase):
             return config_data
         relation = self.model.get_relation("ingress")
         if relation:
-            return relation.data[relation.app][field]
+            try:
+                return relation.data[relation.app][field]
+            except KeyError:
+                # Our relation isn't passing the information we're querying.
+                return fallback
         return fallback
 
     @property

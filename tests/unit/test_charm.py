@@ -113,14 +113,23 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
         relations_data = {
             "service-name": "gunicorn",
-            "service-namespace": "relationnamespace",
             "service-hostname": "foo.internal",
             "service-port": "80",
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
         self.harness.update_config({"service-namespace": ""})
-        # Now it's the value from the relation.
+        # Now it reverts to the model name, because the relation isn't passing it.
+        self.assertEqual(self.harness.charm._namespace, self.harness.charm.model.name)
+        # And check if we're passing relation data including the service-namespace
+        # it gets set based on that.
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-namespace": "relationnamespace",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
     def test_service_port(self):

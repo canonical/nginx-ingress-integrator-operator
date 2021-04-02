@@ -8,28 +8,13 @@ from pathlib import Path
 
 import kubernetes
 
+from charms.ingress.v0.ingress import IngressRequires
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import (
-    ActiveStatus,
-    BlockedStatus,
-)
+from ops.model import ActiveStatus
 
 
 logger = logging.getLogger(__name__)
-
-REQUIRED_INGRESS_RELATION_FIELDS = {
-    "service-hostname",
-    "service-name",
-    "service-port",
-}
-
-OPTIONAL_INGRESS_RELATION_FIELDS = {
-    "max-body-size",
-    "service-namespace",
-    "session-cookie-max-age",
-    "tls-secret-name",
-}
 
 
 def _core_v1_api():
@@ -61,27 +46,7 @@ class IngressCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
         # ingress relation handling.
-        self.framework.observe(self.on["ingress"].relation_changed, self._on_ingress_relation_changed)
-
-    def _on_ingress_relation_changed(self, event):
-        """Handle a change to the ingress relation.
-
-        Confirm we have the fields we expect to receive."""
-        if not self.unit.is_leader():
-            return
-
-        ingress_data = {
-            field: event.relation.data[event.app].get(field)
-            for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
-        }
-
-        missing_fields = sorted(
-            [field for field in REQUIRED_INGRESS_RELATION_FIELDS if ingress_data.get(field) is None]
-        )
-
-        if missing_fields:
-            logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
-            self.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
+        self.ingress = IngressRequires(self)
 
     def _get_config_or_relation_data(self, field, fallback):
         """Helper method to get data from config or the ingress relation."""

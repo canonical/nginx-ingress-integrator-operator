@@ -231,7 +231,10 @@ class TestCharm(unittest.TestCase):
         }
         with self.assertLogs(level="ERROR") as logger:
             self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
-            msg = "ERROR:charm:Missing required data fields for ingress relation: service-hostname, service-port"
+            msg = (
+                "ERROR:charms.ingress.v0.ingress:Missing required data fields for "
+                "ingress relation: service-hostname, service-port"
+            )
             self.assertEqual(sorted(logger.output), [msg])
             # Confirm blocked status.
             self.assertEqual(

@@ -19,7 +19,7 @@ As an example:
 from charms.ingress.v0.ingress import IngressProvides
 
 # In your charm's `__init__` method.
-self.ingress = IngressProvides(self, self.config["external_hostname"], self.model.name, 80)
+self.ingress = IngressProvides(self, self.config["external_hostname"], self.app.name, 80)
 ```
 """
 
@@ -36,7 +36,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 logger = logging.getLogger(__name__)
 

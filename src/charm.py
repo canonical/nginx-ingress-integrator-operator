@@ -8,8 +8,12 @@ from pathlib import Path
 
 import kubernetes
 
-from charms.ingress.v0.ingress import IngressRequires
-from ops.charm import CharmBase
+from charms.ingress.v0.ingress import (
+    IngressAvailableEvent,
+    IngressRequires,
+)
+from ops.charm import CharmBase, CharmEvents
+from ops.framework import EventSource
 from ops.main import main
 from ops.model import ActiveStatus
 
@@ -36,17 +40,25 @@ def _fix_lp_1892255():
     )
 
 
+class IngressCharmEvents(CharmEvents):
+    """Custom charm events."""
+    ingress_available = EventSource(IngressAvailableEvent)
+
+
 class IngressCharm(CharmBase):
     """Charm the service."""
 
     _authed = False
+    on = IngressCharmEvents()
 
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
-        # ingress relation handling.
+        # 'ingress' relation handling.
         self.ingress = IngressRequires(self)
+        # When the 'ingress' is ready to configure, do so.
+        self.framework.observe(self.on.ingress_available, self._on_config_changed)
 
     def _get_config_or_relation_data(self, field, fallback):
         """Helper method to get data from config or the ingress relation."""

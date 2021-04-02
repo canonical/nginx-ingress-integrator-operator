@@ -25,7 +25,7 @@ self.ingress = IngressProvides(self, self.config["external_hostname"], self.mode
 
 import logging
 
-from ops.framework import Object
+from ops.framework import EventBase, Object
 from ops.model import BlockedStatus
 
 # The unique Charmhub library identifier, never change it
@@ -36,7 +36,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,10 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "session-cookie-max-age",
     "tls-secret-name",
 }
+
+
+class IngressAvailableEvent(EventBase):
+    pass
 
 
 class IngressProvides(Object):
@@ -94,18 +98,18 @@ class IngressProvides(Object):
         # `self.unit` isn't available here, so use `self.model.unit`.
         if self.model.unit.is_leader():
             # Required.
-            event.relation.data[self.app]["service-hostname"] = self.service_hostname
-            event.relation.data[self.app]["service-name"] = self.service_name
-            event.relation.data[self.app]["service-port"] = str(self.service_port)
+            event.relation.data[self.model.app]["service-hostname"] = self.service_hostname
+            event.relation.data[self.model.app]["service-name"] = self.service_name
+            event.relation.data[self.model.app]["service-port"] = str(self.service_port)
             # Optional.
             if self.max_body_size:
-                event.relation.data[self.app]["max-body-size"] = str(self.max_body_size)
+                event.relation.data[self.model.app]["max-body-size"] = str(self.max_body_size)
             if self.service_namespace:
-                event.relation.data[self.app]["service-namespace"] = self.service_namespace
+                event.relation.data[self.model.app]["service-namespace"] = self.service_namespace
             if self.session_cookie_max_age:
-                event.relation.data[self.app]["session-cookie-max-age"] = self.session_cookie_max_age
+                event.relation.data[self.model.app]["session-cookie-max-age"] = self.session_cookie_max_age
             if self.tls_secret_name:
-                event.relation.data[self.app]["tls-secret-name"] = self.tls_secret_name
+                event.relation.data[self.model.app]["tls-secret-name"] = self.tls_secret_name
 
 
 class IngressRequires(Object):
@@ -120,6 +124,7 @@ class IngressRequires(Object):
         # Observe the relation-changed hook event and bind
         # self.on_relation_changed() to handle the event.
         self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
+        self.charm = charm
 
     def _on_relation_changed(self, event):
         """Handle a change to the ingress relation.
@@ -141,3 +146,7 @@ class IngressRequires(Object):
         if missing_fields:
             logger.error("Missing required data fields for ingress relation: {}".format(", ".join(missing_fields)))
             self.model.unit.status = BlockedStatus("Missing fields for ingress: {}".format(", ".join(missing_fields)))
+
+        # Create an event that our charm can use to decide it's okay to
+        # configure the ingress.
+        self.charm.on.ingress_available.emit()

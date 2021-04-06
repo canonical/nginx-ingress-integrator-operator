@@ -3,7 +3,7 @@
 This library contains the Requires and Provides classes for handling
 the ingress interface.
 
-Import `IngressProvides` in your charm, with required options:
+Import `IngressRequires` in your charm, with required options:
     - "self" (the charm itself)
     - service_hostname
     - service_name
@@ -16,10 +16,13 @@ Optionally you can also pass:
 
 As an example:
 ```
-from charms.ingress.v0.ingress import IngressProvides
+from charms.ingress.v0.ingress import IngressRequires
 
 # In your charm's `__init__` method.
-self.ingress = IngressProvides(self, self.config["external_hostname"], self.app.name, 80)
+self.ingress = IngressRequires(self, self.config["external_hostname"], self.app.name, 80)
+
+# In your charm's `config-changed` handler.
+self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
 ```
 """
 
@@ -36,7 +39,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +61,8 @@ class IngressAvailableEvent(EventBase):
     pass
 
 
-class IngressProvides(Object):
-    """This class defines the functionality for the 'provides' side of the 'ingress' relation.
+class IngressRequires(Object):
+    """This class defines the functionality for the 'requires' side of the 'ingress' relation.
 
     Hook events observed:
         - relation-changed
@@ -111,9 +114,17 @@ class IngressProvides(Object):
             if self.tls_secret_name:
                 event.relation.data[self.model.app]["tls-secret-name"] = self.tls_secret_name
 
+    def update_config(self, config_dict):
+        """Allow for updates to relation."""
+        if self.model.unit.is_leader():
+            relation = self.model.get_relation("ingress")
+            if relation:
+                for key in config_dict:
+                    relation.data[self.model.app][key.replace("_", "-")] = config_dict[key]
 
-class IngressRequires(Object):
-    """This class defines the functionality for the 'requires' side of the 'ingress' relation.
+
+class IngressProvides(Object):
+    """This class defines the functionality for the 'provides' side of the 'ingress' relation.
 
     Hook events observed:
         - relation-changed

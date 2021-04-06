@@ -42,10 +42,13 @@ called `gunicorn-service`. The gunicorn charm in question, which can be found
 https://code.launchpad.net/~mthaddon/charm-k8s-gunicorn/+git/charm-k8s-gunicorn/+ref/pebble
 implements the relation using the ingress library, as a trivial example:
 ```
-from charms.ingress.v0.ingress import IngressProvides
+from charms.ingress.v0.ingress import IngressRequires
 
 # In __init__:
-self.ingress = IngressProvides(self, self.config["external_hostname"], self.app.name, 80)
+self.ingress = IngressRequires(self, self.config["external_hostname"], self.app.name, 80)
+
+# In config-changed handler
+self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
 ```
 All of the config items in `config.yaml` with the exception of `kube-config` can
 be set via the relation, e.g. `tls-secret-name` or `max-body-size`.

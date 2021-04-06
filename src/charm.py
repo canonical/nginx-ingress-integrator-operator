@@ -10,7 +10,7 @@ import kubernetes
 
 from charms.ingress.v0.ingress import (
     IngressAvailableEvent,
-    IngressRequires,
+    IngressProvides,
 )
 from ops.charm import CharmBase, CharmEvents
 from ops.framework import EventSource
@@ -56,7 +56,7 @@ class IngressCharm(CharmBase):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
 
         # 'ingress' relation handling.
-        self.ingress = IngressRequires(self)
+        self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
         self.framework.observe(self.on.ingress_available, self._on_config_changed)
 

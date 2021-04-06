@@ -42,6 +42,7 @@ def _fix_lp_1892255():
 
 class IngressCharmEvents(CharmEvents):
     """Custom charm events."""
+
     ingress_available = EventSource(IngressAvailableEvent)
 
 

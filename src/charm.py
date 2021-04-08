@@ -9,7 +9,6 @@ from pathlib import Path
 import kubernetes
 
 from charms.ingress.v0.ingress import (
-    IngressAvailableEvent,
     IngressCharmEvents,
     IngressProvides,
 )

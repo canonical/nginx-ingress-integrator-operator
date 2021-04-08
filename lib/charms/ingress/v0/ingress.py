@@ -92,6 +92,7 @@ class IngressRequires(Object):
             missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
             if missing:
                 logger.error("Missing required key(s) in config dictionary: %s", ", ".join(missing))
+                block_status = True
         if block_status:
             self.model.unit.status = BlockedStatus("Error in ingress relation, check `juju debug-log`")
             return True

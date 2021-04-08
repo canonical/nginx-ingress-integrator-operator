@@ -9,11 +9,10 @@ from pathlib import Path
 import kubernetes
 
 from charms.ingress.v0.ingress import (
-    IngressAvailableEvent,
+    IngressCharmEvents,
     IngressProvides,
 )
-from ops.charm import CharmBase, CharmEvents
-from ops.framework import EventSource
+from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus
 
@@ -38,12 +37,6 @@ def _fix_lp_1892255():
     os.environ.update(
         dict(e.split("=") for e in Path("/proc/1/environ").read_text().split("\x00") if "KUBERNETES_SERVICE" in e)
     )
-
-
-class IngressCharmEvents(CharmEvents):
-    """Custom charm events."""
-
-    ingress_available = EventSource(IngressAvailableEvent)
 
 
 class IngressCharm(CharmBase):

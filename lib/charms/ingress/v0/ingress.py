@@ -3,26 +3,30 @@
 This library contains the Requires and Provides classes for handling
 the ingress interface.
 
-Import `IngressRequires` in your charm, with required options:
+Import `IngressRequires` in your charm, with two required options:
     - "self" (the charm itself)
-    - service_hostname
-    - service_name
-    - service_port
-Optionally you can also pass:
-    - max_body_size
-    - service_namespace
-    - session_cookie_max_age
-    - tls_secret_name
+    - config_dict
+
+`config_dict` accepts the following keys:
+    - service-hostname (required)
+    - service-name (required)
+    - service-port (required)
+    - max_body-size
+    - service-namespace
+    - session-cookie-max-age
+    - tls-secret-name
 
 As an example:
 ```
 from charms.ingress.v0.ingress import IngressRequires
 
 # In your charm's `__init__` method.
-self.ingress = IngressRequires(self, self.config["external_hostname"], self.app.name, 80)
+self.ingress = IngressRequires(self, {"service-hostname": self.config["external_hostname"],
+                                      "service-name": self.app.name,
+                                      "service-port": 80})
 
 # In your charm's `config-changed` handler.
-self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
+self.ingress.update_config({"service-hostname": self.config["external_hostname"]})
 ```
 """
 
@@ -39,7 +43,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 4
+LIBPATCH = 6
 
 logger = logging.getLogger(__name__)
 
@@ -68,59 +72,51 @@ class IngressRequires(Object):
         - relation-changed
     """
 
-    def __init__(
-        self,
-        charm,
-        service_hostname,
-        service_name,
-        service_port,
-        *,
-        max_body_size=0,
-        service_namespace="",
-        session_cookie_max_age=0,
-        tls_secret_name=""
-    ):
+    def __init__(self, charm, config_dict):
         super().__init__(charm, "ingress")
 
         self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
-        self.charm = charm
 
-        # Ingress properties - Required.
-        self.service_hostname = service_hostname
-        self.service_name = service_name
-        self.service_port = service_port
+        self.config_dict = config_dict
 
-        # Ingress properties - Optional.
-        self.max_body_size = max_body_size
-        self.service_namespace = service_namespace
-        self.session_cookie_max_age = session_cookie_max_age
-        self.tls_secret_name = tls_secret_name
+    def _config_dict_errors(self, update_only=False):
+        """Check our config dict for errors."""
+        block_status = False
+        unknown = [
+            x for x in self.config_dict if x not in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
+        ]
+        if unknown:
+            logger.error("Unknown key(s) in config dictionary found: %s", ", ".join(unknown))
+            block_status = True
+        if not update_only:
+            missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
+            if missing:
+                logger.error("Missing required key(s) in config dictionary: %s", ", ".join(missing))
+                block_status = True
+        if block_status:
+            self.model.unit.status = BlockedStatus("Error in ingress relation, check `juju debug-log`")
+            return True
+        return False
 
     def _on_relation_changed(self, event):
         """Handle the relation-changed event."""
         # `self.unit` isn't available here, so use `self.model.unit`.
         if self.model.unit.is_leader():
-            # Required.
-            event.relation.data[self.model.app]["service-hostname"] = self.service_hostname
-            event.relation.data[self.model.app]["service-name"] = self.service_name
-            event.relation.data[self.model.app]["service-port"] = str(self.service_port)
-            # Optional.
-            if self.max_body_size:
-                event.relation.data[self.model.app]["max-body-size"] = str(self.max_body_size)
-            if self.service_namespace:
-                event.relation.data[self.model.app]["service-namespace"] = self.service_namespace
-            if self.session_cookie_max_age:
-                event.relation.data[self.model.app]["session-cookie-max-age"] = self.session_cookie_max_age
-            if self.tls_secret_name:
-                event.relation.data[self.model.app]["tls-secret-name"] = self.tls_secret_name
+            if self._config_dict_errors():
+                return
+            for key in self.config_dict:
+                event.relation.data[self.model.app][key] = str(self.config_dict[key])
 
     def update_config(self, config_dict):
         """Allow for updates to relation."""
         if self.model.unit.is_leader():
+            self.config_dict = config_dict
+            if self._config_dict_errors(update_only=True):
+                return
             relation = self.model.get_relation("ingress")
             if relation:
-                for key in config_dict:
-                    relation.data[self.model.app][key.replace("_", "-")] = config_dict[key]
+                for key in self.config_dict:
+                    relation.data[self.model.app][key] = str(self.config_dict[key])
 
 
 class IngressProvides(Object):

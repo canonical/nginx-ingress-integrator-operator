@@ -12,9 +12,12 @@ Import `IngressRequires` in your charm, with two required options:
     - service-name (required)
     - service-port (required)
     - max_body-size
+    - retry-non-idempotent
     - service-namespace
     - session-cookie-max-age
     - tls-secret-name
+
+See `config.yaml` for descriptions of each, along with the required type.
 
 As an example:
 ```
@@ -44,7 +47,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 7
+LIBPATCH = 8
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,7 @@ REQUIRED_INGRESS_RELATION_FIELDS = {
 
 OPTIONAL_INGRESS_RELATION_FIELDS = {
     "max-body-size",
+    "retry-non-idempotent",
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",

@@ -97,6 +97,12 @@ class IngressCharm(CharmBase):
         return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
+    def _retry_non_idempotent(self):
+        """Return the retry-non-idempotent setting from config or relation."""
+        retry = self._get_config_or_relation_data("retry-non-idempotent", False)
+        return str(retry).lower()
+
+    @property
     def _service_hostname(self):
         """Return the hostname for the service we're connecting to."""
         return self._get_config_or_relation_data("service-hostname", "")
@@ -212,6 +218,18 @@ class IngressCharm(CharmBase):
             spec=spec,
         )
 
+    def _get_k8s_config_map(self):
+        """Get a K8s ConfigMap definition."""
+        # See e.g. https://kubernetes.github.io/ingress-nginx/examples/customization/custom-configuration/
+        return kubernetes.client.V1ConfigMap(
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=self._ingress_name,
+            ),
+            data={
+                "retry-non-idempotent": self._retry_non_idempotent,
+            },
+        )
+
     def _report_service_ips(self):
         """Report on service IP(s)."""
         self.k8s_auth()
@@ -262,7 +280,7 @@ class IngressCharm(CharmBase):
             logger.info(
                 "Ingress updated in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                self._ingress_name,
             )
         else:
             api.create_namespaced_ingress(
@@ -272,7 +290,36 @@ class IngressCharm(CharmBase):
             logger.info(
                 "Ingress created in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                self._ingress_name,
+            )
+
+    def _define_config_map(self):
+        """Create or update any configmaps we may need."""
+        self.k8s_auth()
+        api = _core_v1_api()
+        body = self._get_k8s_config_map()
+        configmaps = api.list_namespaced_config_map(namespace=self._namespace)
+        # We use the same name as the ingress we've defined.
+        if self._ingress_name in [x.metadata.name for x in configmaps.items]:
+            api.patch_namespaced_config_map(
+                name=self._ingress_name,
+                namespace=self._namespace,
+                body=body,
+            )
+            logger.info(
+                "ConfigMap updated in namespace %s with name %s",
+                self._namespace,
+                self._ingress_name,
+            )
+        else:
+            api.create_namespaced_config_map(
+                namespace=self._namespace,
+                body=body,
+            )
+            logger.info(
+                "ConfigMap created in namespace %s with name %s",
+                self._namespace,
+                self._ingress_name,
             )
 
     def _on_config_changed(self, _):
@@ -283,6 +330,7 @@ class IngressCharm(CharmBase):
         if self.unit.is_leader() and self._service_name:
             self._define_service()
             self._define_ingress()
+            self._define_config_map()
             # It's not recommended to do this via ActiveStatus, but we don't
             # have another way of reporting status yet.
             msg = "Ingress with service IP(s): {}".format(", ".join(self._report_service_ips()))

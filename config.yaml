@@ -9,6 +9,10 @@ options:
     default: 0
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
+  retry-non-idempotent:
+    default: false
+    description: Retry non-idempotent requests (POST, LOCK, PATCH) in case of an error in the upstream server.
+    type: boolean
   service-hostname:
     default: ""
     description: The hostname of the service to create an ingress for.

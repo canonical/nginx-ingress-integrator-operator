@@ -9,9 +9,9 @@ options:
     default: 0
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
-  retry-http-errors:
+  retry-errors:
     default: ""
-    description: Retry the next proxy upstream if we receive http errors. Comma-separated list, e.g. 'http_502,http_503,http_504'
+    description: Specifies in which cases a request should be passed to the next server. Comma-separated list, e.g. 'error,timeout,http_502,http_503,http_504'. See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream for more details. Empty value will leave as nginx default.
     type: string
   service-hostname:
     default: ""

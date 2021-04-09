@@ -97,15 +97,27 @@ class IngressCharm(CharmBase):
         return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
-    def _retry_http_errors(self):
-        """Return the retry-http-errors setting from config or relation."""
-        retry = self._get_config_or_relation_data("retry-http-errors", "")
+    def _retry_errors(self):
+        """Return the retry-errors setting from config or relation."""
+        retry = self._get_config_or_relation_data("retry-errors", "")
         if not retry:
             return ""
-        accepted_values = ["http_502", "http_503", "http_504"]
-        return "error timeout {}".format(
-            " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
-        )
+        # See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream.
+        accepted_values = [
+            "error",
+            "timeout",
+            "invalid_header",
+            "http_500",
+            "http_502",
+            "http_503",
+            "http_504",
+            "http_403",
+            "http_404",
+            "http_429",
+            "non_idempotent",
+            "off",
+        ]
+        return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
 
     @property
     def _service_hostname(self):
@@ -196,8 +208,8 @@ class IngressCharm(CharmBase):
         }
         if self._max_body_size:
             annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
-        if self._retry_http_errors:
-            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_http_errors
+        if self._retry_errors:
+            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"

@@ -132,18 +132,18 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
-    def test_retry_http_errors(self):
-        """Test the retry-http-errors property."""
+    def test_retry_errors(self):
+        """Test the retry-errors property."""
         # Test empty value.
-        self.assertEqual(self.harness.charm._retry_http_errors, "")
+        self.assertEqual(self.harness.charm._retry_errors, "")
         # Test we deal with spaces or not spaces properly.
-        self.harness.update_config({"retry-http-errors": "http_502, http_503"})
-        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502 http_503")
-        self.harness.update_config({"retry-http-errors": "http_502,http_503"})
-        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502 http_503")
+        self.harness.update_config({"retry-errors": "error, timeout, http_502, http_503"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
+        self.harness.update_config({"retry-errors": "error,timeout,http_502,http_503"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
         # Test unknown value.
-        self.harness.update_config({"retry-http-errors": "http_502,http_418"})
-        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502")
+        self.harness.update_config({"retry-errors": "error,timeout,http_502,http_418"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502")
 
     def test_service_port(self):
         """Test the service-port property."""
@@ -340,7 +340,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config(
             {
                 "max-body-size": 20,
-                "retry-http-errors": "http_502,http_503",
+                "retry-errors": "error,timeout,http_502,http_503",
                 "session-cookie-max-age": 3600,
                 "tls-secret-name": "",
             }

@@ -12,7 +12,7 @@ Import `IngressRequires` in your charm, with two required options:
     - service-name (required)
     - service-port (required)
     - max_body-size
-    - retry-non-idempotent
+    - retry-http-errors
     - service-namespace
     - session-cookie-max-age
     - tls-secret-name
@@ -59,7 +59,7 @@ REQUIRED_INGRESS_RELATION_FIELDS = {
 
 OPTIONAL_INGRESS_RELATION_FIELDS = {
     "max-body-size",
-    "retry-non-idempotent",
+    "retry-http-errors",
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",

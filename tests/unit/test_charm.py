@@ -25,8 +25,7 @@ class TestCharm(unittest.TestCase):
     @patch('charm.IngressCharm._report_service_ips')
     @patch('charm.IngressCharm._define_ingress')
     @patch('charm.IngressCharm._define_service')
-    @patch('charm.IngressCharm._define_config_map')
-    def test_config_changed(self, _define_config_map, _define_service, _define_ingress, _report_service_ips):
+    def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
@@ -34,34 +33,28 @@ class TestCharm(unittest.TestCase):
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        self.assertEqual(_define_config_map.call_count, 0)
         # Test if config-changed is called with service-name empty, our methods still
         # aren't called.
         self.harness.update_config({"service-name": ""})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        self.assertEqual(_define_config_map.call_count, 0)
         # And now test if we set a service-name config, our methods are called.
         self.harness.update_config({"service-name": "gunicorn"})
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
-        self.assertEqual(_define_config_map.call_count, 1)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12'))
         # And now test with leader is False.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
-        _define_config_map.reset_mock()
         self.harness.set_leader(False)
         self.harness.update_config({"service-name": ""})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        self.assertEqual(_define_config_map.call_count, 0)
         # Leader False, but service-name defined should still do nothing.
         self.harness.update_config({"service-name": "gunicorn"})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        self.assertEqual(_define_config_map.call_count, 0)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
@@ -138,6 +131,19 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
+
+    def test_retry_http_errors(self):
+        """Test the retry-http-errors property."""
+        # Test empty value.
+        self.assertEqual(self.harness.charm._retry_http_errors, "")
+        # Test we deal with spaces or not spaces properly.
+        self.harness.update_config({"retry-http-errors": "http_502, http_503"})
+        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502 http_503")
+        self.harness.update_config({"retry-http-errors": "http_502,http_503"})
+        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502 http_503")
+        # Test unknown value.
+        self.harness.update_config({"retry-http-errors": "http_502,http_418"})
+        self.assertEqual(self.harness.charm._retry_http_errors, "error timeout http_502")
 
     def test_service_port(self):
         """Test the service-port property."""
@@ -330,8 +336,15 @@ class TestCharm(unittest.TestCase):
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
-        # Test max_body_size and session-cookie-max-age config options.
-        self.harness.update_config({"tls-secret-name": "", "max-body-size": 20, "session-cookie-max-age": 3600})
+        # Test max_body_size, retry_http_errors and session-cookie-max-age config options.
+        self.harness.update_config(
+            {
+                "max-body-size": 20,
+                "retry-http-errors": "http_502,http_503",
+                "session-cookie-max-age": 3600,
+                "tls-secret-name": "",
+            }
+        )
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
@@ -341,6 +354,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+                    "nginx.ingress.kubernetes.io/proxy-next-upstream": "error timeout http_502 http_503",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/session-cookie-change-on-failure": "true",
                     "nginx.ingress.kubernetes.io/session-cookie-max-age": "3600",
@@ -390,26 +404,3 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.assertEqual(self.harness.charm._get_k8s_service(), expected)
-
-    def test_get_k8s_config_map(self):
-        """Test getting our definition of a k8s config map."""
-        self.harness.disable_hooks()
-        expected = kubernetes.client.V1ConfigMap(
-            metadata=kubernetes.client.V1ObjectMeta(
-                name=self.harness.charm._ingress_name,
-            ),
-            data={
-                "retry-non-idempotent": "false",
-            },
-        )
-        self.assertEqual(self.harness.charm._get_k8s_config_map(), expected)
-        self.harness.update_config({"retry-non-idempotent": True})
-        expected = kubernetes.client.V1ConfigMap(
-            metadata=kubernetes.client.V1ObjectMeta(
-                name=self.harness.charm._ingress_name,
-            ),
-            data={
-                "retry-non-idempotent": "true",
-            },
-        )
-        self.assertEqual(self.harness.charm._get_k8s_config_map(), expected)

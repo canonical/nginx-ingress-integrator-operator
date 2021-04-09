@@ -220,7 +220,6 @@ class IngressCharm(CharmBase):
 
     def _get_k8s_config_map(self):
         """Get a K8s ConfigMap definition."""
-        # See e.g. https://kubernetes.github.io/ingress-nginx/examples/customization/custom-configuration/
         return kubernetes.client.V1ConfigMap(
             metadata=kubernetes.client.V1ObjectMeta(
                 name=self._ingress_name,

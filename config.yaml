@@ -11,7 +11,12 @@ options:
     type: int
   retry-errors:
     default: ""
-    description: Specifies in which cases a request should be passed to the next server. Comma-separated list, e.g. 'error,timeout,http_502,http_503,http_504'. See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream for more details. Empty value will leave as nginx default.
+    description: >
+      Specifies in which cases a request should be retried against the next server.
+      Comma-separated list, e.g. "error,timeout,http_502,http_503,http_504".
+      See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream
+      for more details. Unrecognised values will be ignored. The nginx default
+      will be used if this config option is set to an empty value.
     type: string
   service-hostname:
     default: ""

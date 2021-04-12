@@ -15,6 +15,20 @@ options:
     default: ""
     description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.
     type: string
+  limit-rps:
+    default: 0
+    description: >
+      Number of requests accepted from a given IP each second. The burst limit
+      is set to this limit multiplied by 5. When clients exceed this limit a
+      503 error will be returned.
+      Setting this to 0 disables rate-limiting.
+    type: int
+  limit-whitelist:
+    default: ""
+    description: >
+      If rate-limiting is set, client IP source ranges to be excluded. The value
+      is a comma-separated list of CIDRs.
+    type: string
   max-body-size:
     default: 0
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.

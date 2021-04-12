@@ -11,6 +11,8 @@ Import `IngressRequires` in your charm, with two required options:
     - service-hostname (required)
     - service-name (required)
     - service-port (required)
+    - limit-rps
+    - limit-whitelist
     - max_body-size
     - retry-errors
     - service-namespace
@@ -47,7 +49,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 8
+LIBPATCH = 9
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +60,8 @@ REQUIRED_INGRESS_RELATION_FIELDS = {
 }
 
 OPTIONAL_INGRESS_RELATION_FIELDS = {
+    "limit-rps",
+    "limit-whitelist",
     "max-body-size",
     "retry-errors",
     "service-namespace",

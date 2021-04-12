@@ -1,6 +1,16 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 options:
+  ingress-class:
+    default: ""
+    description: >
+      The ingress class annotation to target for this ingress resource. If your
+      kubernetes cluster has multiple ingress controllers, this allows you to
+      target the correct one. See https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/
+      for more details. Leaving empty will mean the "kubernetes.io/ingress.class"
+      annotation is unset. This value isn't available to be set via the relation
+      as it's a deploy-time configuration item.
+    type: string
   kube-config:
     default: ""
     description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.

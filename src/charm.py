@@ -227,6 +227,10 @@ class IngressCharm(CharmBase):
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 
+        # Run-time configuration options.
+        if self.config["ingress-class"]:
+            annotations["kubernetes.io/ingress.class"] = self.config["ingress-class"]
+
         return kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",

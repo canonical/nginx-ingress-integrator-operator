@@ -336,9 +336,11 @@ class TestCharm(unittest.TestCase):
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
-        # Test max_body_size, retry_http_errors and session-cookie-max-age config options.
+        # Test ingress-class, max_body_size, retry_http_errors and
+        # session-cookie-max-age config options.
         self.harness.update_config(
             {
+                "ingress-class": "nginx",
                 "max-body-size": 20,
                 "retry-errors": "error,timeout,http_502,http_503",
                 "session-cookie-max-age": 3600,
@@ -351,6 +353,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "kubernetes.io/ingress.class": "nginx",
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",

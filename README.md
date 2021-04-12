@@ -2,7 +2,7 @@
 
 ## Description
 
-This charm is intended to provide an ingress for sidecar charms using the
+This charm is intended to provide an nginx ingress for sidecar charms using the
 Operator Framework until such time as Juju can expose the relevant primitives
 to enable charms to configure an ingress natively via Juju (e.g. with TLS as
 required, with session affinity as required, allowing for upload of a given
@@ -29,7 +29,7 @@ which should be set to the contents of your kubernetes client configuration.
 If you're using microk8s you can get this via `microk8s config`. As an example
 you could deploy this charm as follows:
 ```
-juju deploy ./ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
 ```
 To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:
@@ -42,7 +42,7 @@ called `gunicorn-service`. The gunicorn charm in question, which can be found
 https://code.launchpad.net/~mthaddon/charm-k8s-gunicorn/+git/charm-k8s-gunicorn/+ref/pebble
 implements the relation using the ingress library, as a trivial example:
 ```
-from charms.ingress.v0.ingress import IngressRequires
+from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
 # In __init__:
 self.ingress = IngressRequires(self, self.config["external_hostname"], self.app.name, 80)
@@ -63,7 +63,7 @@ can still override the configuration of the ingress using Juju config. Using
 the above example, where your charm sets the `service-port` as "80" in the
 relation, you could override this by doing the following:
 ```
-juju deploy ./ingress.charm --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
 juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
 juju relate ingress gunicorn
 juju config ingress service-port=8080

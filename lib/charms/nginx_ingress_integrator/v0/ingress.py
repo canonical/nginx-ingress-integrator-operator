@@ -23,7 +23,7 @@ See `config.yaml` for descriptions of each, along with the required type.
 
 As an example:
 ```
-from charms.ingress.v0.ingress import IngressRequires
+from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
 # In your charm's `__init__` method.
 self.ingress = IngressRequires(self, {"service-hostname": self.config["external_hostname"],
@@ -42,14 +42,14 @@ from ops.framework import EventBase, EventSource, Object
 from ops.model import BlockedStatus
 
 # The unique Charmhub library identifier, never change it
-LIBID = "2d35a009b0d64fe186c99a8c9e53c6ab"
+LIBID = "db0af4367506491c91663468fb5caa4c"
 
 # Increment this major API version when introducing breaking changes
 LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 9
+LIBPATCH = 1
 
 logger = logging.getLogger(__name__)
 

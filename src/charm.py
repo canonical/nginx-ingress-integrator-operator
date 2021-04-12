@@ -8,7 +8,7 @@ from pathlib import Path
 
 import kubernetes
 
-from charms.ingress.v0.ingress import (
+from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
 )
@@ -39,7 +39,7 @@ def _fix_lp_1892255():
     )
 
 
-class IngressCharm(CharmBase):
+class NginxIngressCharm(CharmBase):
     """Charm the service."""
 
     _authed = False
@@ -337,4 +337,4 @@ class IngressCharm(CharmBase):
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main(IngressCharm)
+    main(NginxIngressCharm)

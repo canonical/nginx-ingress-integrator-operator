@@ -12,19 +12,19 @@ from ops.model import (
     BlockedStatus,
 )
 from ops.testing import Harness
-from charm import IngressCharm
+from charm import NginxIngressCharm
 
 
 class TestCharm(unittest.TestCase):
     def setUp(self):
         """Setup the harness object."""
-        self.harness = Harness(IngressCharm)
+        self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @patch('charm.IngressCharm._report_service_ips')
-    @patch('charm.IngressCharm._define_ingress')
-    @patch('charm.IngressCharm._define_service')
+    @patch('charm.NginxIngressCharm._report_service_ips')
+    @patch('charm.NginxIngressCharm._define_ingress')
+    @patch('charm.NginxIngressCharm._define_service')
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
@@ -226,7 +226,7 @@ class TestCharm(unittest.TestCase):
         # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
 
-    @patch('charm.IngressCharm._on_config_changed')
+    @patch('charm.NginxIngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.
@@ -245,7 +245,7 @@ class TestCharm(unittest.TestCase):
         with self.assertLogs(level="ERROR") as logger:
             self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
             msg = (
-                "ERROR:charms.ingress.v0.ingress:Missing required data fields for "
+                "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields for "
                 "ingress relation: service-hostname, service-port"
             )
             self.assertEqual(sorted(logger.output), [msg])

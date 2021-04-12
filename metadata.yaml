@@ -1,6 +1,6 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
-name: ingress
+name: nginx-ingress-integrator
 description: |
   An operator to configure a kubernetes ingress.
 summary: |

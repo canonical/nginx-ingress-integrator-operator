@@ -132,6 +132,19 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
+    def test_retry_errors(self):
+        """Test the retry-errors property."""
+        # Test empty value.
+        self.assertEqual(self.harness.charm._retry_errors, "")
+        # Test we deal with spaces or not spaces properly.
+        self.harness.update_config({"retry-errors": "error, timeout, http_502, http_503"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
+        self.harness.update_config({"retry-errors": "error,timeout,http_502,http_503"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
+        # Test unknown value.
+        self.harness.update_config({"retry-errors": "error,timeout,http_502,http_418"})
+        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502")
+
     def test_service_port(self):
         """Test the service-port property."""
         # First set via config.
@@ -323,8 +336,15 @@ class TestCharm(unittest.TestCase):
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
-        # Test max_body_size and session-cookie-max-age config options.
-        self.harness.update_config({"tls-secret-name": "", "max-body-size": 20, "session-cookie-max-age": 3600})
+        # Test max_body_size, retry_http_errors and session-cookie-max-age config options.
+        self.harness.update_config(
+            {
+                "max-body-size": 20,
+                "retry-errors": "error,timeout,http_502,http_503",
+                "session-cookie-max-age": 3600,
+                "tls-secret-name": "",
+            }
+        )
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
@@ -334,6 +354,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+                    "nginx.ingress.kubernetes.io/proxy-next-upstream": "error timeout http_502 http_503",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/session-cookie-change-on-failure": "true",
                     "nginx.ingress.kubernetes.io/session-cookie-max-age": "3600",

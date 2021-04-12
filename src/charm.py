@@ -97,6 +97,29 @@ class IngressCharm(CharmBase):
         return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
+    def _retry_errors(self):
+        """Return the retry-errors setting from config or relation."""
+        retry = self._get_config_or_relation_data("retry-errors", "")
+        if not retry:
+            return ""
+        # See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream.
+        accepted_values = [
+            "error",
+            "timeout",
+            "invalid_header",
+            "http_500",
+            "http_502",
+            "http_503",
+            "http_504",
+            "http_403",
+            "http_404",
+            "http_429",
+            "non_idempotent",
+            "off",
+        ]
+        return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
+
+    @property
     def _service_hostname(self):
         """Return the hostname for the service we're connecting to."""
         return self._get_config_or_relation_data("service-hostname", "")
@@ -185,6 +208,8 @@ class IngressCharm(CharmBase):
         }
         if self._max_body_size:
             annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
+        if self._retry_errors:
+            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
@@ -262,7 +287,7 @@ class IngressCharm(CharmBase):
             logger.info(
                 "Ingress updated in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                self._ingress_name,
             )
         else:
             api.create_namespaced_ingress(
@@ -272,7 +297,7 @@ class IngressCharm(CharmBase):
             logger.info(
                 "Ingress created in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                self._ingress_name,
             )
 
     def _on_config_changed(self, _):

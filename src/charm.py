@@ -83,6 +83,20 @@ class IngressCharm(CharmBase):
         return "{}-ingress".format(self._get_config_or_relation_data("service-name", ""))
 
     @property
+    def _limit_rps(self):
+        """Return limit-rps value from config or relation."""
+        limit_rps = self._get_config_or_relation_data("limit-rps", 0)
+        if limit_rps:
+            return str(limit_rps)
+        # Don't return "0" which would evaluate to True.
+        return ""
+
+    @property
+    def _limit_whitelist(self):
+        """Return the limit-whitelist value from config or relation."""
+        return self._get_config_or_relation_data("limit-whitelist", "")
+
+    @property
     def _max_body_size(self):
         """Return the max-body-size to use for k8s ingress."""
         max_body_size = self._get_config_or_relation_data("max-body-size", 0)
@@ -206,6 +220,10 @@ class IngressCharm(CharmBase):
         annotations = {
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
         }
+        if self._limit_rps:
+            annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
+            if self._limit_whitelist:
+                annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = self._limit_whitelist
         if self._max_body_size:
             annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
         if self._retry_errors:

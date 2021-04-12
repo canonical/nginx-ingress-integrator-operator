@@ -386,6 +386,51 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        # Test limit-whitelist on its own makes no change.
+        self.harness.update_config({"limit-whitelist": "10.0.0.0/16"})
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        # And if we set limit-rps we get both. Unset other options to minimize output.
+        self.harness.update_config(
+            {
+                "limit-rps": 5,
+                "ingress-class": "",
+                "max-body-size": 0,
+                "retry-errors": "",
+                "session-cookie-max-age": 0,
+            }
+        )
+        expected = kubernetes.client.NetworkingV1beta1Ingress(
+            api_version="networking.k8s.io/v1beta1",
+            kind="Ingress",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-ingress",
+                annotations={
+                    "nginx.ingress.kubernetes.io/limit-rps": "5",
+                    "nginx.ingress.kubernetes.io/limit-whitelist": "10.0.0.0/16",
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
+                    "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+                },
+            ),
+            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+                rules=[
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="foo.internal",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    )
+                ]
+            ),
+        )
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""

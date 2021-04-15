@@ -9,15 +9,6 @@ bases:
   - name: ubuntu
     channel: 20.04/stable
 
-containers:
-  placeholder:
-    resource: placeholder-image
-
-resources:
-  placeholder-image:
-    type: oci-image
-    description: A placeholder image, operator code won't do anything with it.
-
 provides:
   ingress:
     interface: ingress

@@ -29,7 +29,7 @@ which should be set to the contents of your kubernetes client configuration.
 If you're using microk8s you can get this via `microk8s config`. As an example
 you could deploy this charm as follows:
 ```
-juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+juju deploy ./nginx-ingress-integrator.charm ingress --config kube-config="$(microk8s config)"
 ```
 To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:

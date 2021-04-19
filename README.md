@@ -45,7 +45,9 @@ implements the relation using the ingress library, as a trivial example:
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
 # In __init__:
-self.ingress = IngressRequires(self, self.config["external_hostname"], self.app.name, 80)
+self.ingress = IngressRequires(self, {"service-hostname": self.config["external_hostname"],
+                                      "service-name": self.app.name,
+                                      "service-port": 80})
 
 # In config-changed handler
 self.ingress.update_config({"service_hostname": self.config["external_hostname"]})

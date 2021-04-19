@@ -21,7 +21,7 @@ Import `IngressRequires` in your charm, with two required options:
 
 See `config.yaml` for descriptions of each, along with the required type.
 
-As an example add the following to `src/charm.py`:
+As an example, add the following to `src/charm.py`:
 ```
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 

@@ -55,7 +55,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 logger = logging.getLogger(__name__)
 
@@ -102,21 +102,21 @@ class IngressRequires(Object):
 
     def _config_dict_errors(self, update_only=False):
         """Check our config dict for errors."""
-        block_status = False
+        blocked_message = "Error in ingress relation, check `juju debug-log`"
         unknown = [
             x for x in self.config_dict if x not in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
         ]
         if unknown:
-            logger.error("Unknown key(s) in config dictionary found: %s", ", ".join(unknown))
-            block_status = True
+            logger.error("Ingress relation error, unknown key(s) in config dictionary found: %s", ", ".join(unknown))
+            self.model.unit.status = BlockedStatus(blocked_message)
+            return True
         if not update_only:
             missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
             if missing:
-                logger.error("Missing required key(s) in config dictionary: %s", ", ".join(missing))
-                block_status = True
-        if block_status:
-            self.model.unit.status = BlockedStatus("Error in ingress relation, check `juju debug-log`")
-            return True
+                logger.error(
+                    "Ingress relation error, missing required key(s) in config dictionary: %s", ", ".join(missing))
+                self.model.unit.status = BlockedStatus(blocked_message)
+                return True
         return False
 
     def _on_relation_changed(self, event):

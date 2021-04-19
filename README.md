@@ -40,7 +40,8 @@ juju relate ingress gunicorn
 This will create an K8s ingress called `gunicorn-ingress` and a K8s service
 called `gunicorn-service`. The gunicorn charm in question, which can be found
 https://code.launchpad.net/~mthaddon/charm-k8s-gunicorn/+git/charm-k8s-gunicorn/+ref/pebble
-implements the relation using the ingress library, as a trivial example:
+implements the relation using the ingress library, as a trivial example by
+adding the following to `src/charm.py`:
 ```
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
@@ -51,6 +52,13 @@ self.ingress = IngressRequires(self, {"service-hostname": self.config["external_
 
 # In config-changed handler
 self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
+```
+Any charm implementing this relation will then need to add the following to
+`metadata.yaml`:
+```
+requires:
+  ingress:
+    interface: ingress
 ```
 All of the config items in `config.yaml` with the exception of `kube-config` can
 be set via the relation, e.g. `tls-secret-name` or `max-body-size`.

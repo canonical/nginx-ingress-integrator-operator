@@ -21,7 +21,7 @@ Import `IngressRequires` in your charm, with two required options:
 
 See `config.yaml` for descriptions of each, along with the required type.
 
-As an example:
+As an example, add the following to `src/charm.py`:
 ```
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
@@ -32,6 +32,12 @@ self.ingress = IngressRequires(self, {"service-hostname": self.config["external_
 
 # In your charm's `config-changed` handler.
 self.ingress.update_config({"service-hostname": self.config["external_hostname"]})
+```
+And then add the following to `metadata.yaml`:
+```
+requires:
+  ingress:
+    interface: ingress
 ```
 """
 
@@ -49,7 +55,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft push-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 logger = logging.getLogger(__name__)
 

@@ -59,7 +59,7 @@ can still override the configuration of the ingress using Juju config. Using
 the above example, where your charm sets the `service-port` as "80" in the
 relation, you could override this by doing the following:
 ```
-juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image='google/pause' --config kube-config="$(microk8s config)"
+juju deploy nginx-ingress-integrator ingress
 juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
 juju relate ingress gunicorn
 juju config ingress service-port=8080

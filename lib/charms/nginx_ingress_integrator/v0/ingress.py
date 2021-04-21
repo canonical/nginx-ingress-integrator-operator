@@ -19,7 +19,7 @@ Import `IngressRequires` in your charm, with two required options:
     - session-cookie-max-age
     - tls-secret-name
 
-See `config.yaml` for descriptions of each, along with the required type.
+See [the config section](https://charmhub.io/nginx-ingress-integrator/configure) for descriptions of each, along with the required type.
 
 As an example, add the following to `src/charm.py`:
 ```
@@ -55,7 +55,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 3
+LIBPATCH = 4
 
 logger = logging.getLogger(__name__)
 

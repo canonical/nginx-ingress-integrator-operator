@@ -10,20 +10,12 @@ size, etc.).
 
 ## Usage
 
-This charm needs to be built locally as charmhub.io can't yet host charms with
-"bases" in `metadata.yaml`. Once that's been added, deployment instructions
-will be updated, but for now, see the "Running the charm locally" section
-below.
-
-## Running the charm locally
-
-To build the charm, run `charmcraft build`.
-
 You'll need version to be using Juju [version 2.9-rc11](https://discourse.charmhub.io/t/juju-2-9-rc11-release-notes/4501) or later.
 
-As an example, you could deploy this charm as follows:
+As an example, you could deploy this charm as follows (we're using the name
+"ingress" in this model for brevity):
 ```
-juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image=google/pause
+juju deploy nginx-ingress-integrator ingress
 ```
 To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:

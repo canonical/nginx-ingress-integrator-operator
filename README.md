@@ -19,17 +19,11 @@ below.
 
 To build the charm, run `charmcraft build`.
 
-You'll need version to be using Juju [version 2.9-rc8](https://discourse.charmhub.io/t/juju-2-9-rc8-release-notes/4394/) or later.
+You'll need version to be using Juju [version 2.9-rc11](https://discourse.charmhub.io/t/juju-2-9-rc11-release-notes/4501) or later.
 
-Once https://bugs.launchpad.net/juju/+bug/1920102 has been addressed, this
-charm will be able to use the credentials provided in cluster. However, for
-now, you will need to provide this charm with credentials to be able to talk
-to the K8s API directly. This is done via the `kube-config` config option,
-which should be set to the contents of your kubernetes client configuration.
-If you're using microk8s you can get this via `microk8s config`. As an example
-you could deploy this charm as follows:
+As an example, you could deploy this charm as follows:
 ```
-juju deploy ./nginx-ingress-integrator.charm ingress --config kube-config="$(microk8s config)"
+juju deploy ./nginx-ingress-integrator.charm ingress --resource placeholder-image=google/pause
 ```
 To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:

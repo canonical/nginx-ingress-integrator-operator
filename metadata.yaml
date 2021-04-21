@@ -9,6 +9,15 @@ bases:
   - name: ubuntu
     channel: 20.04/stable
 
+containers:
+  placeholder:
+    resource: placeholder-image
+
+resources:
+  placeholder-image:
+    type: oci-image
+    description: Docker image for placeholder - won't be used
+
 provides:
   ingress:
     interface: ingress

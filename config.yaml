@@ -11,10 +11,6 @@ options:
       annotation is unset. This value isn't available to be set via the relation
       as it's a deploy-time configuration item.
     type: string
-  kube-config:
-    default: ""
-    description: k8s config. If you're using microk8s, this should be the output of `microk8s config`.
-    type: string
   limit-rps:
     default: 0
     description: >

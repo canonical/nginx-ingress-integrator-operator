@@ -169,13 +169,7 @@ class NginxIngressCharm(CharmBase):
 
         _fix_lp_1892255()
 
-        # Work around for lp#1920102 - allow the user to pass in k8s config manually.
-        if self.config["kube-config"]:
-            with open('/kube-config', 'w') as kube_config:
-                kube_config.write(self.config["kube-config"])
-            kubernetes.config.load_kube_config(config_file='/kube-config')
-        else:
-            kubernetes.config.load_incluster_config()
+        kubernetes.config.load_incluster_config()
 
         self._authed = True
 

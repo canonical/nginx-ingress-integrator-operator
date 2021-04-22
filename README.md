@@ -1,4 +1,4 @@
-# Ingress Operator
+# Nginx Ingress Integrator
 
 ## Description
 
@@ -70,3 +70,7 @@ sent by the relation, but will use a `service-port` of 8080.
 ## Testing
 
 Simply run `make test`.
+
+---
+
+For more details, [see here](https://charmhub.io/nginx-ingress-integrator/docs).

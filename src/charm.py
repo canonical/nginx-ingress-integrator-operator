@@ -35,7 +35,11 @@ def _fix_lp_1892255():
     """Workaround for lp:1892255."""
     # Remove os.environ.update when lp:1892255 is FIX_RELEASED.
     os.environ.update(
-        dict(e.split("=") for e in Path("/proc/1/environ").read_text().split("\x00") if "KUBERNETES_SERVICE" in e)
+        dict(
+            e.split("=")
+            for e in Path("/proc/1/environ").read_text().split("\x00")
+            if "KUBERNETES_SERVICE" in e
+        )
     )
 
 
@@ -226,7 +230,9 @@ class NginxIngressCharm(CharmBase):
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
             annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
-            annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = self._session_cookie_max_age
+            annotations[
+                "nginx.ingress.kubernetes.io/session-cookie-max-age"
+            ] = self._session_cookie_max_age
             annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
                 self._service_name.upper()
             )
@@ -258,7 +264,9 @@ class NginxIngressCharm(CharmBase):
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
-        return [x.spec.cluster_ip for x in services.items if x.metadata.name == self._k8s_service_name]
+        return [
+            x.spec.cluster_ip for x in services.items if x.metadata.name == self._k8s_service_name
+        ]
 
     def _define_service(self):
         """Create or update a service in kubernetes."""

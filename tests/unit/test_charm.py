@@ -43,7 +43,9 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
         # Confirm status is as expected.
-        self.assertEqual(self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12'))
+        self.assertEqual(
+            self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12')
+        )
         # And now test with leader is False.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
@@ -245,8 +247,8 @@ class TestCharm(unittest.TestCase):
         with self.assertLogs(level="ERROR") as logger:
             self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
             msg = (
-                "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields for "
-                "ingress relation: service-hostname, service-port"
+                "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
+                "for ingress relation: service-hostname, service-port"
             )
             self.assertEqual(sorted(logger.output), [msg])
             # Confirm blocked status.
@@ -270,7 +272,9 @@ class TestCharm(unittest.TestCase):
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""
         self.harness.disable_hooks()
-        self.harness.update_config({"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80})
+        self.harness.update_config(
+            {"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80}
+        )
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
@@ -357,7 +361,9 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
-                    "nginx.ingress.kubernetes.io/proxy-next-upstream": "error timeout http_502 http_503",
+                    "nginx.ingress.kubernetes.io/proxy-next-upstream": (
+                        "error timeout http_502 http_503"
+                    ),
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/session-cookie-change-on-failure": "true",
                     "nginx.ingress.kubernetes.io/session-cookie-max-age": "3600",

@@ -10,7 +10,7 @@ size, etc.).
 
 ## Usage
 
-You'll need version to be using Juju [version 2.9-rc11](https://discourse.charmhub.io/t/juju-2-9-rc11-release-notes/4501) or later.
+You'll need version to be using Juju [version 2.9.0](https://discourse.charmhub.io/t/juju-2-9-0-release-notes/4525) or later.
 
 As an example, you could deploy this charm as follows (we're using the name
 "ingress" in this model for brevity):

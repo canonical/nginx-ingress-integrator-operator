@@ -20,14 +20,17 @@ juju deploy nginx-ingress-integrator ingress
 To create an ingress for your service, you'd then add a relation to a charm
 that supports the `ingress` relation. As an example:
 ```
-juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
-juju relate ingress gunicorn
+juju deploy hello-kubecon
+juju relate ingress hello-kubecon
 ```
-This will create an K8s ingress called `gunicorn-ingress` and a K8s service
-called `gunicorn-service`. The gunicorn charm in question, which can be found
-https://code.launchpad.net/~mthaddon/charm-k8s-gunicorn/+git/charm-k8s-gunicorn/+ref/pebble
-implements the relation using the ingress library, as a trivial example by
-adding the following to `src/charm.py`:
+This will create an K8s ingress called `hello-kubecon-ingress` and a K8s service
+called `hello-kubecon-service`.
+
+The nginx-ingress-integrator charm includes a library to make implementing the
+ingress relation as easy as possible for charm authors. As a trivial example,
+you can implement this relation by running `charmcraft fetch-lib charms.nginx_ingress_ingress_integrator.v0.ingress`
+and then adding the following to `src/charm.py` (assuming your charm has a
+config option of `external_hostname`):
 ```
 from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
 
@@ -39,20 +42,23 @@ self.ingress = IngressRequires(self, {"service-hostname": self.config["external_
 # In config-changed handler
 self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
 ```
-Any charm implementing this relation will then need to add the following to
+Any charm implementing this relation will also need to add the following to
 `metadata.yaml`:
 ```
 requires:
   ingress:
     interface: ingress
 ```
-All of the config items in `config.yaml` with the exception of `kube-config` can
+All of the config items in `config.yaml` with the exception of `ingress-class` can
 be set via the relation, e.g. `tls-secret-name` or `max-body-size`.
+`ingress-class` is a run-time option used to tell Kubernetes which ingress
+controller to target, in the case where your cluster has multiple ingress
+controllers.
 
 Alternatively, you can configure the same ingress via Juju config options, to
 avoid needing to modify the charm you're deploying it alongside. As an example:
 ```
-juju config ingress service-name=gunicorn service-port=80 service-hostname=foo.internal
+juju config ingress service-name=hello-kubecon service-port=80 service-hostname=foo.internal
 ```
 Finally, if the charm you're relating to implements the ingress relation, you
 can still override the configuration of the ingress using Juju config. Using
@@ -60,8 +66,8 @@ the above example, where your charm sets the `service-port` as "80" in the
 relation, you could override this by doing the following:
 ```
 juju deploy nginx-ingress-integrator ingress
-juju deploy ./gunicorn.charm --resource gunicorn-image='gunicorncharmers/gunicorn-app:edge'
-juju relate ingress gunicorn
+juju deploy hello-kubecon
+juju relate ingress hello-kubecon
 juju config ingress service-port=8080
 ```
 In this case, the charm will use the `service-hostname` and `service-name` as

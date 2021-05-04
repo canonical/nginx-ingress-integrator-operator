@@ -332,10 +332,12 @@ class TestCharm(unittest.TestCase):
                         ),
                     )
                 ],
-                tls=kubernetes.client.NetworkingV1beta1IngressTLS(
-                    hosts=["foo.internal"],
-                    secret_name="gunicorn_tls",
-                ),
+                tls=[
+                    kubernetes.client.NetworkingV1beta1IngressTLS(
+                        hosts=["foo.internal"],
+                        secret_name="gunicorn_tls",
+                    ),
+                ],
             ),
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})

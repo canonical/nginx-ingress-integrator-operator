@@ -238,10 +238,12 @@ class NginxIngressCharm(CharmBase):
             )
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
-            spec.tls = kubernetes.client.NetworkingV1beta1IngressTLS(
-                hosts=[self._service_hostname],
-                secret_name=self._tls_secret_name,
-            )
+            spec.tls = [
+                kubernetes.client.NetworkingV1beta1IngressTLS(
+                    hosts=[self._service_hostname],
+                    secret_name=self._tls_secret_name,
+                ),
+            ]
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 

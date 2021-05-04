@@ -13,7 +13,7 @@ Import `IngressRequires` in your charm, with two required options:
     - service-port (required)
     - limit-rps
     - limit-whitelist
-    - max_body-size
+    - max-body-size
     - retry-errors
     - service-namespace
     - session-cookie-max-age

@@ -4,17 +4,25 @@ options:
   ingress-class:
     default: ""
     description: >
-      The ingress class annotation to target for this ingress resource. If your
-      kubernetes cluster has multiple ingress controllers, this allows you to
-      target the correct one. See https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/
-      for more details. Leaving empty will mean the "kubernetes.io/ingress.class"
-      annotation is unset. This value isn't available to be set via the relation
-      as it's a deploy-time configuration item.
+      The ingress class to target for this ingress resource.
+
+      If your cluster has multiple ingress controllers, this allows
+      you to select the correct one, by setting the ingressClassName
+      field on the ingress resource created by the charm.
+
+      This value isn't available to be set via the relation as it's a
+      property of the cluster's configuration.
 
       If this value is empty, the charm will use whichever ingress class has the
       "ingressclass.kubernetes.io/is-default-class" annotation set to "true".
 
       If multiple ingress classes are so configured, no selection will be made.
+
+      For more details, see:
+
+       * https://kubernetes.github.io/ingress-nginx/user-guide/multiple-ingress/
+
+       * https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class
     type: string
   limit-rps:
     default: 0

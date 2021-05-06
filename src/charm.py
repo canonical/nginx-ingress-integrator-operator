@@ -298,24 +298,25 @@ class NginxIngressCharm(CharmBase):
         """Set the configured ingress class, otherwise the cluster's default ingress class."""
         ingress_class = self.config['ingress-class']
         if not ingress_class:
-            ingress_classes = []
-            for item in api.list_ingress_class().items:
-                if item.metadata.annotations.get(
-                        'ingressclass.kubernetes.io/is-default-class') == 'true':
-                    ingress_classes.append(item.metadata.name)
+            defaults = [
+                item.metadata.name
+                for item in api.list_ingress_class().items
+                if item.metadata.annotations.get('ingressclass.kubernetes.io/is-default-class')
+                == 'true'
+            ]
 
-            if not ingress_classes:
+            if not defaults:
                 logger.warning("Cluster has no default ingress class defined")
                 return
 
-            if len(ingress_classes) > 1:
+            if len(defaults) > 1:
                 logger.warning(
                     "Multiple default ingress classes defined, declining to choose between them. "
-                    "They are: {}".format(' '.join(sorted(ingress_classes)))
+                    "They are: {}".format(' '.join(sorted(defaults)))
                 )
                 return
 
-            ingress_class = ingress_classes[0]
+            ingress_class = defaults[0]
             logger.info(
                 "Using ingress class {} as it is the cluster's default".format(ingress_class)
             )

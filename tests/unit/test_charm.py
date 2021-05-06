@@ -3,7 +3,7 @@
 
 import unittest
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import kubernetes
 
@@ -459,3 +459,105 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.assertEqual(self.harness.charm._get_k8s_service(), expected)
+
+
+INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1beta1IngressClass(
+    metadata=kubernetes.client.V1ObjectMeta(
+        annotations={
+            'ingressclass.kubernetes.io/is-default-class': 'true',
+        },
+        name='public',
+    ),
+    spec=kubernetes.client.V1beta1IngressClassSpec(
+        controller='k8s.io/ingress-nginx',
+    ),
+)
+
+INGRESS_CLASS_PRIVATE = kubernetes.client.V1beta1IngressClass(
+    metadata=kubernetes.client.V1ObjectMeta(
+        annotations={},
+        name='private',
+    ),
+    spec=kubernetes.client.V1beta1IngressClassSpec(
+        controller='k8s.io/ingress-nginx',
+    ),
+)
+
+INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1beta1IngressClass(
+    metadata=kubernetes.client.V1ObjectMeta(
+        annotations={
+            'ingressclass.kubernetes.io/is-default-class': 'true',
+        },
+        name='private',
+    ),
+    spec=kubernetes.client.V1beta1IngressClassSpec(
+        controller='k8s.io/ingress-nginx',
+    ),
+)
+
+ZERO_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(items=[])
+
+ONE_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(
+    items=[
+        INGRESS_CLASS_PUBLIC_DEFAULT,
+    ],
+)
+
+TWO_INGRESS_CLASSES_LIST = kubernetes.client.V1beta1IngressClassList(
+    items=[
+        INGRESS_CLASS_PUBLIC_DEFAULT,
+        INGRESS_CLASS_PRIVATE,
+    ]
+)
+
+TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1beta1IngressClassList(
+    items=[
+        INGRESS_CLASS_PUBLIC_DEFAULT,
+        INGRESS_CLASS_PRIVATE_DEFAULT,
+    ]
+)
+
+
+def _make_mock_api_list_ingress_class(return_value):
+    mock_api = MagicMock()
+    mock_api.list_ingress_class.return_value = return_value
+    return mock_api
+
+
+class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
+    def setUp(self):
+        self.harness = Harness(NginxIngressCharm)
+        self.addCleanup(self.harness.cleanup)
+        self.harness.begin()
+        self.harness.disable_hooks()
+        self.harness.update_config(
+            {"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80}
+        )
+
+    def test_zero_ingress_class(self):
+        """If there are no ingress classes, there's nothing to choose from."""
+        api = _make_mock_api_list_ingress_class(ZERO_INGRESS_CLASS_LIST)
+        body = self.harness.charm._get_k8s_ingress()
+        self.harness.charm._look_up_and_set_ingress_class(api, body)
+        self.assertIsNone(body.spec.ingress_class_name)
+
+    def test_one_ingress_class(self):
+        """If there's one default ingress class, choose that."""
+        api = _make_mock_api_list_ingress_class(ONE_INGRESS_CLASS_LIST)
+        body = self.harness.charm._get_k8s_ingress()
+        self.harness.charm._look_up_and_set_ingress_class(api, body)
+        self.assertEqual(body.spec.ingress_class_name, 'public')
+
+    def test_two_ingress_classes(self):
+        """If there are two ingress classes, one default, choose that."""
+        api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST)
+        body = self.harness.charm._get_k8s_ingress()
+        self.harness.charm._look_up_and_set_ingress_class(api, body)
+        self.assertEqual(body.spec.ingress_class_name, 'public')
+
+    def test_two_ingress_classes_two_default(self):
+        """If there are two ingress classes, both default, choose neither."""
+        api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT)
+        body = self.harness.charm._get_k8s_ingress()
+        self.harness.charm._look_up_and_set_ingress_class(api, body)
+        self.assertIsNone(body.spec.ingress_class_name)

@@ -321,8 +321,6 @@ class NginxIngressCharm(CharmBase):
             )
 
         body.spec.ingress_class_name = ingress_class
-        # The annotation is deprecated, but set both for now.
-        body.metadata.annotations["kubernetes.io/ingress.class"] = ingress_class
 
     def _define_ingress(self):
         """Create or update an ingress in kubernetes."""

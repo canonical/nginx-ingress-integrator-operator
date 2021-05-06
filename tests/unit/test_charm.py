@@ -359,7 +359,6 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "kubernetes.io/ingress.class": "nginx",
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",

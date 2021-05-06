@@ -1,2 +1,2 @@
-kubernetes
+kubernetes == 18.17.0a1
 ops

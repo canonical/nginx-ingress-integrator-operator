@@ -10,6 +10,11 @@ options:
       for more details. Leaving empty will mean the "kubernetes.io/ingress.class"
       annotation is unset. This value isn't available to be set via the relation
       as it's a deploy-time configuration item.
+
+      If this value is empty, the charm will use whichever ingress class has the
+      "ingressclass.kubernetes.io/is-default-class" annotation set to "true".
+
+      If multiple ingress classes are so configured, no selection will be made.
     type: string
   limit-rps:
     default: 0

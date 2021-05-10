@@ -1,2 +1,4 @@
-kubernetes
+# IngressClass resources are not supported by the current
+# release, so select the latest known pre-release version.
+kubernetes == 18.17.0a1
 ops

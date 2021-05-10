@@ -247,10 +247,6 @@ class NginxIngressCharm(CharmBase):
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 
-        # Run-time configuration options.
-        if self.config["ingress-class"]:
-            annotations["kubernetes.io/ingress.class"] = self.config["ingress-class"]
-
         return kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",
             kind="Ingress",
@@ -298,11 +294,41 @@ class NginxIngressCharm(CharmBase):
                 self._service_name,
             )
 
+    def _look_up_and_set_ingress_class(self, api, body):
+        """Set the configured ingress class, otherwise the cluster's default ingress class."""
+        ingress_class = self.config['ingress-class']
+        if not ingress_class:
+            defaults = [
+                item.metadata.name
+                for item in api.list_ingress_class().items
+                if item.metadata.annotations.get('ingressclass.kubernetes.io/is-default-class')
+                == 'true'
+            ]
+
+            if not defaults:
+                logger.warning("Cluster has no default ingress class defined")
+                return
+
+            if len(defaults) > 1:
+                logger.warning(
+                    "Multiple default ingress classes defined, declining to choose between them. "
+                    "They are: {}".format(' '.join(sorted(defaults)))
+                )
+                return
+
+            ingress_class = defaults[0]
+            logger.info(
+                "Using ingress class {} as it is the cluster's default".format(ingress_class)
+            )
+
+        body.spec.ingress_class_name = ingress_class
+
     def _define_ingress(self):
         """Create or update an ingress in kubernetes."""
         self.k8s_auth()
         api = _networking_v1_beta1_api()
         body = self._get_k8s_ingress()
+        self._look_up_and_set_ingress_class(api, body)
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if self._ingress_name in [x.metadata.name for x in ingresses.items]:
             api.replace_namespaced_ingress(

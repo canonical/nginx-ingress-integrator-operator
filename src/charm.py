@@ -52,11 +52,19 @@ class NginxIngressCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
         self.framework.observe(self.on.ingress_available, self._on_config_changed)
+
+    def _describe_ingresses_action(self, event):
+        """Handle the 'describe-ingresses' action."""
+        self.k8s_auth()
+        api = _networking_v1_beta1_api()
+        ingresses = api.list_namespaced_ingress(namespace=self._namespace)
+        event.set_results({"ingresses": ingresses})
 
     def _get_config_or_relation_data(self, field, fallback):
         """Helper method to get data from config or the ingress relation."""

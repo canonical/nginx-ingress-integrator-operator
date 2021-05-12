@@ -75,3 +75,9 @@ options:
     default: ""
     description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled.
     type: string
+  path-routes:
+    default: "/"
+    description: >
+      Comma separated list of the routes under the hostname that you wish to map to the relation.
+      Example: "/admin,/portal" will map example.test/admin and example.test/portal only.
+    type: string

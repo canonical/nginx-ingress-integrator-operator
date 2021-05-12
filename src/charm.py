@@ -205,20 +205,25 @@ class NginxIngressCharm(CharmBase):
 
     def _get_k8s_ingress(self):
         """Get a K8s ingress definition."""
+        paths = self._get_config_or_relation_data("path-routes", "/").split(",")
+        ingress_paths = []
+        for path in paths:
+            ingress_paths.append(
+                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                    path=path,
+                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                        service_port=self._service_port,
+                        service_name=self._k8s_service_name,
+                    ),
+                )
+            )
+
         spec = kubernetes.client.NetworkingV1beta1IngressSpec(
             rules=[
                 kubernetes.client.NetworkingV1beta1IngressRule(
                     host=self._service_hostname,
                     http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
-                        paths=[
-                            kubernetes.client.NetworkingV1beta1HTTPIngressPath(
-                                path="/",
-                                backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                    service_port=self._service_port,
-                                    service_name=self._k8s_service_name,
-                                ),
-                            )
-                        ]
+                        paths=ingress_paths
                     ),
                 )
             ]

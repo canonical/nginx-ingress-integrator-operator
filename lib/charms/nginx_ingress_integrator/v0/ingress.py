@@ -74,6 +74,7 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",
+    "path-routes",
 }
 
 

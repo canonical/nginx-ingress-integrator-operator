@@ -14,6 +14,7 @@ Import `IngressRequires` in your charm, with two required options:
     - limit-rps
     - limit-whitelist
     - max-body-size
+    - path-routes
     - retry-errors
     - service-namespace
     - session-cookie-max-age
@@ -56,7 +57,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 6
+LIBPATCH = 7
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",
+    "path-routes",
 }
 
 

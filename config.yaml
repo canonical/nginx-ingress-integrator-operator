@@ -42,6 +42,12 @@ options:
     default: 0
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
+  path-routes:
+    default: "/"
+    description: >
+      Comma separated list of the routes under the hostname that you wish to map to the relation.
+      Example: "/admin,/portal" will map example.test/admin and example.test/portal only.
+    type: string
   retry-errors:
     default: ""
     description: >

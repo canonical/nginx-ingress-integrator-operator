@@ -28,7 +28,7 @@ called `hello-kubecon-service`.
 
 The nginx-ingress-integrator charm includes a library to make implementing the
 ingress relation as easy as possible for charm authors. As a trivial example,
-you can implement this relation by running `charmcraft fetch-lib charms.nginx_ingress_ingress_integrator.v0.ingress`
+you can implement this relation by running `charmcraft fetch-lib charms.nginx_ingress_integrator.v0.ingress`
 and then adding the following to `src/charm.py` (assuming your charm has a
 config option of `external_hostname`):
 ```

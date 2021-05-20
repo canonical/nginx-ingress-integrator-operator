@@ -376,13 +376,18 @@ class NginxIngressCharm(CharmBase):
                 self._define_ingress()
                 # It's not recommended to do this via ActiveStatus, but we don't
                 # have another way of reporting status yet.
-                msg = "Ingress with service IP(s): {}".format(", ".join(self._report_service_ips()))
+                msg = "Ingress with service IP(s): {}".format(
+                    ", ".join(self._report_service_ips())
+                )
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
                     logger.error(
-                        "Insufficient permissions to create the k8s service, will request `juju trust` to be run"
+                        "Insufficient permissions to create the k8s service, "
+                        "will request `juju trust` to be run"
                     )
-                    self.unit.status = BlockedStatus("Insufficuent permissions, try: `juju trust {}`".format(self.app.name))
+                    self.unit.status = BlockedStatus(
+                        "Insufficuent permissions, try: `juju trust {}`".format(self.app.name)
+                    )
                     return
                 else:
                     raise

@@ -2,11 +2,16 @@
 
 ## Description
 
-This charm is intended to provide an nginx ingress for sidecar charms using the
-Operator Framework until such time as Juju can expose the relevant primitives
-to enable charms to configure an ingress natively via Juju (e.g. with TLS as
-required, with session affinity as required, allowing for upload of a given
-size, etc.).
+This charm generates an Nginx Ingress resource for sidecar charms using the
+Operator Framework. This resource can then be used by an Nginx Ingress Controller
+in a Kubernetes cluster to expose HTTP and HTTPS routes from outside the cluster
+to a charm running within the cluster. As such, this charm requires your
+Kubernetes cluster to have an Nginx Ingress Controller already deployed to it.
+
+For more information about Ingress Controllers, [see here](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
+To enable an Nginx Ingress Controller on MicroK8s, just run `microk8s enable ingress`,
+or if you're using [Charmed Kubernetes](https://ubuntu.com/kubernetes) you can
+enable it with `juju expose kubernetes-worker`.
 
 ## Usage
 

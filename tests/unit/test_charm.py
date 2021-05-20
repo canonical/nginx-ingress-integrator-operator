@@ -60,6 +60,20 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
+        # Confirm if we get a 403 error from k8s API we block with an appropriate message.
+        _define_ingress.reset_mock()
+        _define_service.reset_mock()
+        _define_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
+        self.harness.set_leader(True)
+        self.harness.update_config()
+        self.assertEqual(
+            self.harness.charm.unit.status,
+            BlockedStatus(
+                "Insufficuent permissions, try: "
+                "`juju trust nginx-ingress-integrator --scope=cluster`"
+            ),
+        )
+
     def test_get_ingress_relation_data(self):
         """Test for getting our ingress relation data."""
         # Confirm we don't have any relation data yet in the relevant properties

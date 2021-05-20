@@ -386,7 +386,9 @@ class NginxIngressCharm(CharmBase):
                         "will request `juju trust` to be run"
                     )
                     self.unit.status = BlockedStatus(
-                        "Insufficuent permissions, try: `juju trust {}`".format(self.app.name)
+                        "Insufficuent permissions, try: `juju trust {} --scope=cluster`".format(
+                            self.app.name
+                        )
                     )
                     return
                 else:

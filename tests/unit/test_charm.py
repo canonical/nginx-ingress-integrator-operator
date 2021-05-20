@@ -69,7 +69,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(
             self.harness.charm.unit.status,
             BlockedStatus(
-                "Insufficuent permissions, try: "
+                "Insufficient permissions, try: "
                 "`juju trust nginx-ingress-integrator --scope=cluster`"
             ),
         )

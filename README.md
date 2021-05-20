@@ -4,10 +4,9 @@
 
 This charm generates an Nginx Ingress resource for sidecar charms using the
 Operator Framework. This resource can then be used by an Nginx Ingress Controller
-in a Kubernetes cluster to expose HTTP and HTTPS routes from
-outside the cluster to a charm running within the cluster. As such, this charm
-requires your Kubernetes cluster to have an Nginx Ingress Controller already
-deployed to it.
+in a Kubernetes cluster to expose HTTP and HTTPS routes from outside the cluster
+to a charm running within the cluster. As such, this charm requires your
+Kubernetes cluster to have an Nginx Ingress Controller already deployed to it.
 
 For more information about Ingress Controllers, [see here](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
 To enable an Nginx Ingress Controller on MicroK8s, just run `microk8s enable ingress`,

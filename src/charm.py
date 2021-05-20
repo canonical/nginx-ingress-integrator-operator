@@ -14,7 +14,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (
 )
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus
+from ops.model import ActiveStatus, BlockedStatus
 
 
 logger = logging.getLogger(__name__)
@@ -371,11 +371,28 @@ class NginxIngressCharm(CharmBase):
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
         if self.unit.is_leader() and self._service_name:
-            self._define_service()
-            self._define_ingress()
-            # It's not recommended to do this via ActiveStatus, but we don't
-            # have another way of reporting status yet.
-            msg = "Ingress with service IP(s): {}".format(", ".join(self._report_service_ips()))
+            try:
+                self._define_service()
+                self._define_ingress()
+                # It's not recommended to do this via ActiveStatus, but we don't
+                # have another way of reporting status yet.
+                msg = "Ingress with service IP(s): {}".format(
+                    ", ".join(self._report_service_ips())
+                )
+            except kubernetes.client.exceptions.ApiException as e:
+                if e.status == 403:
+                    logger.error(
+                        "Insufficient permissions to create the k8s service, "
+                        "will request `juju trust` to be run"
+                    )
+                    self.unit.status = BlockedStatus(
+                        "Insufficuent permissions, try: `juju trust {} --scope=cluster`".format(
+                            self.app.name
+                        )
+                    )
+                    return
+                else:
+                    raise
         self.unit.status = ActiveStatus(msg)
 
 

@@ -44,7 +44,7 @@ requires:
 You _must_ register the IngressRequires class as part of the `__init__` method
 rather than, for instance, a config-changed event handler. This is because
 doing so won't get the current relation changed event, because it wasn't
-registered to handle the event (because it wasn't created in __init__ when
+registered to handle the event (because it wasn't created in `__init__` when
 the event was fired).
 """
 

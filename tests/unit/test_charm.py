@@ -93,6 +93,41 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
         self.assertEqual(self.harness.charm._service_port, 80)
 
+    def test_multiple_routes_with_relation_data(self):
+        """Test for getting our ingress relation data."""
+        # Confirm we don't have any relation data yet in the relevant properties
+        relation_id = self.harness.add_relation('ingress', 'gunicorn')
+        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+            "path-routes": "/admin/,/portal/"
+        }
+        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+
+        # Test multiple paths
+        expected = [{
+                'backend': {
+                    'resource': None,
+                    'service_name':
+                    'gunicorn-service',
+                    'service_port': 80
+                },
+                'path': '/admin/', 'path_type': None
+            },
+            {
+                'backend': {
+                    'resource': None,
+                    'service_name': 'gunicorn-service',
+                    'service_port': 80
+                },
+                'path': '/portal/', 'path_type': None
+            }]
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        self.assertEqual(
+            result_dict['spec']['rules'][0]['http']['paths'], expected)
+
     def test_max_body_size(self):
         """Test for the max-body-size property."""
         # First set via config.

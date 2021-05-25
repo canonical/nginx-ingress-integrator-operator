@@ -16,6 +16,7 @@ Import `IngressRequires` in your charm, with two required options:
     - max-body-size
     - path-routes
     - retry-errors
+    - rewrite-target
     - service-namespace
     - session-cookie-max-age
     - tls-secret-name
@@ -77,6 +78,8 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "limit-whitelist",
     "max-body-size",
     "retry-errors",
+    "rewrite-target",
+    "rewrite-enabled",
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",

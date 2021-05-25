@@ -16,6 +16,7 @@ Import `IngressRequires` in your charm, with two required options:
     - max-body-size
     - path-routes
     - retry-errors
+    - rewrite-enabled
     - rewrite-target
     - service-namespace
     - session-cookie-max-age

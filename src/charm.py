@@ -19,6 +19,8 @@ from ops.model import ActiveStatus, BlockedStatus
 
 logger = logging.getLogger(__name__)
 
+BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
+
 
 def _core_v1_api():
     """Use the v1 k8s API."""
@@ -69,6 +71,9 @@ class NginxIngressCharm(CharmBase):
     def _get_config_or_relation_data(self, field, fallback):
         """Helper method to get data from config or the ingress relation."""
         config_data = self.config[field]
+        # A value of False is valid in these fields, so check it's not a null-value instead
+        if field in BOOLEAN_CONFIG_FIELDS and (config_data is not None and config_data != ""):
+            return config_data
         if config_data:
             return config_data
         relation = self.model.get_relation("ingress")
@@ -116,6 +121,19 @@ class NginxIngressCharm(CharmBase):
             return "{}m".format(max_body_size)
         # Don't return "0m" which would evaluate to True.
         return ""
+
+    @property
+    def _rewrite_enabled(self):
+        """Return whether rewriting should be enabled from config or relation"""
+        value = self._get_config_or_relation_data("rewrite-enabled", True)
+        # config data is typed, relation data is a string
+        # Convert to string, then compare to a known value.
+        return str(value).lower() == "true"
+
+    @property
+    def _rewrite_target(self):
+        """Return the rewrite target from config or relation."""
+        return self._get_config_or_relation_data("rewrite-target", "/")
 
     @property
     def _namespace(self):
@@ -228,9 +246,9 @@ class NginxIngressCharm(CharmBase):
                 )
             ]
         )
-        annotations = {
-            "nginx.ingress.kubernetes.io/rewrite-target": "/",
-        }
+        annotations = {}
+        if self._rewrite_enabled:
+            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:

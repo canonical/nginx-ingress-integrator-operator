@@ -54,9 +54,7 @@ class NginxIngressCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(
-            self.on.describe_ingresses_action, self._describe_ingresses_action
-        )
+        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
@@ -74,9 +72,7 @@ class NginxIngressCharm(CharmBase):
         """Helper method to get data from config or the ingress relation."""
         config_data = self.config[field]
         # A value of False is valid in these fields, so check it's not a null-value instead
-        if field in BOOLEAN_CONFIG_FIELDS and (
-            config_data is not None and config_data != ""
-        ):
+        if field in BOOLEAN_CONFIG_FIELDS and (config_data is not None and config_data != ""):
             return config_data
         if config_data:
             return config_data
@@ -101,9 +97,7 @@ class NginxIngressCharm(CharmBase):
     def _ingress_name(self):
         """Return an ingress name for use creating a k8s ingress."""
         # Follow the same naming convention as Juju.
-        return "{}-ingress".format(
-            self._get_config_or_relation_data("service-name", "")
-        )
+        return "{}-ingress".format(self._get_config_or_relation_data("service-name", ""))
 
     @property
     def _limit_rps(self):
@@ -167,9 +161,7 @@ class NginxIngressCharm(CharmBase):
             "non_idempotent",
             "off",
         ]
-        return " ".join(
-            [x.strip() for x in retry.split(",") if x.strip() in accepted_values]
-        )
+        return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
 
     @property
     def _service_hostname(self):
@@ -189,9 +181,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _session_cookie_max_age(self):
         """Return the session-cookie-max-age to use for k8s ingress."""
-        session_cookie_max_age = self._get_config_or_relation_data(
-            "session-cookie-max-age", 0
-        )
+        session_cookie_max_age = self._get_config_or_relation_data("session-cookie-max-age", 0)
         if session_cookie_max_age:
             return str(session_cookie_max_age)
         # Don't return "0" which would evaluate to True.
@@ -258,35 +248,25 @@ class NginxIngressCharm(CharmBase):
         )
         annotations = {}
         if self._rewrite_enabled:
-            annotations[
-                "nginx.ingress.kubernetes.io/rewrite-target"
-            ] = self._rewrite_target
+            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
-                annotations[
-                    "nginx.ingress.kubernetes.io/limit-whitelist"
-                ] = self._limit_whitelist
+                annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = self._limit_whitelist
         if self._max_body_size:
-            annotations[
-                "nginx.ingress.kubernetes.io/proxy-body-size"
-            ] = self._max_body_size
+            annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
         if self._retry_errors:
-            annotations[
-                "nginx.ingress.kubernetes.io/proxy-next-upstream"
-            ] = self._retry_errors
+            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
-            annotations[
-                "nginx.ingress.kubernetes.io/session-cookie-change-on-failure"
-            ] = "true"
+            annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-max-age"
             ] = self._session_cookie_max_age
-            annotations[
-                "nginx.ingress.kubernetes.io/session-cookie-name"
-            ] = "{}_AFFINITY".format(self._service_name.upper())
+            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
+                self._service_name.upper()
+            )
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
@@ -314,9 +294,7 @@ class NginxIngressCharm(CharmBase):
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
         return [
-            x.spec.cluster_ip
-            for x in services.items
-            if x.metadata.name == self._k8s_service_name
+            x.spec.cluster_ip for x in services.items if x.metadata.name == self._k8s_service_name
         ]
 
     def _define_service(self):
@@ -349,15 +327,13 @@ class NginxIngressCharm(CharmBase):
 
     def _look_up_and_set_ingress_class(self, api, body):
         """Set the configured ingress class, otherwise the cluster's default ingress class."""
-        ingress_class = self.config["ingress-class"]
+        ingress_class = self.config['ingress-class']
         if not ingress_class:
             defaults = [
                 item.metadata.name
                 for item in api.list_ingress_class().items
-                if item.metadata.annotations.get(
-                    "ingressclass.kubernetes.io/is-default-class"
-                )
-                == "true"
+                if item.metadata.annotations.get('ingressclass.kubernetes.io/is-default-class')
+                == 'true'
             ]
 
             if not defaults:
@@ -367,15 +343,13 @@ class NginxIngressCharm(CharmBase):
             if len(defaults) > 1:
                 logger.warning(
                     "Multiple default ingress classes defined, declining to choose between them. "
-                    "They are: {}".format(" ".join(sorted(defaults)))
+                    "They are: {}".format(' '.join(sorted(defaults)))
                 )
                 return
 
             ingress_class = defaults[0]
             logger.info(
-                "Using ingress class {} as it is the cluster's default".format(
-                    ingress_class
-                )
+                "Using ingress class {} as it is the cluster's default".format(ingress_class)
             )
 
         body.spec.ingress_class_name = ingress_class

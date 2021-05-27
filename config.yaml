@@ -58,7 +58,7 @@ options:
       will be used if this config option is set to an empty value.
     type: string
   rewrite-enabled:
-    default: ""
+    default:
     description: Whether requests should be written to the `rewrite-target`
     type: boolean
   rewrite-target:

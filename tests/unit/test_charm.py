@@ -356,6 +356,67 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        # Test additional hostnames
+        self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
+        expected = kubernetes.client.NetworkingV1beta1Ingress(
+            api_version="networking.k8s.io/v1beta1",
+            kind="Ingress",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-ingress",
+                annotations={
+                    "nginx.ingress.kubernetes.io/rewrite-target": "/",
+                    "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+                },
+            ),
+            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+                rules=[
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="foo.internal",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    ),
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="bar.internal",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    ),
+                    kubernetes.client.NetworkingV1beta1IngressRule(
+                        host="foo.external",
+                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                            paths=[
+                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                    path="/",
+                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
+                                        service_port=80,
+                                        service_name="gunicorn-service",
+                                    ),
+                                )
+                            ]
+                        ),
+                    ),
+                ]
+            ),
+        )
+        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.harness.update_config({"additional-hostnames": ""})
         # Test multiple paths
         expected = kubernetes.client.NetworkingV1beta1Ingress(
             api_version="networking.k8s.io/v1beta1",

@@ -279,6 +279,55 @@ class TestCharm(unittest.TestCase):
         # Now it's the value from the relation.
         self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
 
+    def test_rewrite_enabled_property(self):
+        """Test for enabling request rewrites."""
+        # First set via config.
+        self.harness.update_config({"rewrite-enabled": True})
+        self.assertEqual(self.harness.charm._rewrite_enabled, True)
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
+        relations_data = {
+            "rewrite-enabled": "False",
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+        }
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
+        # Still /test-target because it's set via config.
+        self.assertEqual(self.harness.charm._rewrite_enabled, True)
+        self.harness.update_config({"rewrite-enabled": ""})
+        self.assertEqual(self.harness.charm._rewrite_enabled, False)
+
+    def test_rewrite_annotations(self):
+        self.harness.disable_hooks()
+        self.harness.update_config(
+            {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": 80,
+            }
+        )
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        expected = {
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
+        self.harness.update_config({"rewrite-enabled": False})
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        expected = {"nginx.ingress.kubernetes.io/ssl-redirect": "false"}
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
+        self.harness.update_config({"rewrite-target": "/test-target"})
+        self.harness.update_config({"rewrite-enabled": True})
+
+        expected = {
+            "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
     @patch('charm.NginxIngressCharm._on_config_changed')
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""

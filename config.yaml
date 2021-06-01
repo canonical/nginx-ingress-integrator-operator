@@ -62,6 +62,14 @@ options:
       for more details. Unrecognised values will be ignored. The nginx default
       will be used if this config option is set to an empty value.
     type: string
+  rewrite-enabled:
+    default:
+    description: Whether requests should be written to the `rewrite-target`
+    type: boolean
+  rewrite-target:
+    default: "/"
+    description: The path to rewrite requests to.
+    type: string
   service-hostname:
     default: ""
     description: The hostname of the service to create an ingress for.

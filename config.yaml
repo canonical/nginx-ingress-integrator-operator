@@ -1,6 +1,11 @@
 # Copyright 2021 Canonical Ltd.
 # See LICENSE file for licensing details.
 options:
+  additional-hostnames:
+    default: ""
+    description: >
+      Comma-separated list of additional hostnames for this ingress to listen on.
+    type: string
   ingress-class:
     default: ""
     description: >

@@ -237,16 +237,27 @@ class NginxIngressCharm(CharmBase):
                 )
             )
 
-        spec = kubernetes.client.NetworkingV1beta1IngressSpec(
-            rules=[
+        hostnames = [self._service_hostname]
+        hostnames.extend(
+            [
+                x
+                for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
+                if x
+            ]
+        )
+        ingress_rules = []
+        for hostname in hostnames:
+            ingress_rules.append(
                 kubernetes.client.NetworkingV1beta1IngressRule(
-                    host=self._service_hostname,
+                    host=hostname,
                     http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
                         paths=ingress_paths
                     ),
                 )
-            ]
-        )
+            )
+
+        spec = kubernetes.client.NetworkingV1beta1IngressSpec(rules=ingress_rules)
+
         annotations = {}
         if self._rewrite_enabled:
             annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target

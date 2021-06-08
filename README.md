@@ -45,7 +45,7 @@ self.ingress = IngressRequires(self, {"service-hostname": self.config["external_
                                       "service-port": 80})
 
 # In config-changed handler
-self.ingress.update_config({"service_hostname": self.config["external_hostname"]})
+self.ingress.update_config({"service-hostname": self.config["external_hostname"]})
 ```
 Any charm implementing this relation will also need to add the following to
 `metadata.yaml`:

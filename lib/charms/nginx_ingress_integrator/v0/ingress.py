@@ -134,7 +134,7 @@ class IngressRequires(Object):
             if missing:
                 logger.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",
-                    ", ".join(missing),
+                    ", ".join(sorted(missing)),
                 )
                 self.model.unit.status = BlockedStatus(blocked_message)
                 return True

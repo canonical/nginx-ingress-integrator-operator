@@ -44,7 +44,7 @@ options:
       is a comma-separated list of CIDRs.
     type: string
   max-body-size:
-    default: 0
+    default: 20
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
   path-routes:

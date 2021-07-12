@@ -308,7 +308,7 @@ class TestCharm(unittest.TestCase):
         )
         result_dict = self.harness.charm._get_k8s_ingress().to_dict()
         expected = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -317,7 +317,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"rewrite-enabled": False})
         result_dict = self.harness.charm._get_k8s_ingress().to_dict()
         expected = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
@@ -326,7 +326,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"rewrite-enabled": True})
 
         expected = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -386,7 +386,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -419,7 +419,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -480,7 +480,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -521,7 +521,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
             ),
@@ -557,7 +557,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config(
             {
                 "ingress-class": "nginx",
-                "max-body-size": 20,
+                "max-body-size": 10,
                 "retry-errors": "error,timeout,http_502,http_503",
                 "session-cookie-max-age": 3600,
                 "tls-secret-name": "",
@@ -571,7 +571,7 @@ class TestCharm(unittest.TestCase):
                 annotations={
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
-                    "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "10m",
                     "nginx.ingress.kubernetes.io/proxy-next-upstream": (
                         "error timeout http_502 http_503"
                     ),

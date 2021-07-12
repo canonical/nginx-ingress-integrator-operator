@@ -118,10 +118,7 @@ class NginxIngressCharm(CharmBase):
     def _max_body_size(self):
         """Return the max-body-size to use for k8s ingress."""
         max_body_size = self._get_config_or_relation_data("max-body-size", 0)
-        if max_body_size:
-            return "{}m".format(max_body_size)
-        # Don't return "0m" which would evaluate to True.
-        return ""
+        return "{}m".format(max_body_size)
 
     @property
     def _rewrite_enabled(self):
@@ -258,15 +255,13 @@ class NginxIngressCharm(CharmBase):
 
         spec = kubernetes.client.NetworkingV1beta1IngressSpec(rules=ingress_rules)
 
-        annotations = {}
+        annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
         if self._rewrite_enabled:
             annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
                 annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = self._limit_whitelist
-        if self._max_body_size:
-            annotations["nginx.ingress.kubernetes.io/proxy-body-size"] = self._max_body_size
         if self._retry_errors:
             annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._session_cookie_max_age:

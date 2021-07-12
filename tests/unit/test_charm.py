@@ -308,6 +308,7 @@ class TestCharm(unittest.TestCase):
         )
         result_dict = self.harness.charm._get_k8s_ingress().to_dict()
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -315,13 +316,17 @@ class TestCharm(unittest.TestCase):
 
         self.harness.update_config({"rewrite-enabled": False})
         result_dict = self.harness.charm._get_k8s_ingress().to_dict()
-        expected = {"nginx.ingress.kubernetes.io/ssl-redirect": "false"}
+        expected = {
+            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
         self.harness.update_config({"rewrite-target": "/test-target"})
         self.harness.update_config({"rewrite-enabled": True})
 
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -381,6 +386,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -413,6 +419,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -473,6 +480,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
@@ -513,6 +521,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
             ),
@@ -615,6 +624,7 @@ class TestCharm(unittest.TestCase):
                 annotations={
                     "nginx.ingress.kubernetes.io/limit-rps": "5",
                     "nginx.ingress.kubernetes.io/limit-whitelist": "10.0.0.0/16",
+                    "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },

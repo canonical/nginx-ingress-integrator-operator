@@ -3,8 +3,6 @@
 # See LICENSE file for licensing details.
 
 import logging
-import os
-from pathlib import Path
 
 import kubernetes
 
@@ -31,18 +29,6 @@ def _core_v1_api():
 def _networking_v1_beta1_api():
     """Use the v1 beta1 networking API."""
     return kubernetes.client.NetworkingV1beta1Api()
-
-
-def _fix_lp_1892255():
-    """Workaround for lp:1892255."""
-    # Remove os.environ.update when lp:1892255 is FIX_RELEASED.
-    os.environ.update(
-        dict(
-            e.split("=")
-            for e in Path("/proc/1/environ").read_text().split("\x00")
-            if "KUBERNETES_SERVICE" in e
-        )
-    )
 
 
 class NginxIngressCharm(CharmBase):
@@ -194,8 +180,6 @@ class NginxIngressCharm(CharmBase):
         """Authenticate to kubernetes."""
         if self._authed:
             return
-
-        _fix_lp_1892255()
 
         kubernetes.config.load_incluster_config()
 

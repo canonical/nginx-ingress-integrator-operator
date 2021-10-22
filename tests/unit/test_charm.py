@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import kubernetes
+import kubernetes.client
 
 from ops.model import (
     ActiveStatus,
@@ -111,20 +112,30 @@ class TestCharm(unittest.TestCase):
             {
                 'backend': {
                     'resource': None,
-                    'service_name': 'gunicorn-service',
-                    'service_port': 80,
+                    'service': {
+                        'name': 'gunicorn-service',
+                        'port': {
+                            'name': None,
+                            'number': 80,
+                        },
+                    },
                 },
                 'path': '/admin/',
-                'path_type': None,
+                'path_type': 'Prefix',
             },
             {
                 'backend': {
                     'resource': None,
-                    'service_name': 'gunicorn-service',
-                    'service_port': 80,
+                    'service': {
+                        'name': 'gunicorn-service',
+                        'port': {
+                            'name': None,
+                            'number': 80,
+                        },
+                    },
                 },
                 'path': '/portal/',
-                'path_type': None,
+                'path_type': 'Prefix',
             },
         ]
         result_dict = self.harness.charm._get_k8s_ingress().to_dict()
@@ -380,8 +391,8 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config(
             {"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80}
         )
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -391,17 +402,22 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
@@ -413,8 +429,8 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
         # Test additional hostnames
         self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -424,45 +440,60 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
                         ),
                     ),
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="bar.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
                         ),
                     ),
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.external",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
@@ -474,8 +505,8 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
         self.harness.update_config({"additional-hostnames": ""})
         # Test multiple paths
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -485,24 +516,34 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/admin",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 ),
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/portal",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 ),
                             ]
@@ -515,8 +556,8 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
         self.harness.update_config({"path-routes": "/"})
         # Test with TLS.
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -525,17 +566,22 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
@@ -543,7 +589,7 @@ class TestCharm(unittest.TestCase):
                     )
                 ],
                 tls=[
-                    kubernetes.client.NetworkingV1beta1IngressTLS(
+                    kubernetes.client.V1IngressTLS(
                         hosts=["foo.internal"],
                         secret_name="gunicorn_tls",
                     ),
@@ -563,8 +609,8 @@ class TestCharm(unittest.TestCase):
                 "tls-secret-name": "",
             }
         )
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -583,17 +629,22 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]
@@ -616,8 +667,8 @@ class TestCharm(unittest.TestCase):
                 "session-cookie-max-age": 0,
             }
         )
-        expected = kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        expected = kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name="gunicorn-ingress",
@@ -629,17 +680,22 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
             ),
-            spec=kubernetes.client.NetworkingV1beta1IngressSpec(
+            spec=kubernetes.client.V1IngressSpec(
                 rules=[
-                    kubernetes.client.NetworkingV1beta1IngressRule(
+                    kubernetes.client.V1IngressRule(
                         host="foo.internal",
-                        http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
+                        http=kubernetes.client.V1HTTPIngressRuleValue(
                             paths=[
-                                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
+                                kubernetes.client.V1HTTPIngressPath(
                                     path="/",
-                                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                                        service_port=80,
-                                        service_name="gunicorn-service",
+                                    path_type="Prefix",
+                                    backend=kubernetes.client.V1IngressBackend(
+                                        service=kubernetes.client.V1IngressServiceBackend(
+                                            name="gunicorn-service",
+                                            port=kubernetes.client.V1ServiceBackendPort(
+                                                number=80,
+                                            ),
+                                        ),
                                     ),
                                 )
                             ]

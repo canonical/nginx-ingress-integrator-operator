@@ -4,7 +4,7 @@
 
 import logging
 
-import kubernetes
+import kubernetes.client
 
 from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
@@ -22,13 +22,12 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 
 def _core_v1_api():
     """Use the v1 k8s API."""
-    cl = kubernetes.client.ApiClient()
-    return kubernetes.client.CoreV1Api(cl)
+    return kubernetes.client.CoreV1Api()
 
 
-def _networking_v1_beta1_api():
+def _networking_v1_api():
     """Use the v1 beta1 networking API."""
-    return kubernetes.client.NetworkingV1beta1Api()
+    return kubernetes.client.NetworkingV1Api()
 
 
 class NginxIngressCharm(CharmBase):
@@ -50,7 +49,7 @@ class NginxIngressCharm(CharmBase):
     def _describe_ingresses_action(self, event):
         """Handle the 'describe-ingresses' action."""
         self.k8s_auth()
-        api = _networking_v1_beta1_api()
+        api = _networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         event.set_results({"ingresses": ingresses})
 
@@ -206,17 +205,21 @@ class NginxIngressCharm(CharmBase):
     def _get_k8s_ingress(self):
         """Get a K8s ingress definition."""
         paths = self._get_config_or_relation_data("path-routes", "/").split(",")
-        ingress_paths = []
-        for path in paths:
-            ingress_paths.append(
-                kubernetes.client.NetworkingV1beta1HTTPIngressPath(
-                    path=path,
-                    backend=kubernetes.client.NetworkingV1beta1IngressBackend(
-                        service_port=self._service_port,
-                        service_name=self._k8s_service_name,
+        ingress_paths = [
+            kubernetes.client.V1HTTPIngressPath(
+                path=path,
+                path_type="Prefix",
+                backend=kubernetes.client.V1IngressBackend(
+                    service=kubernetes.client.V1IngressServiceBackend(
+                        name=self._k8s_service_name,
+                        port=kubernetes.client.V1ServiceBackendPort(
+                            number=int(self._service_port),
+                        ),
                     ),
-                )
+                ),
             )
+            for path in paths
+        ]
 
         hostnames = [self._service_hostname]
         hostnames.extend(
@@ -226,18 +229,14 @@ class NginxIngressCharm(CharmBase):
                 if x
             ]
         )
-        ingress_rules = []
-        for hostname in hostnames:
-            ingress_rules.append(
-                kubernetes.client.NetworkingV1beta1IngressRule(
-                    host=hostname,
-                    http=kubernetes.client.NetworkingV1beta1HTTPIngressRuleValue(
-                        paths=ingress_paths
-                    ),
-                )
+        ingress_rules = [
+            kubernetes.client.V1IngressRule(
+                host=hostname,
+                http=kubernetes.client.V1HTTPIngressRuleValue(paths=ingress_paths),
             )
-
-        spec = kubernetes.client.NetworkingV1beta1IngressSpec(rules=ingress_rules)
+            for hostname in hostnames
+        ]
+        spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
         if self._rewrite_enabled:
@@ -261,7 +260,7 @@ class NginxIngressCharm(CharmBase):
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
-                kubernetes.client.NetworkingV1beta1IngressTLS(
+                kubernetes.client.V1IngressTLS(
                     hosts=[self._service_hostname],
                     secret_name=self._tls_secret_name,
                 ),
@@ -269,8 +268,8 @@ class NginxIngressCharm(CharmBase):
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
 
-        return kubernetes.client.NetworkingV1beta1Ingress(
-            api_version="networking.k8s.io/v1beta1",
+        return kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=self._ingress_name,
@@ -348,7 +347,7 @@ class NginxIngressCharm(CharmBase):
     def _define_ingress(self):
         """Create or update an ingress in kubernetes."""
         self.k8s_auth()
-        api = _networking_v1_beta1_api()
+        api = _networking_v1_api()
         body = self._get_k8s_ingress()
         self._look_up_and_set_ingress_class(api, body)
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)

@@ -1,4 +1,5 @@
-# IngressClass resources are not supported by the current
-# release, so select the latest known pre-release version.
-kubernetes == 18.17.0a1
+# IngressClass and networking.k8s.io/v1/Ingress resources are not
+# supported by the current release, so select the latest known
+# pre-release version. Update this when 19.x is released.
+kubernetes == 19.15.0b1
 ops

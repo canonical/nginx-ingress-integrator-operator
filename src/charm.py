@@ -327,7 +327,7 @@ class NginxIngressCharm(CharmBase):
                 namespace=self._namespace,
             )
             logger.info(
-                "Service removed in namespace %s with name %s",
+                "Service deleted in namespace %s with name %s",
                 self._namespace,
                 self._service_name,
             )
@@ -398,7 +398,7 @@ class NginxIngressCharm(CharmBase):
         if self._ingress_name in [x.metadata.name for x in ingresses.items]:
             api.delete_namespaced_ingress(self._ingress_name, self._namespace)
             logger.info(
-                "Ingress deleted from namespace %s with name %s",
+                "Ingress deleted in namespace %s with name %s",
                 self._namespace,
                 self._ingress_name,
             )
@@ -434,6 +434,7 @@ class NginxIngressCharm(CharmBase):
         self.unit.status = ActiveStatus(msg)
 
     def _on_ingress_broken(self, _):
+        """Handle the ingress broken event."""
         if self.unit.is_leader() and self._ingress_name:
             try:
                 self._remove_ingress()
@@ -441,7 +442,7 @@ class NginxIngressCharm(CharmBase):
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
                     logger.error(
-                        "Insufficient permissions to create the k8s service, "
+                        "Insufficient permissions to delete the k8s ingress resource, "
                         "will request `juju trust` to be run"
                     )
                     self.unit.status = BlockedStatus(

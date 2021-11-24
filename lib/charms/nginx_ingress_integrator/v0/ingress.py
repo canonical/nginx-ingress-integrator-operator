@@ -221,5 +221,5 @@ class IngressProvides(Object):
         if not self.model.unit.is_leader():
             return
 
-        # Create an event that our charm can use to remove the ingress resource
+        # Create an event that our charm can use to remove the ingress resource.
         self.charm.on.ingress_broken.emit()

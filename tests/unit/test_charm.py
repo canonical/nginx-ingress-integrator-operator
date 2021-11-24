@@ -385,6 +385,18 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._service_name, "gunicorn")
         self.assertEqual(self.harness.charm._service_port, 80)
 
+    @patch('charm.NginxIngressCharm._remove_ingress')
+    @patch('charm.NginxIngressCharm._remove_service')
+    def test_on_ingress_relation_broken(self, _remove_service, _remove_ingress):
+        """Test relation-broken."""
+        # Call the test test_on_ingress_relation_changed first
+        # to make sure the relation is created and therefore can be removed.
+        self.test_on_ingress_relation_changed()
+        relation = self.harness.charm.model.get_relation("ingress")
+        self.harness.charm.on.ingress_relation_broken.emit(relation)
+        self.assertEqual(_remove_ingress.call_count, 1)
+        self.assertEqual(_remove_service.call_count, 1)
+
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""
         self.harness.disable_hooks()

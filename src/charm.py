@@ -455,5 +455,6 @@ class NginxIngressCharm(CharmBase):
                     raise
         self.unit.status = ActiveStatus()
 
+
 if __name__ == "__main__":  # pragma: no cover
     main(NginxIngressCharm)

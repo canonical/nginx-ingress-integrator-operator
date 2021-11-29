@@ -45,6 +45,7 @@ class NginxIngressCharm(CharmBase):
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
         self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
     def _describe_ingresses_action(self, event):
         """Handle the 'describe-ingresses' action."""
@@ -315,6 +316,22 @@ class NginxIngressCharm(CharmBase):
                 self._service_name,
             )
 
+    def _remove_service(self):
+        """Remove the created service in kubernetes."""
+        self.k8s_auth()
+        api = _core_v1_api()
+        services = api.list_namespaced_service(namespace=self._namespace)
+        if self._k8s_service_name in [x.metadata.name for x in services.items]:
+            api.delete_namespaced_service(
+                name=self._k8s_service_name,
+                namespace=self._namespace,
+            )
+            logger.info(
+                "Service deleted in namespace %s with name %s",
+                self._namespace,
+                self._service_name,
+            )
+
     def _look_up_and_set_ingress_class(self, api, body):
         """Set the configured ingress class, otherwise the cluster's default ingress class."""
         ingress_class = self.config['ingress-class']
@@ -373,6 +390,19 @@ class NginxIngressCharm(CharmBase):
                 self._ingress_name,
             )
 
+    def _remove_ingress(self):
+        """Remove ingress resource."""
+        self.k8s_auth()
+        api = _networking_v1_api()
+        ingresses = api.list_namespaced_ingress(namespace=self._namespace)
+        if self._ingress_name in [x.metadata.name for x in ingresses.items]:
+            api.delete_namespaced_ingress(self._ingress_name, self._namespace)
+            logger.info(
+                "Ingress deleted in namespace %s with name %s",
+                self._namespace,
+                self._ingress_name,
+            )
+
     def _on_config_changed(self, _):
         """Handle the config changed event."""
         msg = ""
@@ -402,6 +432,28 @@ class NginxIngressCharm(CharmBase):
                 else:
                     raise
         self.unit.status = ActiveStatus(msg)
+
+    def _on_ingress_broken(self, _):
+        """Handle the ingress broken event."""
+        if self.unit.is_leader() and self._ingress_name:
+            try:
+                self._remove_ingress()
+                self._remove_service()
+            except kubernetes.client.exceptions.ApiException as e:
+                if e.status == 403:
+                    logger.error(
+                        "Insufficient permissions to delete the k8s ingress resource, "
+                        "will request `juju trust` to be run"
+                    )
+                    self.unit.status = BlockedStatus(
+                        "Insufficient permissions, try: `juju trust {} --scope=cluster`".format(
+                            self.app.name
+                        )
+                    )
+                    return
+                else:
+                    raise
+        self.unit.status = ActiveStatus()
 
 
 if __name__ == "__main__":  # pragma: no cover

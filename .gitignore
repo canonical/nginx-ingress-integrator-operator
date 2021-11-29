@@ -4,5 +4,3 @@
 .tox
 .coverage
 __pycache__
-build
-venv

@@ -1,4 +1,4 @@
-# Copyright 2021 Canonical Ltd.
+# Copyright 2021, 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 options:
   additional-hostnames:
@@ -47,6 +47,14 @@ options:
     default: 20
     description: Max allowed body-size (for file uploads) in megabytes, set to 0 to disable limits.
     type: int
+  owasp-modsecurity-crs:
+    default: false
+    description: >
+      Enable OWASP ModSecurity Core Rule Set (CRS). a set of generic attack detection rules for use
+      with ModSecurity or compatible web application firewalls. The CRS aims to protect web
+      applications from a wide range of attacks, including the OWASP Top Ten, with a minimum of
+      false alerts. See https://github.com/coreruleset/coreruleset for more details.
+    type: boolean
   path-routes:
     default: ""
     description: >

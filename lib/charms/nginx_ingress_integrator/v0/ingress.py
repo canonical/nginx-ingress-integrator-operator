@@ -15,6 +15,7 @@ Import `IngressRequires` in your charm, with two required options:
     - limit-rps
     - limit-whitelist
     - max-body-size
+    - owasp-modsecurity-crs
     - path-routes
     - retry-errors
     - rewrite-enabled
@@ -80,13 +81,14 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "limit-rps",
     "limit-whitelist",
     "max-body-size",
+    "owasp-modsecurity-crs",
+    "path-routes",
     "retry-errors",
     "rewrite-target",
     "rewrite-enabled",
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",
-    "path-routes",
 }
 
 

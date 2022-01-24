@@ -107,6 +107,11 @@ class NginxIngressCharm(CharmBase):
         return "{}m".format(max_body_size)
 
     @property
+    def _owasp_modsecurity_crs(self):
+        """Return a boolean indicating whether OWASP ModSecurity CRS is enabled."""
+        return self._get_config_or_relation_data("owasp-modsecurity-crs", False)
+
+    @property
     def _rewrite_enabled(self):
         """Return whether rewriting should be enabled from config or relation"""
         value = self._get_config_or_relation_data("rewrite-enabled", True)
@@ -240,14 +245,20 @@ class NginxIngressCharm(CharmBase):
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
-        if self._rewrite_enabled:
-            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
                 annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = self._limit_whitelist
+        if self._owasp_modsecurity_crs:
+            annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
+            annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
+            annotations[
+                "nginx.ingress.kubernetes.io/modsecurity-snippet"
+            ] = "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
         if self._retry_errors:
             annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
+        if self._rewrite_enabled:
+            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"

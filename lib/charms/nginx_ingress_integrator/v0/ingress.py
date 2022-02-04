@@ -15,6 +15,7 @@ Import `IngressRequires` in your charm, with two required options:
     - limit-rps
     - limit-whitelist
     - max-body-size
+    - owasp-modsecurity-crs
     - path-routes
     - retry-errors
     - rewrite-enabled
@@ -65,7 +66,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 9
+LIBPATCH = 10
 
 logger = logging.getLogger(__name__)
 
@@ -80,13 +81,14 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "limit-rps",
     "limit-whitelist",
     "max-body-size",
+    "owasp-modsecurity-crs",
+    "path-routes",
     "retry-errors",
     "rewrite-target",
     "rewrite-enabled",
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",
-    "path-routes",
 }
 
 

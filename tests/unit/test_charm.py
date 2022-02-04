@@ -196,6 +196,43 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
+    def test_owasp_modsecurity_crs(self):
+        """Test the owasp-modsecurity-crs property."""
+        # Test undefined.
+        self.assertEqual(self.harness.charm._owasp_modsecurity_crs, False)
+        # Test we have no annotations with this set to False.
+        self.harness.disable_hooks()
+        self.harness.update_config(
+            {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": 80,
+            }
+        )
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        expected = {
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+        # Test if we set the value we get the correct annotations and the
+        # correct charm property.
+        self.harness.update_config({"owasp-modsecurity-crs": True})
+        self.assertEqual(self.harness.charm._owasp_modsecurity_crs, True)
+        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        expected = {
+            "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
+            "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
+            "nginx.ingress.kubernetes.io/modsecurity-snippet": (
+                "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+            ),
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
     def test_retry_errors(self):
         """Test the retry-errors property."""
         # Test empty value.

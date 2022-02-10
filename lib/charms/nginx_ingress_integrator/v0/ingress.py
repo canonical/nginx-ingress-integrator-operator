@@ -54,7 +54,7 @@ the event was fired).
 
 import logging
 
-from ops.charm import CharmEvents
+from ops.charm import CharmEvents, RelationEvent
 from ops.framework import EventBase, EventSource, Object
 from ops.model import BlockedStatus
 
@@ -96,7 +96,7 @@ class IngressAvailableEvent(EventBase):
     pass
 
 
-class IngressBrokenEvent(EventBase):
+class IngressBrokenEvent(RelationEvent):
     pass
 
 
@@ -218,10 +218,10 @@ class IngressProvides(Object):
         # configure the ingress.
         self.charm.on.ingress_available.emit()
 
-    def _on_relation_broken(self, _):
+    def _on_relation_broken(self, event):
         """Handle a relation-broken event in the ingress relation."""
         if not self.model.unit.is_leader():
             return
 
         # Create an event that our charm can use to remove the ingress resource.
-        self.charm.on.ingress_broken.emit()
+        self.charm.on.ingress_broken.emit(event.relation)

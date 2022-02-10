@@ -30,29 +30,13 @@ def _networking_v1_api():
     return kubernetes.client.NetworkingV1Api()
 
 
-class NginxIngressCharm(CharmBase):
-    """Charm the service."""
+class _ConfigOrRelation(object):
 
-    _authed = False
-    on = IngressCharmEvents()
-
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
-
-        # 'ingress' relation handling.
-        self.ingress = IngressProvides(self)
-        # When the 'ingress' is ready to configure, do so.
-        self.framework.observe(self.on.ingress_available, self._on_config_changed)
-        self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
-
-    def _describe_ingresses_action(self, event):
-        """Handle the 'describe-ingresses' action."""
-        self.k8s_auth()
-        api = _networking_v1_api()
-        ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-        event.set_results({"ingresses": ingresses})
+    def __init__(self, model, config, relation=None):
+        super().__init__()
+        self.model = model
+        self.config = config
+        self.relation = relation
 
     def _get_config_or_relation_data(self, field, fallback):
         """Helper method to get data from config or the ingress relation."""
@@ -63,10 +47,9 @@ class NginxIngressCharm(CharmBase):
             return config_data
         if config_data:
             return config_data
-        relation = self.model.get_relation("ingress")
-        if relation:
+        if self.relation:
             try:
-                return relation.data[relation.app][field]
+                return self.relation.data[self.relation.app][field]
             except KeyError:
                 # Our relation isn't passing the information we're querying.
                 return fallback
@@ -181,15 +164,6 @@ class NginxIngressCharm(CharmBase):
         """Return the tls-secret-name to use for k8s ingress (if any)."""
         return self._get_config_or_relation_data("tls-secret-name", "")
 
-    def k8s_auth(self):
-        """Authenticate to kubernetes."""
-        if self._authed:
-            return
-
-        kubernetes.config.load_incluster_config()
-
-        self._authed = True
-
     def _get_k8s_service(self):
         """Get a K8s service definition."""
         return kubernetes.client.V1Service(
@@ -290,31 +264,81 @@ class NginxIngressCharm(CharmBase):
             spec=spec,
         )
 
+
+class NginxIngressCharm(CharmBase):
+    """Charm the service."""
+
+    _authed = False
+    on = IngressCharmEvents()
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
+
+        # 'ingress' relation handling.
+        self.ingress = IngressProvides(self)
+        # When the 'ingress' is ready to configure, do so.
+        self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
+
+    @property
+    def _all_config_or_relations(self):
+        all_relations = self.model.relations["ingress"] or [None]
+        return [_ConfigOrRelation(self.model, self.config, relation) for relation in all_relations]
+
+    @property
+    def _namespace(self):
+        return self._all_config_or_relations[0]._namespace
+
+    def _describe_ingresses_action(self, event):
+        """Handle the 'describe-ingresses' action."""
+        self.k8s_auth()
+        api = _networking_v1_api()
+
+        ingresses = api.list_namespaced_ingress(namespace=self._namespace)
+        event.set_results({"ingresses": ingresses})
+
+    def k8s_auth(self):
+        """Authenticate to kubernetes."""
+        if self._authed:
+            return
+
+        kubernetes.config.load_incluster_config()
+
+        self._authed = True
+
     def _report_service_ips(self):
         """Report on service IP(s)."""
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
+        all_k8s_service_names = [rel._k8s_service_name for rel in self._all_config_or_relations]
         return [
-            x.spec.cluster_ip for x in services.items if x.metadata.name == self._k8s_service_name
+            x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
-    def _define_service(self):
+    def _define_services(self):
+        """Create or update the services in Kubernetes from multiple ingress relations."""
+        for conf_or_rel in self._all_config_or_relations:
+            self._define_service(conf_or_rel)
+
+    def _define_service(self, conf_or_rel: _ConfigOrRelation):
         """Create or update a service in kubernetes."""
         self.k8s_auth()
         api = _core_v1_api()
-        body = self._get_k8s_service()
+        body = conf_or_rel._get_k8s_service()
         services = api.list_namespaced_service(namespace=self._namespace)
-        if self._k8s_service_name in [x.metadata.name for x in services.items]:
+        if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
             api.patch_namespaced_service(
-                name=self._k8s_service_name,
+                name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Service updated in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                conf_or_rel._service_name,
             )
         else:
             api.create_namespaced_service(
@@ -324,23 +348,23 @@ class NginxIngressCharm(CharmBase):
             logger.info(
                 "Service created in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                conf_or_rel._service_name,
             )
 
-    def _remove_service(self):
+    def _remove_service(self, conf_or_rel: _ConfigOrRelation):
         """Remove the created service in kubernetes."""
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
-        if self._k8s_service_name in [x.metadata.name for x in services.items]:
+        if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
             api.delete_namespaced_service(
-                name=self._k8s_service_name,
+                name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
             )
             logger.info(
                 "Service deleted in namespace %s with name %s",
                 self._namespace,
-                self._service_name,
+                conf_or_rel._service_name,
             )
 
     def _look_up_and_set_ingress_class(self, api, body):
@@ -372,23 +396,28 @@ class NginxIngressCharm(CharmBase):
 
         body.spec.ingress_class_name = ingress_class
 
-    def _define_ingress(self):
+    def _define_ingresses(self):
+        """Create or update the Ingress Resource in Kubernetes from multiple ingress relations."""
+        for conf_or_rel in self._all_config_or_relations:
+            self._define_ingress(conf_or_rel)
+
+    def _define_ingress(self, conf_or_rel: _ConfigOrRelation):
         """Create or update an ingress in kubernetes."""
         self.k8s_auth()
         api = _networking_v1_api()
-        body = self._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress()
         self._look_up_and_set_ingress_class(api, body)
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-        if self._ingress_name in [x.metadata.name for x in ingresses.items]:
+        if conf_or_rel._ingress_name in [x.metadata.name for x in ingresses.items]:
             api.replace_namespaced_ingress(
-                name=self._ingress_name,
+                name=conf_or_rel._ingress_name,
                 namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Ingress updated in namespace %s with name %s",
                 self._namespace,
-                self._ingress_name,
+                conf_or_rel._ingress_name,
             )
         else:
             api.create_namespaced_ingress(
@@ -398,20 +427,20 @@ class NginxIngressCharm(CharmBase):
             logger.info(
                 "Ingress created in namespace %s with name %s",
                 self._namespace,
-                self._ingress_name,
+                conf_or_rel._ingress_name,
             )
 
-    def _remove_ingress(self):
+    def _remove_ingress(self, conf_or_rel: _ConfigOrRelation):
         """Remove ingress resource."""
         self.k8s_auth()
         api = _networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-        if self._ingress_name in [x.metadata.name for x in ingresses.items]:
-            api.delete_namespaced_ingress(self._ingress_name, self._namespace)
+        if conf_or_rel._ingress_name in [x.metadata.name for x in ingresses.items]:
+            api.delete_namespaced_ingress(conf_or_rel._ingress_name, self._namespace)
             logger.info(
                 "Ingress deleted in namespace %s with name %s",
                 self._namespace,
-                self._ingress_name,
+                conf_or_rel._ingress_name,
             )
 
     def _on_config_changed(self, _):
@@ -419,10 +448,11 @@ class NginxIngressCharm(CharmBase):
         msg = ""
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
-        if self.unit.is_leader() and self._service_name:
+        svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
+        if self.unit.is_leader() and any(svc_names):
             try:
-                self._define_service()
-                self._define_ingress()
+                self._define_services()
+                self._define_ingresses()
                 # It's not recommended to do this via ActiveStatus, but we don't
                 # have another way of reporting status yet.
                 msg = "Ingress with service IP(s): {}".format(
@@ -444,12 +474,13 @@ class NginxIngressCharm(CharmBase):
                     raise
         self.unit.status = ActiveStatus(msg)
 
-    def _on_ingress_broken(self, _):
+    def _on_ingress_broken(self, event):
         """Handle the ingress broken event."""
-        if self.unit.is_leader() and self._ingress_name:
+        conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation)
+        if self.unit.is_leader() and conf_or_rel._ingress_name:
             try:
-                self._remove_ingress()
-                self._remove_service()
+                self._remove_ingress(conf_or_rel)
+                self._remove_service(conf_or_rel)
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
                     logger.error(

@@ -78,9 +78,10 @@ class TestCharm(unittest.TestCase):
     def test_get_ingress_relation_data(self):
         """Test for getting our ingress relation data."""
         # Confirm we don't have any relation data yet in the relevant properties
-        self.assertEqual(self.harness.charm._service_name, "")
-        self.assertEqual(self.harness.charm._service_hostname, "")
-        self.assertEqual(self.harness.charm._service_port, 0)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "")
+        self.assertEqual(conf_or_rel._service_hostname, "")
+        self.assertEqual(conf_or_rel._service_port, 0)
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
         relations_data = {
@@ -90,9 +91,10 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # And now confirm we have the expected data in the relevant properties.
-        self.assertEqual(self.harness.charm._service_name, "gunicorn")
-        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
-        self.assertEqual(self.harness.charm._service_port, 80)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "gunicorn")
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
+        self.assertEqual(conf_or_rel._service_port, 80)
 
     def test_multiple_routes_with_relation_data(self):
         """Test for getting our ingress relation data."""
@@ -138,14 +140,16 @@ class TestCharm(unittest.TestCase):
                 'path_type': 'Prefix',
             },
         ]
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         self.assertEqual(result_dict['spec']['rules'][0]['http']['paths'], expected)
 
     def test_max_body_size(self):
         """Test for the max-body-size property."""
         # First set via config.
         self.harness.update_config({"max-body-size": 80})
-        self.assertEqual(self.harness.charm._max_body_size, "80m")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._max_body_size, "80m")
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
@@ -158,10 +162,11 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Still 80 because it's set via config.
-        self.assertEqual(self.harness.charm._max_body_size, "80m")
+        self.assertEqual(conf_or_rel._max_body_size, "80m")
         self.harness.update_config({"max-body-size": 0})
         # Now it's the value from the relation.
-        self.assertEqual(self.harness.charm._max_body_size, "88m")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._max_body_size, "88m")
 
     def test_namespace(self):
         """Test for the namespace property."""
@@ -199,7 +204,8 @@ class TestCharm(unittest.TestCase):
     def test_owasp_modsecurity_crs(self):
         """Test the owasp-modsecurity-crs property."""
         # Test undefined.
-        self.assertEqual(self.harness.charm._owasp_modsecurity_crs, False)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._owasp_modsecurity_crs, False)
         # Test we have no annotations with this set to False.
         self.harness.disable_hooks()
         self.harness.update_config(
@@ -209,7 +215,8 @@ class TestCharm(unittest.TestCase):
                 "service-port": 80,
             }
         )
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -219,8 +226,8 @@ class TestCharm(unittest.TestCase):
         # Test if we set the value we get the correct annotations and the
         # correct charm property.
         self.harness.update_config({"owasp-modsecurity-crs": True})
-        self.assertEqual(self.harness.charm._owasp_modsecurity_crs, True)
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
             "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
@@ -236,21 +243,23 @@ class TestCharm(unittest.TestCase):
     def test_retry_errors(self):
         """Test the retry-errors property."""
         # Test empty value.
-        self.assertEqual(self.harness.charm._retry_errors, "")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._retry_errors, "")
         # Test we deal with spaces or not spaces properly.
         self.harness.update_config({"retry-errors": "error, timeout, http_502, http_503"})
-        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
+        self.assertEqual(conf_or_rel._retry_errors, "error timeout http_502 http_503")
         self.harness.update_config({"retry-errors": "error,timeout,http_502,http_503"})
-        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502 http_503")
+        self.assertEqual(conf_or_rel._retry_errors, "error timeout http_502 http_503")
         # Test unknown value.
         self.harness.update_config({"retry-errors": "error,timeout,http_502,http_418"})
-        self.assertEqual(self.harness.charm._retry_errors, "error timeout http_502")
+        self.assertEqual(conf_or_rel._retry_errors, "error timeout http_502")
 
     def test_service_port(self):
         """Test the service-port property."""
         # First set via config.
         self.harness.update_config({"service-port": 80})
-        self.assertEqual(self.harness.charm._service_port, 80)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_port, 80)
         # Now set via the relation.
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
@@ -261,16 +270,18 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation value.
-        self.assertEqual(self.harness.charm._service_port, 80)
+        self.assertEqual(conf_or_rel._service_port, 80)
         self.harness.update_config({"service-port": 0})
         # Now it's the value from the relation.
-        self.assertEqual(self.harness.charm._service_port, 88)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_port, 88)
 
     def test_service_hostname(self):
         """Test the service-hostname property."""
         # First set via config.
         self.harness.update_config({"service-hostname": "foo.internal"})
-        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         # Now set via the relation.
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
@@ -281,20 +292,22 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation value.
-        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         self.harness.update_config({"service-hostname": ""})
         # Now it's the value from the relation.
-        self.assertEqual(self.harness.charm._service_hostname, "foo-bar.internal")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_hostname, "foo-bar.internal")
 
     def test_session_cookie_max_age(self):
         """Test the session-cookie-max-age property."""
         # First set via config.
         self.harness.update_config({"session-cookie-max-age": 3600})
-        self.assertEqual(self.harness.charm._session_cookie_max_age, "3600")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._session_cookie_max_age, "3600")
         # Confirm if we set this to 0 we get a False value, e.g. it doesn't
         # return a string of "0" which would be evaluated to True.
         self.harness.update_config({"session-cookie-max-age": 0})
-        self.assertFalse(self.harness.charm._session_cookie_max_age)
+        self.assertFalse(conf_or_rel._session_cookie_max_age)
         # Now set via the relation.
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
@@ -305,12 +318,14 @@ class TestCharm(unittest.TestCase):
             "session-cookie-max-age": "3688",
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
-        self.assertEqual(self.harness.charm._session_cookie_max_age, "3688")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._session_cookie_max_age, "3688")
 
     def test_tls_secret_name(self):
         """Test the tls-secret-name property."""
         self.harness.update_config({"tls-secret-name": "gunicorn-tls"})
-        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
         # Now set via the relation.
         relation_id = self.harness.add_relation('ingress', 'gunicorn')
         self.harness.add_relation_unit(relation_id, 'gunicorn/0')
@@ -322,16 +337,18 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Config still overrides the relation data.
-        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls")
+        self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
         self.harness.update_config({"tls-secret-name": ""})
         # Now it's the value from the relation.
-        self.assertEqual(self.harness.charm._tls_secret_name, "gunicorn-tls-new")
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls-new")
 
     def test_rewrite_enabled_property(self):
         """Test for enabling request rewrites."""
         # First set via config.
         self.harness.update_config({"rewrite-enabled": True})
-        self.assertEqual(self.harness.charm._rewrite_enabled, True)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._rewrite_enabled, True)
         relation_id = self.harness.add_relation("ingress", "gunicorn")
         self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
@@ -341,9 +358,10 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Still /test-target because it's set via config.
-        self.assertEqual(self.harness.charm._rewrite_enabled, True)
+        self.assertEqual(conf_or_rel._rewrite_enabled, True)
         self.harness.update_config({"rewrite-enabled": ""})
-        self.assertEqual(self.harness.charm._rewrite_enabled, False)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._rewrite_enabled, False)
 
     def test_rewrite_annotations(self):
         self.harness.disable_hooks()
@@ -354,7 +372,8 @@ class TestCharm(unittest.TestCase):
                 "service-port": 80,
             }
         )
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -363,7 +382,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
         self.harness.update_config({"rewrite-enabled": False})
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -378,7 +397,7 @@ class TestCharm(unittest.TestCase):
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
-        result_dict = self.harness.charm._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
     @patch('charm.NginxIngressCharm._on_config_changed')
@@ -418,9 +437,10 @@ class TestCharm(unittest.TestCase):
         }
         self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
         # Test we get the values we expect:
-        self.assertEqual(self.harness.charm._service_hostname, "foo.internal")
-        self.assertEqual(self.harness.charm._service_name, "gunicorn")
-        self.assertEqual(self.harness.charm._service_port, 80)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
+        self.assertEqual(conf_or_rel._service_name, "gunicorn")
+        self.assertEqual(conf_or_rel._service_port, 80)
 
     @patch('charm.NginxIngressCharm._remove_ingress')
     @patch('charm.NginxIngressCharm._remove_service')
@@ -475,7 +495,8 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         # Test additional hostnames
         self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
         expected = kubernetes.client.V1Ingress(
@@ -551,7 +572,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         self.harness.update_config({"additional-hostnames": ""})
         # Test multiple paths
         expected = kubernetes.client.V1Ingress(
@@ -602,7 +623,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"path-routes": "/admin,/portal"})
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         self.harness.update_config({"path-routes": "/"})
         # Test with TLS.
         expected = kubernetes.client.V1Ingress(
@@ -646,7 +667,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         # Test ingress-class, max_body_size, retry_http_errors and
         # session-cookie-max-age config options.
         self.harness.update_config(
@@ -702,10 +723,10 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         # Test limit-whitelist on its own makes no change.
         self.harness.update_config({"limit-whitelist": "10.0.0.0/16"})
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         # And if we set limit-rps we get both. Unset other options to minimize output.
         self.harness.update_config(
             {
@@ -753,7 +774,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""
@@ -774,7 +795,8 @@ class TestCharm(unittest.TestCase):
                 ],
             ),
         )
-        self.assertEqual(self.harness.charm._get_k8s_service(), expected)
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._get_k8s_service(), expected)
 
 
 INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1beta1IngressClass(
@@ -853,27 +875,31 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
     def test_zero_ingress_class(self):
         """If there are no ingress classes, there's nothing to choose from."""
         api = _make_mock_api_list_ingress_class(ZERO_INGRESS_CLASS_LIST)
-        body = self.harness.charm._get_k8s_ingress()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)
 
     def test_one_ingress_class(self):
         """If there's one default ingress class, choose that."""
         api = _make_mock_api_list_ingress_class(ONE_INGRESS_CLASS_LIST)
-        body = self.harness.charm._get_k8s_ingress()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, 'public')
 
     def test_two_ingress_classes(self):
         """If there are two ingress classes, one default, choose that."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST)
-        body = self.harness.charm._get_k8s_ingress()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, 'public')
 
     def test_two_ingress_classes_two_default(self):
         """If there are two ingress classes, both default, choose neither."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT)
-        body = self.harness.charm._get_k8s_ingress()
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)

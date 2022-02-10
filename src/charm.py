@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 
 import logging
+import re
 
 import kubernetes.client
 
@@ -17,6 +18,8 @@ from ops.model import ActiveStatus, BlockedStatus
 
 logger = logging.getLogger(__name__)
 
+_INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
+
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 
 
@@ -30,16 +33,33 @@ def _networking_v1_api():
     return kubernetes.client.NetworkingV1Api()
 
 
-class _ConfigOrRelation(object):
+class ConflictingAnnotationsException(Exception):
+    pass
 
-    def __init__(self, model, config, relation=None):
+
+class ConflictingRoutesException(Exception):
+    pass
+
+
+class _ConfigOrRelation(object):
+    """Class containing data from the Charm configuration, or from a relation."""
+
+    def __init__(self, model, config, relation, multiple_relations):
+        """Creates a _ConfigOrRelation Object.
+
+        :param model: The charm model.
+        :param config: The charm's configuration.
+        :param relation: One of the charm's relations, if any.
+        :param multiple_relations: If the charm has more than one relation.
+        """
         super().__init__()
         self.model = model
         self.config = config
         self.relation = relation
+        self.multiple_relations = multiple_relations
 
-    def _get_config_or_relation_data(self, field, fallback):
-        """Helper method to get data from config or the ingress relation."""
+    def _get_config(self, field):
+        """Helper method to get data from config."""
         # Config fields with a default of None don't appear in the dict
         config_data = self.config.get(field, None)
         # A value of False is valid in these fields, so check it's not a null-value instead
@@ -47,12 +67,41 @@ class _ConfigOrRelation(object):
             return config_data
         if config_data:
             return config_data
+
+        return None
+
+    def _get_relation(self, field):
+        """Helper method to get data from the relation, if any."""
         if self.relation:
             try:
                 return self.relation.data[self.relation.app][field]
             except KeyError:
                 # Our relation isn't passing the information we're querying.
-                return fallback
+                return None
+        return None
+
+    def _get_config_or_relation_data(self, field, fallback):
+        """Helper method to get data from config or the ingress relation, in that order."""
+        data = self._get_config(field)
+        if data is not None:
+            return data
+
+        data = self._get_relation(field)
+        if data is not None:
+            return data
+
+        return fallback
+
+    def _get_relation_data_or_config(self, field, fallback):
+        """Helper method to get data from the ingress relation or config, in that order."""
+        data = self._get_relation(field)
+        if data is not None:
+            return data
+
+        data = self._get_config(field)
+        if data is not None:
+            return data
+
         return fallback
 
     @property
@@ -66,8 +115,14 @@ class _ConfigOrRelation(object):
     @property
     def _ingress_name(self):
         """Return an ingress name for use creating a k8s ingress."""
-        # Follow the same naming convention as Juju.
-        return "{}-ingress".format(self._get_config_or_relation_data("service-name", ""))
+        # If there are 2 or more services configured to use the same service-hostname, the
+        # controller nginx/nginx-ingress requires them to be in the same Kubernetes Ingress object.
+        # Otherwise, Ingress will be served for only one of the services.
+        # Because of this, we'll have to group all ingresses into the same Kubernetes Resource
+        # based on their requested service-hostname.
+        svc_hostname = self._get_config_or_relation_data("service-hostname", "")
+        ingress_name = _INGRESS_SUB_REGEX.sub("-", svc_hostname)
+        return "{}-ingress".format(ingress_name)
 
     @property
     def _limit_rps(self):
@@ -143,12 +198,28 @@ class _ConfigOrRelation(object):
     @property
     def _service_name(self):
         """Return the name of the service we're connecting to."""
+        # NOTE: If the charm has multiple relations, use the service name given by the relation
+        # in order to avoid service name conflicts.
+        if self.multiple_relations:
+            return self._get_relation_data_or_config("service-name", "")
         return self._get_config_or_relation_data("service-name", "")
 
     @property
     def _service_port(self):
         """Return the port for the service we're connecting to."""
-        return int(self._get_config_or_relation_data("service-port", 0))
+        # NOTE: If the charm has multiple relations, use the service port given by the relation.
+        if self.multiple_relations:
+            return int(self._get_relation_data_or_config("service-port", 0))
+        return int(self._get_relation_data_or_config("service-port", 0))
+
+    @property
+    def _path_routes(self):
+        """Return the path routes to use for the k8s ingress."""
+        # NOTE: If the charm has multiple relations, use the path routes given by the relation
+        # in order to avoid same route conflicts.
+        if self.multiple_relations:
+            return self._get_relation_data_or_config("path-routes", "/").split(",")
+        return self._get_config_or_relation_data("path-routes", "/").split(",")
 
     @property
     def _session_cookie_max_age(self):
@@ -184,7 +255,6 @@ class _ConfigOrRelation(object):
 
     def _get_k8s_ingress(self):
         """Get a K8s ingress definition."""
-        paths = self._get_config_or_relation_data("path-routes", "/").split(",")
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
                 path=path,
@@ -198,7 +268,7 @@ class _ConfigOrRelation(object):
                     ),
                 ),
             )
-            for path in paths
+            for path in self._path_routes
         ]
 
         hostnames = [self._service_hostname]
@@ -285,7 +355,15 @@ class NginxIngressCharm(CharmBase):
     @property
     def _all_config_or_relations(self):
         all_relations = self.model.relations["ingress"] or [None]
-        return [_ConfigOrRelation(self.model, self.config, relation) for relation in all_relations]
+        multiple_rels = self._multiple_relations
+        return [
+            _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
+            for relation in all_relations
+        ]
+
+    @property
+    def _multiple_relations(self):
+        return len(self.model.relations["ingress"]) > 1
 
     @property
     def _namespace(self):
@@ -396,28 +474,153 @@ class NginxIngressCharm(CharmBase):
 
         body.spec.ingress_class_name = ingress_class
 
-    def _define_ingresses(self):
-        """Create or update the Ingress Resource in Kubernetes from multiple ingress relations."""
-        for conf_or_rel in self._all_config_or_relations:
-            self._define_ingress(conf_or_rel)
+    def _define_ingresses(self, excluded_relation=None):
+        """(Re)Creates the Ingress Resources in Kubernetes from multiple ingress relations.
 
-    def _define_ingress(self, conf_or_rel: _ConfigOrRelation):
+        Creates the Kubernetes Ingress Resource if it does not exist, or updates it if it does.
+        The Ingress-related data is retrieved from the Charm's configuration and from the ingress
+        relations.
+
+        :param excluded_relation: The relation for which Ingress rules should not be created.
+            For example, when a relation is broken, Ingress rules for it are no longer
+            necessary, hence, it is to be excluded. Additionally, any Ingress objects that it
+            required and that are no longer needed by other relations will be deleted.
+        """
+        config_or_relations = self._all_config_or_relations
+        if excluded_relation:
+            config_or_relations = filter(
+                lambda conf_or_rel: conf_or_rel.relation != excluded_relation, config_or_relations
+            )
+
+        ingresses = [conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations]
+
+        ingresses = self._process_ingresses(ingresses)
+
+        # Check if we need to remove any Ingresses from the excluded relation. If it has hostnames
+        # that are not used by any other relation, we need to remove them.
+        if excluded_relation:
+            conf_or_rel = _ConfigOrRelation(
+                self.model, self.config, excluded_relation, self._multiple_relations
+            )
+            excluded_ingress = conf_or_rel._get_k8s_ingress()
+
+            # The Kubernetes Ingress Resources we're creating only has 1 rule per hostname.
+            used_hostnames = [ingress.spec.rules[0].host for ingress in ingresses]
+            for rule in excluded_ingress.spec.rules:
+                if rule.host not in used_hostnames:
+                    self._remove_ingress(self._ingress_name(rule.host))
+
+        for ingress in ingresses:
+            self._define_ingress(ingress)
+
+    def _process_ingresses(self, ingresses):
+        # If there are Ingress rules for the same service-hostname, we need to squash those
+        # rules together. This will be used to group the rules by their host.
+        ingress_paths = {}
+
+        # Mapping between a hostname and the first ingress defining that hostname. Its metadata
+        # will be used for defining the Kubernetes Ingress Resource for the rules having the
+        # same hostname. The metadata used will be from the first rule that references that
+        # hostname.
+        hostname_ingress = {}
+        for ingress in ingresses:
+            # A relation could have defined additional-hostnames, so there could be more than
+            # one rule. Those hostnames might also be used in other relations.
+            for rule in ingress.spec.rules:
+                if rule.host not in ingress_paths:
+                    ingress_paths[rule.host] = rule.http.paths
+                    hostname_ingress[rule.host] = ingress
+                    continue
+
+                # Ensure that the annotations for this rule match the others in the same group.
+                other_metadata = hostname_ingress[rule.host].metadata
+                if ingress.metadata.annotations != other_metadata.annotations:
+                    logger.error(
+                        "Annotations that will be set do not match for the rule:\n"
+                        "Rule: %s\nAnnotations: %s\nUsed Annotations: %s",
+                        rule,
+                        ingress.metadata.annotations,
+                        other_metadata.annotations,
+                    )
+                    raise ConflictingAnnotationsException()
+
+                # Ensure that the exact same route for this route was not yet defined.
+                defined_paths = ingress_paths[rule.host]
+                for path in rule.http.paths:
+                    duplicate_paths = list(filter(lambda p: p.path == path.path, defined_paths))
+                    if duplicate_paths:
+                        logger.error(
+                            "Duplicate routes found:\nFirst route: %s\nSecond route: %s",
+                            duplicate_paths[0],
+                            path,
+                        )
+                        raise ConflictingRoutesException()
+
+                # Extend the list of routes for this hostname.
+                ingress_paths[rule.host].extend(rule.http.paths)
+
+        # Create the new Kubernetes Ingress Objects that are to be added.
+        ingress_objs = []
+        for hostname, paths in ingress_paths.items():
+            # Use the metadata from the first rule.
+            initial_ingress = hostname_ingress[hostname]
+            add_ingress = self._create_k8s_ingress_obj(hostname, initial_ingress, paths)
+            ingress_objs.append(add_ingress)
+
+        return ingress_objs
+
+    def _ingress_name(self, hostname):
+        """Returns the Kubernetes Ingress Resource name based on the given hostname."""
+        ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
+        return "{}-ingress".format(ingress_name)
+
+    def _create_k8s_ingress_obj(self, svc_hostname, initial_ingress, paths):
+        """Creates a Kubernetes Ingress Resources with the given data."""
+
+        # Create a Ingress Object with the new ingress rules and return it.
+        rule = kubernetes.client.V1IngressRule(
+            host=svc_hostname,
+            http=kubernetes.client.V1HTTPIngressRuleValue(paths=paths),
+        )
+        # We're going to use an ingress name based on the desired service hostname.
+        ingress_name = self._ingress_name(svc_hostname)
+        new_spec = kubernetes.client.V1IngressSpec(rules=[rule])
+
+        # The service hostname might be configured to use TLS.
+        if initial_ingress.spec.tls:
+            new_spec.tls = [
+                kubernetes.client.V1IngressTLS(
+                    hosts=[svc_hostname],
+                    secret_name=initial_ingress.spec.tls[0].secret_name,
+                )
+            ]
+        return kubernetes.client.V1Ingress(
+            api_version="networking.k8s.io/v1",
+            kind="Ingress",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=ingress_name,
+                annotations=initial_ingress.metadata.annotations,
+            ),
+            spec=new_spec,
+        )
+
+    def _define_ingress(self, body):
         """Create or update an ingress in kubernetes."""
         self.k8s_auth()
         api = _networking_v1_api()
-        body = conf_or_rel._get_k8s_ingress()
         self._look_up_and_set_ingress_class(api, body)
+        ingress_name = body.metadata.name
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-        if conf_or_rel._ingress_name in [x.metadata.name for x in ingresses.items]:
+        if ingress_name in [x.metadata.name for x in ingresses.items]:
             api.replace_namespaced_ingress(
-                name=conf_or_rel._ingress_name,
+                name=ingress_name,
                 namespace=self._namespace,
                 body=body,
             )
             logger.info(
                 "Ingress updated in namespace %s with name %s",
                 self._namespace,
-                conf_or_rel._ingress_name,
+                ingress_name,
             )
         else:
             api.create_namespaced_ingress(
@@ -427,20 +630,20 @@ class NginxIngressCharm(CharmBase):
             logger.info(
                 "Ingress created in namespace %s with name %s",
                 self._namespace,
-                conf_or_rel._ingress_name,
+                ingress_name,
             )
 
-    def _remove_ingress(self, conf_or_rel: _ConfigOrRelation):
+    def _remove_ingress(self, ingress_name):
         """Remove ingress resource."""
         self.k8s_auth()
         api = _networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-        if conf_or_rel._ingress_name in [x.metadata.name for x in ingresses.items]:
-            api.delete_namespaced_ingress(conf_or_rel._ingress_name, self._namespace)
+        if ingress_name in [x.metadata.name for x in ingresses.items]:
+            api.delete_namespaced_ingress(ingress_name, self._namespace)
             logger.info(
                 "Ingress deleted in namespace %s with name %s",
                 self._namespace,
-                conf_or_rel._ingress_name,
+                ingress_name,
             )
 
     def _on_config_changed(self, _):
@@ -453,6 +656,7 @@ class NginxIngressCharm(CharmBase):
             try:
                 self._define_services()
                 self._define_ingresses()
+
                 # It's not recommended to do this via ActiveStatus, but we don't
                 # have another way of reporting status yet.
                 msg = "Ingress with service IP(s): {}".format(
@@ -472,14 +676,28 @@ class NginxIngressCharm(CharmBase):
                     return
                 else:
                     raise
+            except ConflictingAnnotationsException:
+                self.unit.status = BlockedStatus(
+                    "Conflicting annotations from relations. Run juju debug-log for details. "
+                    "Set manually via juju config."
+                )
+                return
+            except ConflictingRoutesException:
+                self.unit.status = BlockedStatus(
+                    "Duplicate route found; cannot add ingress. Run juju debug-log for details."
+                )
+                return
         self.unit.status = ActiveStatus(msg)
 
     def _on_ingress_broken(self, event):
         """Handle the ingress broken event."""
-        conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation)
+        conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation, self._multiple_relations)
         if self.unit.is_leader() and conf_or_rel._ingress_name:
             try:
-                self._remove_ingress(conf_or_rel)
+                # NOTE: _define_ingresses will recreate the Kubernetes Ingress Resources based
+                # on the existing relations, and remove any resources that are no longer needed
+                # (they were needed by the event relation).
+                self._define_ingresses(excluded_relation=event.relation)
                 self._remove_service(conf_or_rel)
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
@@ -495,6 +713,18 @@ class NginxIngressCharm(CharmBase):
                     return
                 else:
                     raise
+            except ConflictingAnnotationsException:
+                self.unit.status = BlockedStatus(
+                    "Conflicting annotations from relations. Run juju debug-log for details. "
+                    "Set manually via juju config."
+                )
+                return
+            except ConflictingRoutesException:
+                self.unit.status = BlockedStatus(
+                    "Duplicate route found; cannot add ingress. Run juju debug-log for details."
+                )
+                return
+
         self.unit.status = ActiveStatus()
 
 

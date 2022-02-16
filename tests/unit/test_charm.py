@@ -969,7 +969,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
     def test_get_multiple_ingress_relation_data(self):
         """Test for getting our multiple ingress relation data."""
         # Confirm we don't have any relation data yet in the relevant properties
-        # NOTE(claudiub): _all_config_or_relations will always have at least one element.
+        # NOTE: _all_config_or_relations will always have at least one element.
         conf_or_rels = self.harness.charm._all_config_or_relations
         self.assertEqual(0, len(self.harness.charm.model.relations['ingress']))
         self.assertEqual(1, len(conf_or_rels))

@@ -354,6 +354,7 @@ class NginxIngressCharm(CharmBase):
 
     @property
     def _all_config_or_relations(self):
+        """Get all configuration and relation data."""
         all_relations = self.model.relations["ingress"] or [None]
         multiple_rels = self._multiple_relations
         return [
@@ -363,10 +364,16 @@ class NginxIngressCharm(CharmBase):
 
     @property
     def _multiple_relations(self):
+        """Return a boolean indicating if we're related to multiple applications."""
         return len(self.model.relations["ingress"]) > 1
 
     @property
     def _namespace(self):
+        """Namespace for this ingress."""
+        # We're querying the first one here because this will always be the same
+        # for all instances. It would be very unusual for a relation to specify
+        # this (arguably we should remove this as a relation option), so if set
+        # via config it will be the same for all relations.
         return self._all_config_or_relations[0]._namespace
 
     def _describe_ingresses_action(self, event):
@@ -514,6 +521,7 @@ class NginxIngressCharm(CharmBase):
             self._define_ingress(ingress)
 
     def _process_ingresses(self, ingresses):
+        """Process ingresses, or raise an exception if there are unresolvable conflicts."""
         # If there are Ingress rules for the same service-hostname, we need to squash those
         # rules together. This will be used to group the rules by their host.
         ingress_paths = {}

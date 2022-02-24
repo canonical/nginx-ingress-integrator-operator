@@ -35,13 +35,19 @@ class TestCharm(unittest.TestCase):
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        # Test if config-changed is called with service-name empty, our methods still
-        # aren't called.
+        # Test if config-changed is called with service-hostname, service-name, service-port empty,
+        # our methods still aren't called.
         self.harness.update_config({"service-name": ""})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
-        # And now test if we set a service-name config, our methods are called.
         self.harness.update_config({"service-name": "gunicorn"})
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        self.harness.update_config({"service-port": 80})
+        self.assertEqual(_define_ingress.call_count, 0)
+        self.assertEqual(_define_service.call_count, 0)
+        # And now test if we set a service-hostname config, our methods are called.
+        self.harness.update_config({"service-hostname": "gunic.orn"})
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
         # Confirm status is as expected.
@@ -1374,3 +1380,52 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         expected_status = ActiveStatus("Ingress with service IP(s): 10.0.1.12")
         self.assertEqual(expected_status, self.harness.charm.unit.status)
+
+    @patch('charm.NginxIngressCharm._report_service_ips')
+    @patch('charm.NginxIngressCharm._define_ingress')
+    @patch('charm.NginxIngressCharm._define_service')
+    def test_missing_relation_data(
+        self, mock_define_service, mock_define_ingress, mock_report_ips
+    ):
+        """Test for handling missing relation data."""
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+
+        # Add the first relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.in.ternal",
+            "service-port": "80",
+        }
+        self._add_ingress_relation('gunicorn', rel_data)
+
+        # Add the second relation, but it will not have any relation data. No services or
+        # ingresses should be defined for it.
+        mock_define_service.reset_mock()
+        mock_define_ingress.reset_mock()
+        rel_id = self._add_ingress_relation('funicorn', {})
+
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        mock_define_service.assert_called_once()
+        expected_body = conf_or_rels[0]._get_k8s_ingress()
+        mock_define_ingress.assert_called_once_with(expected_body)
+
+        # Update the relation data to container proper data.
+        mock_define_service.reset_mock()
+        mock_define_ingress.reset_mock()
+        rel_data = {
+            "service-name": "funicorn",
+            "service-hostname": "foo.in.ternal",
+            "service-port": "80",
+            # Since it has the same service-hostname as gunicorn, we need a different route.
+            "path-routes": "/funicorn",
+        }
+        self.harness.update_relation_data(rel_id, 'funicorn', rel_data)
+
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
+        second_body = conf_or_rels[1]._get_k8s_ingress()
+        expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
+        mock_define_ingress.assert_called_once_with(expected_body)

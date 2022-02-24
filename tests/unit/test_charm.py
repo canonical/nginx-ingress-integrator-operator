@@ -1318,6 +1318,115 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.assert_not_called()
 
     @patch('charm.NginxIngressCharm._report_service_ips')
+    @patch('charm.NginxIngressCharm._remove_service')
+    @patch('charm.NginxIngressCharm._define_service')
+    @patch('charm._networking_v1_api')
+    def test_ingress_multiple_relations_additional_hostnames(
+        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+    ):
+        """Test for checking Ingress creation / deletion for multiple relations.
+
+        This test will check that the charm will create multiple Resources for different hostnames.
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the first relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.in.ternal",
+            "service-port": "80",
+            "additional-hostnames": "lish.in.ternal",
+            "tls-secret-name": "some-secret",
+        }
+        rel_id1 = self._add_ingress_relation('gunicorn', rel_data)
+
+        # It should create 2 different Ingress Resources, since we have an additional hostname.
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        mock_create_ingress = mock_api.return_value.create_namespaced_ingress
+        first_body = conf_or_rels[0]._get_k8s_ingress()
+        first_body.spec.rules = [first_body.spec.rules[0]]
+        second_body = conf_or_rels[0]._get_k8s_ingress()
+        second_body.metadata.name = "lish-in-ternal-ingress"
+        second_body.spec.rules = [second_body.spec.rules[1]]
+        second_body.spec.tls[0].hosts = ["lish.in.ternal"]
+        mock_create_ingress.assert_has_calls(
+            [
+                mock.call(namespace=self.harness.charm._namespace, body=first_body),
+                mock.call(namespace=self.harness.charm._namespace, body=second_body),
+            ]
+        )
+
+        # Reset the create ingress mock, and add a second relation with the service-hostname set
+        # to the first relation's additional-hostname. A third K8s Ingress Resource should not
+        # be created.
+        mock_create_ingress.reset_mock()
+        mock_ingress1 = MagicMock()
+        mock_ingress1.metadata.name = "foo-in-ternal-ingress"
+        mock_ingress2 = MagicMock()
+        mock_ingress2.metadata.name = "lish-in-ternal-ingress"
+        mock_list_ingress.return_value.items = [mock_ingress1, mock_ingress2]
+
+        rel_data = {
+            "service-name": "punicorn",
+            "service-hostname": "lish.in.ternal",
+            "service-port": "9090",
+            "path-routes": "/lish",
+            "tls-secret-name": "some-secret",
+        }
+        self._add_ingress_relation('punicorn', rel_data)
+
+        # We're expecting that the first K8s Ingress Resource will be updated, but it will not
+        # change, and that the second K8s Ingress Resource will be updated to include the route
+        # from the second relation.
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        mock_create_ingress.assert_not_called()
+
+        second_rel_body = conf_or_rels[1]._get_k8s_ingress()
+        second_body.spec.rules[0].http.paths.extend(second_rel_body.spec.rules[0].http.paths)
+        calls = [
+            mock.call(
+                name=conf_or_rels[0]._ingress_name,
+                namespace=self.harness.charm._namespace,
+                body=first_body,
+            ),
+            mock.call(
+                name=conf_or_rels[1]._ingress_name,
+                namespace=self.harness.charm._namespace,
+                body=second_body,
+            ),
+        ]
+        mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
+        mock_replace_ingress.assert_has_calls(calls)
+
+        # Remove the first relation and assert that only the first ingress is removed.
+        mock_ingress2 = MagicMock()
+        mock_ingress2.metadata.name = "lish-in-ternal-ingress"
+        mock_list_ingress.return_value.items = [mock_ingress1, mock_ingress2]
+        mock_create_ingress.reset_mock()
+        mock_replace_ingress.reset_mock()
+        self.harness.remove_relation(rel_id1)
+
+        # Assert that only the ingress for the first relation was removed.
+        mock_delete_ingress = mock_api.return_value.delete_namespaced_ingress
+        mock_delete_ingress.assert_called_once_with(
+            conf_or_rels[0]._ingress_name,
+            self.harness.charm._namespace,
+        )
+        mock_create_ingress.assert_not_called()
+        mock_replace_ingress.assert_called_once_with(
+            name=conf_or_rels[1]._ingress_name,
+            namespace=self.harness.charm._namespace,
+            body=conf_or_rels[1]._get_k8s_ingress(),
+        )
+
+    @patch('charm.NginxIngressCharm._report_service_ips')
     @patch('charm.NginxIngressCharm._define_ingress')
     @patch('charm.NginxIngressCharm._define_service')
     @patch('charm._networking_v1_api')

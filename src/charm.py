@@ -536,7 +536,9 @@ class NginxIngressCharm(CharmBase):
             # one rule. Those hostnames might also be used in other relations.
             for rule in ingress.spec.rules:
                 if rule.host not in ingress_paths:
-                    ingress_paths[rule.host] = rule.http.paths
+                    # The same paths array is used for any additional-hostnames given, so we need
+                    # to make our own copy.
+                    ingress_paths[rule.host] = rule.http.paths.copy()
                     hostname_ingress[rule.host] = ingress
                     continue
 

@@ -490,15 +490,52 @@ class TestCharm(unittest.TestCase):
 
     @patch('charm.NginxIngressCharm._remove_ingress')
     @patch('charm.NginxIngressCharm._remove_service')
-    def test_on_ingress_relation_broken(self, _remove_service, _remove_ingress):
+    def test_on_ingress_relation_broken_unauthorized(self, _remove_service, _remove_ingress):
+        """Test the Unauthorized case on relation-broken."""
+        # Call the test test_on_ingress_relation_changed first
+        # to make sure the relation is created and therefore can be removed.
+        self.test_on_ingress_relation_changed()
+        _remove_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
+
+        self.harness.charm._authed = True
+        relation = self.harness.charm.model.get_relation("ingress")
+        self.harness.remove_relation(relation.id)
+
+        expected_status = BlockedStatus(
+            "Insufficient permissions, try: `juju trust %s --scope=cluster`"
+            % self.harness.charm.app.name
+        )
+        self.assertEqual(self.harness.charm.unit.status, expected_status)
+
+    @patch('charm._networking_v1_api')
+    @patch('charm._core_v1_api')
+    def test_on_ingress_relation_broken(self, mock_core_api, mock_net_api):
         """Test relation-broken."""
         # Call the test test_on_ingress_relation_changed first
         # to make sure the relation is created and therefore can be removed.
         self.test_on_ingress_relation_changed()
+
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        mock_service = mock.Mock()
+        mock_service.metadata.name = conf_or_rels[0]._service_name
+        mock_services = mock_core_api.return_value.list_namespaced_service.return_value
+        mock_services.items = [mock_service]
+
+        mock_ingress = mock.Mock()
+        mock_ingress.metadata.name = conf_or_rels[0]._ingress_name
+        mock_ingresses = mock_net_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress]
+
+        self.harness.charm._authed = True
         relation = self.harness.charm.model.get_relation("ingress")
         self.harness.remove_relation(relation.id)
-        self.assertEqual(_remove_ingress.call_count, 1)
-        self.assertEqual(_remove_service.call_count, 1)
+
+        mock_core_api.delete_namespaced_service(
+            name=conf_or_rels[0]._service_name, namespace=conf_or_rels[0]._namespace
+        )
+        mock_net_api.delete_namespaced_ingress(
+            conf_or_rels[0]._ingress_name, conf_or_rels[0]._namespace
+        )
 
     def test_get_k8s_ingress(self):
         """Test getting our definition of a k8s ingress."""

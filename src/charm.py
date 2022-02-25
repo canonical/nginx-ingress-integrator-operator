@@ -10,6 +10,7 @@ import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
+    REQUIRED_INGRESS_RELATION_FIELDS,
 )
 from ops.charm import CharmBase
 from ops.main import main
@@ -403,10 +404,20 @@ class NginxIngressCharm(CharmBase):
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
+    def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
+        """Checks if the given config or relation has the required fields set."""
+        # We use the same names in _ConfigOrRelation, but with _ instead of -.
+        field_names = ["_%s" % f.replace("-", "_") for f in REQUIRED_INGRESS_RELATION_FIELDS]
+        return all([getattr(conf_or_rel, f) for f in field_names])
+
     def _define_services(self):
         """Create or update the services in Kubernetes from multiple ingress relations."""
         for conf_or_rel in self._all_config_or_relations:
-            self._define_service(conf_or_rel)
+            # By default, the service name is "". If there is no value set, we might be missing
+            # the needed relation data from that relation at this moment. Skip creating a Service
+            # for the current relation; it will be created when the relation data is set.
+            if self._has_required_fields(conf_or_rel):
+                self._define_service(conf_or_rel)
 
     def _define_service(self, conf_or_rel: _ConfigOrRelation):
         """Create or update a service in kubernetes."""
@@ -498,6 +509,9 @@ class NginxIngressCharm(CharmBase):
             config_or_relations = filter(
                 lambda conf_or_rel: conf_or_rel.relation != excluded_relation, config_or_relations
             )
+
+        # Filter out any cases in which we don't have data set (e.g.: missing relation data)
+        config_or_relations = filter(self._has_required_fields, config_or_relations)
 
         ingresses = [conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations]
 

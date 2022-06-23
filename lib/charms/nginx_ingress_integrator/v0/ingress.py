@@ -233,6 +233,15 @@ class IngressProvides(Object):
                 "Missing fields for ingress: {}".format(", ".join(missing_fields))
             )
 
+        # Conform to charm-relation-interfaces.
+        if "name" in ingress_data and "port" in ingress_data:
+            name = ingress_data["name"]
+            port = ingress_data["port"]
+        else:
+            name = ingress_data["service-name"]
+            port = ingress_data["service-port"]
+        event.relation.data[self.model.app]["url"] = "http://{}:{}/".format(name, port)
+
         # Create an event that our charm can use to decide it's okay to
         # configure the ingress.
         self.charm.on.ingress_available.emit()

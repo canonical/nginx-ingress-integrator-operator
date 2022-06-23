@@ -10,6 +10,7 @@ import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
+    RELATION_INTERFACE_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
 )
 from ops.charm import CharmBase
@@ -75,7 +76,15 @@ class _ConfigOrRelation(object):
         """Helper method to get data from the relation, if any."""
         if self.relation:
             try:
-                return self.relation.data[self.relation.app][field]
+                # We want to prioritise relation-interfaces data if we have it.
+                if field in RELATION_INTERFACES_MAPPINGS.values():
+                    new_field = RELATION_INTERFACES_MAPPINGS[field]
+                    try:
+                        return self.relation.data[self.relation.app][new_field]
+                    except KeyError:
+                        return self.relation.data[self.relation.app][field]
+                else:
+                    return self.relation.data[self.relation.app][field]
             except KeyError:
                 # Our relation isn't passing the information we're querying.
                 return None

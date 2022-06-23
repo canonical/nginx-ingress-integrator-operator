@@ -66,7 +66,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 10
+LIBPATCH = 11
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +89,13 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "service-namespace",
     "session-cookie-max-age",
     "tls-secret-name",
+}
+
+RELATION_INTERFACES_MAPPINGS = {
+    "service-hostname": "host",
+    "service-name": "name",
+    "service-port": "port",
+    "service-namespace": "model",
 }
 
 
@@ -120,6 +127,18 @@ class IngressRequires(Object):
         self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
 
         self.config_dict = config_dict
+
+        # Set default values.
+        DEFAULT_RELATION_FIELDS = {
+            "service_namespace": self.model.name,
+        }
+        for k, v in DEFAULT_RELATION_FIELDS.items():
+            if k not in config_dict or not config_dict[k]:
+                config_dict[k] = v
+
+        # And now populate data for conformity with charm-relation-interfaces.
+        for k, v in RELATION_INTERFACES_MAPPINGS.items():
+            self.config_dict[v] = self.config_dict[k]
 
     def _config_dict_errors(self, update_only=False):
         """Check our config dict for errors."""

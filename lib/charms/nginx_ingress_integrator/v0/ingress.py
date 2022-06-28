@@ -126,11 +126,9 @@ class IngressRequires(Object):
 
         self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
 
-        self.config_dict = config_dict
-
         # Set default values.
         DEFAULT_RELATION_FIELDS = {
-            "service_namespace": self.model.name,
+            "service-namespace": self.model.name,
         }
         for k, v in DEFAULT_RELATION_FIELDS.items():
             if k not in config_dict or not config_dict[k]:
@@ -138,7 +136,10 @@ class IngressRequires(Object):
 
         # And now populate data for conformity with charm-relation-interfaces.
         for k, v in RELATION_INTERFACES_MAPPINGS.items():
-            self.config_dict[v] = self.config_dict[k]
+            if k in config_dict and config_dict[k]:
+                config_dict[v] = config_dict[k]
+
+        self.config_dict = config_dict
 
     def _config_dict_errors(self, update_only=False):
         """Check our config dict for errors."""
@@ -146,7 +147,10 @@ class IngressRequires(Object):
         unknown = [
             x
             for x in self.config_dict
-            if x not in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
+            if x
+            not in REQUIRED_INGRESS_RELATION_FIELDS
+            | OPTIONAL_INGRESS_RELATION_FIELDS
+            | {v for v in RELATION_INTERFACES_MAPPINGS.values()}
         ]
         if unknown:
             logger.error(

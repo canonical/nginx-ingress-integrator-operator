@@ -10,7 +10,7 @@ import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
-    RELATION_INTERFACE_MAPPINGS,
+    RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
 )
 from ops.charm import CharmBase

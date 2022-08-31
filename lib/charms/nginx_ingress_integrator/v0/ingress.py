@@ -68,7 +68,7 @@ LIBAPI = 0
 # to 0 if you are raising the major API version
 LIBPATCH = 11
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 REQUIRED_INGRESS_RELATION_FIELDS = {
     "service-hostname",
@@ -97,6 +97,7 @@ RELATION_INTERFACES_MAPPINGS = {
     "service-port": "port",
     "service-namespace": "model",
 }
+RELATION_INTERFACES_MAPPINGS_VALUES = {v for v in RELATION_INTERFACES_MAPPINGS.values()}
 
 
 class IngressAvailableEvent(EventBase):
@@ -124,7 +125,9 @@ class IngressRequires(Object):
     def __init__(self, charm, config_dict):
         super().__init__(charm, "ingress")
 
-        self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
+        self.framework.observe(
+            charm.on["ingress"].relation_changed, self._on_relation_changed
+        )
 
         # Set default values.
         DEFAULT_RELATION_FIELDS = {
@@ -150,19 +153,21 @@ class IngressRequires(Object):
             if x
             not in REQUIRED_INGRESS_RELATION_FIELDS
             | OPTIONAL_INGRESS_RELATION_FIELDS
-            | {v for v in RELATION_INTERFACES_MAPPINGS.values()}
+            | RELATION_INTERFACES_MAPPINGS_VALUES
         ]
         if unknown:
-            logger.error(
+            LOGGER.error(
                 "Ingress relation error, unknown key(s) in config dictionary found: %s",
                 ", ".join(unknown),
             )
             self.model.unit.status = BlockedStatus(blocked_message)
             return True
         if not update_only:
-            missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
+            missing = [
+                x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict
+            ]
             if missing:
-                logger.error(
+                LOGGER.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",
                     ", ".join(sorted(missing)),
                 )
@@ -202,8 +207,12 @@ class IngressProvides(Object):
         super().__init__(charm, "ingress")
         # Observe the relation-changed hook event and bind
         # self.on_relation_changed() to handle the event.
-        self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
-        self.framework.observe(charm.on["ingress"].relation_broken, self._on_relation_broken)
+        self.framework.observe(
+            charm.on["ingress"].relation_changed, self._on_relation_changed
+        )
+        self.framework.observe(
+            charm.on["ingress"].relation_broken, self._on_relation_broken
+        )
         self.charm = charm
 
     def _on_relation_changed(self, event):
@@ -216,7 +225,8 @@ class IngressProvides(Object):
 
         ingress_data = {
             field: event.relation.data[event.app].get(field)
-            for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
+            for field in REQUIRED_INGRESS_RELATION_FIELDS
+            | OPTIONAL_INGRESS_RELATION_FIELDS
         }
 
         missing_fields = sorted(
@@ -228,13 +238,12 @@ class IngressProvides(Object):
         )
 
         if missing_fields:
-            logger.error(
-                "Missing required data fields for ingress relation: {}".format(
-                    ", ".join(missing_fields)
-                )
+            LOGGER.error(
+                "Missing required data fields for ingress relation: %s",
+                ", ".join(missing_fields),
             )
             self.model.unit.status = BlockedStatus(
-                "Missing fields for ingress: {}".format(", ".join(missing_fields))
+                f"Missing fields for ingress: {', '.join(missing_fields)}"
             )
 
         # Conform to charm-relation-interfaces.
@@ -244,7 +253,7 @@ class IngressProvides(Object):
         else:
             name = ingress_data["service-name"]
             port = ingress_data["service-port"]
-        event.relation.data[self.model.app]["url"] = "http://{}:{}/".format(name, port)
+        event.relation.data[self.model.app]["url"] = f"http://{name}:{port}/"
 
         # Create an event that our charm can use to decide it's okay to
         # configure the ingress.

@@ -11,6 +11,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
     RELATION_INTERFACES_MAPPINGS,
+    RELATION_INTERFACES_MAPPINGS_VALUES,
     REQUIRED_INGRESS_RELATION_FIELDS,
 )
 from ops.charm import CharmBase
@@ -77,7 +78,7 @@ class _ConfigOrRelation(object):
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
-                if field in RELATION_INTERFACES_MAPPINGS.values():
+                if field in RELATION_INTERFACES_MAPPINGS_VALUES:
                     new_field = RELATION_INTERFACES_MAPPINGS[field]
                     try:
                         return self.relation.data[self.relation.app][new_field]
@@ -722,6 +723,7 @@ class NginxIngressCharm(CharmBase):
         svc_names = [
             conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations
         ]
+        print(svc_names)
         if self.unit.is_leader() and any(svc_names):
             try:
                 self._define_services()

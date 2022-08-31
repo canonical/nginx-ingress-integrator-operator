@@ -15,6 +15,7 @@ from ops.model import (
 )
 from ops.testing import Harness
 from charm import NginxIngressCharm
+import pdb
 
 
 class TestCharm(unittest.TestCase):
@@ -107,6 +108,35 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._service_name, "gunicorn")
         self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         self.assertEqual(conf_or_rel._service_port, 80)
+
+    def test_get_ingress_relation_data_ingress_relation_standard(self):
+        """
+        arrange: given charm that does not have a relation configured
+        act: when a new relation is added with data based on the new ingress interface standard
+        assert: then the relation data is saved correctly.
+        """
+        # Confirm we don't have any relation data yet in the relevant properties
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "")
+        self.assertEqual(conf_or_rel._service_hostname, "")
+        self.assertEqual(conf_or_rel._service_port, 0)
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
+        relations_data = {
+            "name": "gunicorn",
+            "host": "foo.internal",
+            "port": "80",
+            "model": "model 1",
+        }
+
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
+
+        # And now confirm we have the expected data in the relevant properties.
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "gunicorn")
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
+        self.assertEqual(conf_or_rel._service_port, 80)
+        self.assertEqual(conf_or_rel._namespace, "model 1")
 
     def test_multiple_routes_with_relation_data(self):
         """Test for getting our ingress relation data."""

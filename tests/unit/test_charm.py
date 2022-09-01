@@ -28,9 +28,7 @@ class TestCharm(unittest.TestCase):
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
-    def test_config_changed(
-        self, _define_service, _define_ingress, _report_service_ips
-    ):
+    def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
@@ -75,9 +73,7 @@ class TestCharm(unittest.TestCase):
         # Confirm if we get a 403 error from k8s API we block with an appropriate message.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
-        _define_service.side_effect = kubernetes.client.exceptions.ApiException(
-            status=403
-        )
+        _define_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
         self.harness.set_leader(True)
         self.harness.update_config()
         self.assertEqual(
@@ -288,9 +284,7 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._retry_errors, "")
         # Test we deal with spaces or not spaces properly.
-        self.harness.update_config(
-            {"retry-errors": "error, timeout, http_502, http_503"}
-        )
+        self.harness.update_config({"retry-errors": "error, timeout, http_502, http_503"})
         self.assertEqual(conf_or_rel._retry_errors, "error timeout http_502 http_503")
         self.harness.update_config({"retry-errors": "error,timeout,http_502,http_503"})
         self.assertEqual(conf_or_rel._retry_errors, "error timeout http_502 http_503")
@@ -515,9 +509,7 @@ class TestCharm(unittest.TestCase):
             # Confirm blocked status.
             self.assertEqual(
                 self.harness.charm.unit.status,
-                BlockedStatus(
-                    "Missing fields for ingress: service-hostname, service-port"
-                ),
+                BlockedStatus("Missing fields for ingress: service-hostname, service-port"),
             )
 
         # Now test with complete relation data.
@@ -535,16 +527,12 @@ class TestCharm(unittest.TestCase):
 
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._remove_service")
-    def test_on_ingress_relation_broken_unauthorized(
-        self, _remove_service, _remove_ingress
-    ):
+    def test_on_ingress_relation_broken_unauthorized(self, _remove_service, _remove_ingress):
         """Test the Unauthorized case on relation-broken."""
         # Call the test test_on_ingress_relation_changed first
         # to make sure the relation is created and therefore can be removed.
         self.test_on_ingress_relation_changed()
-        _remove_service.side_effect = kubernetes.client.exceptions.ApiException(
-            status=403
-        )
+        _remove_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
 
         self.harness.charm._authed = True
         relation = self.harness.charm.model.get_relation("ingress")
@@ -635,9 +623,7 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
         # Test additional hostnames
-        self.harness.update_config(
-            {"additional-hostnames": "bar.internal,foo.external"}
-        )
+        self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
         expected = kubernetes.client.V1Ingress(
             api_version="networking.k8s.io/v1",
             kind="Ingress",
@@ -1275,9 +1261,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         expected_body = conf_or_rels[0]._get_k8s_ingress()
         second_body = conf_or_rels[1]._get_k8s_ingress()
 
-        expected_body.spec.rules[0].http.paths.extend(
-            second_body.spec.rules[0].http.paths
-        )
+        expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
@@ -1487,9 +1471,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_ingress.assert_not_called()
 
         second_rel_body = conf_or_rels[1]._get_k8s_ingress()
-        second_body.spec.rules[0].http.paths.extend(
-            second_rel_body.spec.rules[0].http.paths
-        )
+        second_body.spec.rules[0].http.paths.extend(second_rel_body.spec.rules[0].http.paths)
         calls = [
             mock.call(
                 name=conf_or_rels[0]._ingress_name,
@@ -1630,7 +1612,5 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
         second_body = conf_or_rels[1]._get_k8s_ingress()
         expected_body = conf_or_rels[0]._get_k8s_ingress()
-        expected_body.spec.rules[0].http.paths.extend(
-            second_body.spec.rules[0].http.paths
-        )
+        expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)

@@ -63,9 +63,7 @@ class _ConfigOrRelation(object):
         # Config fields with a default of None don't appear in the dict
         config_data = self.config.get(field, None)
         # A value of False is valid in these fields, so check it's not a null-value instead
-        if field in BOOLEAN_CONFIG_FIELDS and (
-            config_data is not None and config_data != ""
-        ):
+        if field in BOOLEAN_CONFIG_FIELDS and (config_data is not None and config_data != ""):
             return config_data
         if config_data:
             return config_data
@@ -198,9 +196,7 @@ class _ConfigOrRelation(object):
             "non_idempotent",
             "off",
         ]
-        return " ".join(
-            [x.strip() for x in retry.split(",") if x.strip() in accepted_values]
-        )
+        return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
 
     @property
     def _service_hostname(self):
@@ -236,9 +232,7 @@ class _ConfigOrRelation(object):
     @property
     def _session_cookie_max_age(self):
         """Return the session-cookie-max-age to use for k8s ingress."""
-        session_cookie_max_age = self._get_config_or_relation_data(
-            "session-cookie-max-age", 0
-        )
+        session_cookie_max_age = self._get_config_or_relation_data("session-cookie-max-age", 0)
         if session_cookie_max_age:
             return str(session_cookie_max_age)
         # Don't return "0" which would evaluate to True.
@@ -289,9 +283,7 @@ class _ConfigOrRelation(object):
         hostnames.extend(
             [
                 x
-                for x in self._get_config_or_relation_data(
-                    "additional-hostnames", ""
-                ).split(",")
+                for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
                 if x
             ]
         )
@@ -304,43 +296,31 @@ class _ConfigOrRelation(object):
         ]
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
-        annotations = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size
-        }
+        annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
-                annotations[
-                    "nginx.ingress.kubernetes.io/limit-whitelist"
-                ] = self._limit_whitelist
+                annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = self._limit_whitelist
         if self._owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
-            annotations[
-                "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"
-            ] = "true"
+            annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
             annotations[
                 "nginx.ingress.kubernetes.io/modsecurity-snippet"
             ] = "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
         if self._retry_errors:
-            annotations[
-                "nginx.ingress.kubernetes.io/proxy-next-upstream"
-            ] = self._retry_errors
+            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._rewrite_enabled:
-            annotations[
-                "nginx.ingress.kubernetes.io/rewrite-target"
-            ] = self._rewrite_target
+            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = self._rewrite_target
         if self._session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
-            annotations[
-                "nginx.ingress.kubernetes.io/session-cookie-change-on-failure"
-            ] = "true"
+            annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-max-age"
             ] = self._session_cookie_max_age
-            annotations[
-                "nginx.ingress.kubernetes.io/session-cookie-name"
-            ] = "{}_AFFINITY".format(self._service_name.upper())
+            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
+                self._service_name.upper()
+            )
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
@@ -372,9 +352,7 @@ class NginxIngressCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(
-            self.on.describe_ingresses_action, self._describe_ingresses_action
-        )
+        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
@@ -428,21 +406,15 @@ class NginxIngressCharm(CharmBase):
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
-        all_k8s_service_names = [
-            rel._k8s_service_name for rel in self._all_config_or_relations
-        ]
+        all_k8s_service_names = [rel._k8s_service_name for rel in self._all_config_or_relations]
         return [
-            x.spec.cluster_ip
-            for x in services.items
-            if x.metadata.name in all_k8s_service_names
+            x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
         """Checks if the given config or relation has the required fields set."""
         # We use the same names in _ConfigOrRelation, but with _ instead of -.
-        field_names = [
-            "_%s" % f.replace("-", "_") for f in REQUIRED_INGRESS_RELATION_FIELDS
-        ]
+        field_names = ["_%s" % f.replace("-", "_") for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all([getattr(conf_or_rel, f) for f in field_names])
 
     def _define_services(self):
@@ -505,9 +477,7 @@ class NginxIngressCharm(CharmBase):
             defaults = [
                 item.metadata.name
                 for item in api.list_ingress_class().items
-                if item.metadata.annotations.get(
-                    "ingressclass.kubernetes.io/is-default-class"
-                )
+                if item.metadata.annotations.get("ingressclass.kubernetes.io/is-default-class")
                 == "true"
             ]
 
@@ -524,9 +494,7 @@ class NginxIngressCharm(CharmBase):
 
             ingress_class = defaults[0]
             LOGGER.info(
-                "Using ingress class {} as it is the cluster's default".format(
-                    ingress_class
-                )
+                "Using ingress class {} as it is the cluster's default".format(ingress_class)
             )
 
         body.spec.ingress_class_name = ingress_class
@@ -553,9 +521,7 @@ class NginxIngressCharm(CharmBase):
         # Filter out any cases in which we don't have data set (e.g.: missing relation data)
         config_or_relations = filter(self._has_required_fields, config_or_relations)
 
-        ingresses = [
-            conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations
-        ]
+        ingresses = [conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations]
 
         ingresses = self._process_ingresses(ingresses)
 
@@ -613,9 +579,7 @@ class NginxIngressCharm(CharmBase):
                 # Ensure that the exact same route for this route was not yet defined.
                 defined_paths = ingress_paths[rule.host]
                 for path in rule.http.paths:
-                    duplicate_paths = list(
-                        filter(lambda p: p.path == path.path, defined_paths)
-                    )
+                    duplicate_paths = list(filter(lambda p: p.path == path.path, defined_paths))
                     if duplicate_paths:
                         LOGGER.error(
                             "Duplicate routes found:\nFirst route: %s\nSecond route: %s",
@@ -719,9 +683,7 @@ class NginxIngressCharm(CharmBase):
         msg = ""
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
-        svc_names = [
-            conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations
-        ]
+        svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
         print(svc_names)
         if self.unit.is_leader() and any(svc_names):
             try:
@@ -762,9 +724,7 @@ class NginxIngressCharm(CharmBase):
 
     def _on_ingress_broken(self, event):
         """Handle the ingress broken event."""
-        conf_or_rel = _ConfigOrRelation(
-            self.model, {}, event.relation, self._multiple_relations
-        )
+        conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation, self._multiple_relations)
         if self.unit.is_leader() and conf_or_rel._ingress_name:
             try:
                 # NOTE: _define_ingresses will recreate the Kubernetes Ingress Resources based

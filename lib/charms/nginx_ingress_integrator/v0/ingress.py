@@ -125,9 +125,7 @@ class IngressRequires(Object):
     def __init__(self, charm, config_dict):
         super().__init__(charm, "ingress")
 
-        self.framework.observe(
-            charm.on["ingress"].relation_changed, self._on_relation_changed
-        )
+        self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
 
         # Set default values.
         DEFAULT_RELATION_FIELDS = {
@@ -163,9 +161,7 @@ class IngressRequires(Object):
             self.model.unit.status = BlockedStatus(blocked_message)
             return True
         if not update_only:
-            missing = [
-                x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict
-            ]
+            missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
             if missing:
                 LOGGER.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",
@@ -207,12 +203,8 @@ class IngressProvides(Object):
         super().__init__(charm, "ingress")
         # Observe the relation-changed hook event and bind
         # self.on_relation_changed() to handle the event.
-        self.framework.observe(
-            charm.on["ingress"].relation_changed, self._on_relation_changed
-        )
-        self.framework.observe(
-            charm.on["ingress"].relation_broken, self._on_relation_broken
-        )
+        self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
+        self.framework.observe(charm.on["ingress"].relation_broken, self._on_relation_broken)
         self.charm = charm
 
     def _on_relation_changed(self, event):
@@ -225,8 +217,7 @@ class IngressProvides(Object):
 
         ingress_data = {
             field: event.relation.data[event.app].get(field)
-            for field in REQUIRED_INGRESS_RELATION_FIELDS
-            | OPTIONAL_INGRESS_RELATION_FIELDS
+            for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
         }
 
         missing_fields = sorted(

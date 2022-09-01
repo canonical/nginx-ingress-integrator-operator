@@ -131,14 +131,14 @@ class IngressRequires(Object):
         DEFAULT_RELATION_FIELDS = {
             "service-namespace": self.model.name,
         }
-        for k, v in DEFAULT_RELATION_FIELDS.items():
-            if k not in config_dict or not config_dict[k]:
-                config_dict[k] = v
+        for default_key, default_value in DEFAULT_RELATION_FIELDS.items():
+            if default_key not in config_dict or not config_dict[default_key]:
+                config_dict[default_key] = default_value
 
         # And now populate data for conformity with charm-relation-interfaces.
-        for k, v in RELATION_INTERFACES_MAPPINGS.items():
-            if k in config_dict and config_dict[k]:
-                config_dict[v] = config_dict[k]
+        for old_key, new_key in RELATION_INTERFACES_MAPPINGS.items():
+            if old_key in config_dict and config_dict[old_key]:
+                config_dict[new_key] = config_dict[old_key]
 
         self.config_dict = config_dict
 

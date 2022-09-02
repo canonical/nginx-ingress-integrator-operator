@@ -142,15 +142,9 @@ class IngressRequires(Object):
         """Check our config dict for errors."""
         blocked_message = "Error in ingress relation, check `juju debug-log`"
         unknown = [
-<<<<<<< HEAD
-            x
-            for x in self.config_dict
-            if x
-=======
             config_key
             for config_key in self.config_dict
             if config_key
->>>>>>> ingress-interface-standard-ingress-requires-unit-tests
             not in REQUIRED_INGRESS_RELATION_FIELDS
             | OPTIONAL_INGRESS_RELATION_FIELDS
             | RELATION_INTERFACES_MAPPINGS_VALUES

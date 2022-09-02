@@ -66,9 +66,9 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 10
+LIBPATCH = 11
 
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 REQUIRED_INGRESS_RELATION_FIELDS = {
     "service-hostname",
@@ -90,6 +90,14 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "session-cookie-max-age",
     "tls-secret-name",
 }
+
+RELATION_INTERFACES_MAPPINGS = {
+    "service-hostname": "host",
+    "service-name": "name",
+    "service-port": "port",
+    "service-namespace": "model",
+}
+RELATION_INTERFACES_MAPPINGS_VALUES = {v for v in RELATION_INTERFACES_MAPPINGS.values()}
 
 
 class IngressAvailableEvent(EventBase):
@@ -119,6 +127,19 @@ class IngressRequires(Object):
 
         self.framework.observe(charm.on["ingress"].relation_changed, self._on_relation_changed)
 
+        # Set default values.
+        DEFAULT_RELATION_FIELDS = {
+            "service-namespace": self.model.name,
+        }
+        for default_key, default_value in DEFAULT_RELATION_FIELDS.items():
+            if default_key not in config_dict or not config_dict[default_key]:
+                config_dict[default_key] = default_value
+
+        # And now populate data for conformity with charm-relation-interfaces.
+        for old_key, new_key in RELATION_INTERFACES_MAPPINGS.items():
+            if old_key in config_dict and config_dict[old_key]:
+                config_dict[new_key] = config_dict[old_key]
+
         self.config_dict = config_dict
 
     def _config_dict_errors(self, update_only=False):
@@ -127,10 +148,13 @@ class IngressRequires(Object):
         unknown = [
             x
             for x in self.config_dict
-            if x not in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
+            if x
+            not in REQUIRED_INGRESS_RELATION_FIELDS
+            | OPTIONAL_INGRESS_RELATION_FIELDS
+            | RELATION_INTERFACES_MAPPINGS_VALUES
         ]
         if unknown:
-            logger.error(
+            LOGGER.error(
                 "Ingress relation error, unknown key(s) in config dictionary found: %s",
                 ", ".join(unknown),
             )
@@ -139,7 +163,7 @@ class IngressRequires(Object):
         if not update_only:
             missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
             if missing:
-                logger.error(
+                LOGGER.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",
                     ", ".join(sorted(missing)),
                 )
@@ -205,14 +229,22 @@ class IngressProvides(Object):
         )
 
         if missing_fields:
-            logger.error(
-                "Missing required data fields for ingress relation: {}".format(
-                    ", ".join(missing_fields)
-                )
+            LOGGER.error(
+                "Missing required data fields for ingress relation: %s",
+                ", ".join(missing_fields),
             )
             self.model.unit.status = BlockedStatus(
-                "Missing fields for ingress: {}".format(", ".join(missing_fields))
+                f"Missing fields for ingress: {', '.join(missing_fields)}"
             )
+
+        # Conform to charm-relation-interfaces.
+        if "name" in ingress_data and "port" in ingress_data:
+            name = ingress_data["name"]
+            port = ingress_data["port"]
+        else:
+            name = ingress_data["service-name"]
+            port = ingress_data["service-port"]
+        event.relation.data[self.model.app]["url"] = f"http://{name}:{port}/"
 
         # Create an event that our charm can use to decide it's okay to
         # configure the ingress.

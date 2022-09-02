@@ -10,6 +10,7 @@ import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
     IngressCharmEvents,
     IngressProvides,
+    RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
 )
 from ops.charm import CharmBase
@@ -17,10 +18,8 @@ from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
 
 
-logger = logging.getLogger(__name__)
-
+LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
-
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 
 
@@ -75,7 +74,15 @@ class _ConfigOrRelation(object):
         """Helper method to get data from the relation, if any."""
         if self.relation:
             try:
-                return self.relation.data[self.relation.app][field]
+                # We want to prioritise relation-interfaces data if we have it.
+                if field in RELATION_INTERFACES_MAPPINGS:
+                    new_field = RELATION_INTERFACES_MAPPINGS[field]
+                    try:
+                        return self.relation.data[self.relation.app][new_field]
+                    except KeyError:
+                        return self.relation.data[self.relation.app][field]
+                else:
+                    return self.relation.data[self.relation.app][field]
             except KeyError:
                 # Our relation isn't passing the information we're querying.
                 return None
@@ -431,7 +438,7 @@ class NginxIngressCharm(CharmBase):
                 namespace=self._namespace,
                 body=body,
             )
-            logger.info(
+            LOGGER.info(
                 "Service updated in namespace %s with name %s",
                 self._namespace,
                 conf_or_rel._service_name,
@@ -441,7 +448,7 @@ class NginxIngressCharm(CharmBase):
                 namespace=self._namespace,
                 body=body,
             )
-            logger.info(
+            LOGGER.info(
                 "Service created in namespace %s with name %s",
                 self._namespace,
                 conf_or_rel._service_name,
@@ -457,7 +464,7 @@ class NginxIngressCharm(CharmBase):
                 name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
             )
-            logger.info(
+            LOGGER.info(
                 "Service deleted in namespace %s with name %s",
                 self._namespace,
                 conf_or_rel._service_name,
@@ -465,28 +472,28 @@ class NginxIngressCharm(CharmBase):
 
     def _look_up_and_set_ingress_class(self, api, body):
         """Set the configured ingress class, otherwise the cluster's default ingress class."""
-        ingress_class = self.config['ingress-class']
+        ingress_class = self.config["ingress-class"]
         if not ingress_class:
             defaults = [
                 item.metadata.name
                 for item in api.list_ingress_class().items
-                if item.metadata.annotations.get('ingressclass.kubernetes.io/is-default-class')
-                == 'true'
+                if item.metadata.annotations.get("ingressclass.kubernetes.io/is-default-class")
+                == "true"
             ]
 
             if not defaults:
-                logger.warning("Cluster has no default ingress class defined")
+                LOGGER.warning("Cluster has no default ingress class defined")
                 return
 
             if len(defaults) > 1:
-                logger.warning(
+                LOGGER.warning(
                     "Multiple default ingress classes defined, declining to choose between them. "
-                    "They are: {}".format(' '.join(sorted(defaults)))
+                    "They are: {}".format(" ".join(sorted(defaults)))
                 )
                 return
 
             ingress_class = defaults[0]
-            logger.info(
+            LOGGER.info(
                 "Using ingress class {} as it is the cluster's default".format(ingress_class)
             )
 
@@ -507,7 +514,8 @@ class NginxIngressCharm(CharmBase):
         config_or_relations = self._all_config_or_relations
         if excluded_relation:
             config_or_relations = filter(
-                lambda conf_or_rel: conf_or_rel.relation != excluded_relation, config_or_relations
+                lambda conf_or_rel: conf_or_rel.relation != excluded_relation,
+                config_or_relations,
             )
 
         # Filter out any cases in which we don't have data set (e.g.: missing relation data)
@@ -559,7 +567,7 @@ class NginxIngressCharm(CharmBase):
                 # Ensure that the annotations for this rule match the others in the same group.
                 other_metadata = hostname_ingress[rule.host].metadata
                 if ingress.metadata.annotations != other_metadata.annotations:
-                    logger.error(
+                    LOGGER.error(
                         "Annotations that will be set do not match for the rule:\n"
                         "Rule: %s\nAnnotations: %s\nUsed Annotations: %s",
                         rule,
@@ -573,7 +581,7 @@ class NginxIngressCharm(CharmBase):
                 for path in rule.http.paths:
                     duplicate_paths = list(filter(lambda p: p.path == path.path, defined_paths))
                     if duplicate_paths:
-                        logger.error(
+                        LOGGER.error(
                             "Duplicate routes found:\nFirst route: %s\nSecond route: %s",
                             duplicate_paths[0],
                             path,
@@ -641,7 +649,7 @@ class NginxIngressCharm(CharmBase):
                 namespace=self._namespace,
                 body=body,
             )
-            logger.info(
+            LOGGER.info(
                 "Ingress updated in namespace %s with name %s",
                 self._namespace,
                 ingress_name,
@@ -651,7 +659,7 @@ class NginxIngressCharm(CharmBase):
                 namespace=self._namespace,
                 body=body,
             )
-            logger.info(
+            LOGGER.info(
                 "Ingress created in namespace %s with name %s",
                 self._namespace,
                 ingress_name,
@@ -664,7 +672,7 @@ class NginxIngressCharm(CharmBase):
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if ingress_name in [x.metadata.name for x in ingresses.items]:
             api.delete_namespaced_ingress(ingress_name, self._namespace)
-            logger.info(
+            LOGGER.info(
                 "Ingress deleted in namespace %s with name %s",
                 self._namespace,
                 ingress_name,
@@ -676,6 +684,7 @@ class NginxIngressCharm(CharmBase):
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
         svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
+        print(svc_names)
         if self.unit.is_leader() and any(svc_names):
             try:
                 self._define_services()
@@ -688,7 +697,7 @@ class NginxIngressCharm(CharmBase):
                 )
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
-                    logger.error(
+                    LOGGER.error(
                         "Insufficient permissions to create the k8s service, "
                         "will request `juju trust` to be run"
                     )
@@ -725,7 +734,7 @@ class NginxIngressCharm(CharmBase):
                 self._remove_service(conf_or_rel)
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
-                    logger.error(
+                    LOGGER.error(
                         "Insufficient permissions to delete the k8s ingress resource, "
                         "will request `juju trust` to be run"
                     )

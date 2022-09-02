@@ -4,3 +4,5 @@
 .tox
 .coverage
 __pycache__
+venv
+.vscode

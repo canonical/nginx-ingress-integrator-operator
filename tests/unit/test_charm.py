@@ -15,6 +15,7 @@ from ops.model import (
 )
 from ops.testing import Harness
 from charm import NginxIngressCharm
+import pdb
 
 
 class TestCharm(unittest.TestCase):
@@ -24,9 +25,9 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._define_ingress')
-    @patch('charm.NginxIngressCharm._define_service')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
     def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
@@ -52,7 +53,8 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(_define_service.call_count, 1)
         # Confirm status is as expected.
         self.assertEqual(
-            self.harness.charm.unit.status, ActiveStatus('Ingress with service IP(s): 10.0.1.12')
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress with service IP(s): 10.0.1.12"),
         )
         # And now test with leader is False.
         _define_ingress.reset_mock()
@@ -89,67 +91,96 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._service_name, "")
         self.assertEqual(conf_or_rel._service_hostname, "")
         self.assertEqual(conf_or_rel._service_port, 0)
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # And now confirm we have the expected data in the relevant properties.
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_name, "gunicorn")
         self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         self.assertEqual(conf_or_rel._service_port, 80)
 
+    def test_get_ingress_relation_data_ingress_relation_standard(self):
+        """
+        arrange: given charm that does not have a relation configured
+        act: when a new relation is added with data based on the new ingress interface standard
+        assert: then the relation data is saved correctly.
+        """
+        # Confirm we don't have any relation data yet in the relevant properties
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "")
+        self.assertEqual(conf_or_rel._service_hostname, "")
+        self.assertEqual(conf_or_rel._service_port, 0)
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
+        relations_data = {
+            "name": "gunicorn",
+            "host": "foo.internal",
+            "port": "80",
+            "model": "model 1",
+        }
+
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
+
+        # And now confirm we have the expected data in the relevant properties.
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._service_name, "gunicorn")
+        self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
+        self.assertEqual(conf_or_rel._service_port, 80)
+        self.assertEqual(conf_or_rel._namespace, "model 1")
+
     def test_multiple_routes_with_relation_data(self):
         """Test for getting our ingress relation data."""
         # Confirm we don't have any relation data yet in the relevant properties
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "80",
             "path-routes": "/admin/,/portal/",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
 
         # Test multiple paths
         expected = [
             {
-                'backend': {
-                    'resource': None,
-                    'service': {
-                        'name': 'gunicorn-service',
-                        'port': {
-                            'name': None,
-                            'number': 80,
+                "backend": {
+                    "resource": None,
+                    "service": {
+                        "name": "gunicorn-service",
+                        "port": {
+                            "name": None,
+                            "number": 80,
                         },
                     },
                 },
-                'path': '/admin/',
-                'path_type': 'Prefix',
+                "path": "/admin/",
+                "path_type": "Prefix",
             },
             {
-                'backend': {
-                    'resource': None,
-                    'service': {
-                        'name': 'gunicorn-service',
-                        'port': {
-                            'name': None,
-                            'number': 80,
+                "backend": {
+                    "resource": None,
+                    "service": {
+                        "name": "gunicorn-service",
+                        "port": {
+                            "name": None,
+                            "number": 80,
                         },
                     },
                 },
-                'path': '/portal/',
-                'path_type': 'Prefix',
+                "path": "/portal/",
+                "path_type": "Prefix",
             },
         ]
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         result_dict = conf_or_rel._get_k8s_ingress().to_dict()
-        self.assertEqual(result_dict['spec']['rules'][0]['http']['paths'], expected)
+        self.assertEqual(result_dict["spec"]["rules"][0]["http"]["paths"], expected)
 
     def test_max_body_size(self):
         """Test for the max-body-size property."""
@@ -159,15 +190,15 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._max_body_size, "80m")
         # Now set via the StoredState. This will be set to a string, as all
         # relation data must be a string.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "max-body-size": "88",
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Still 80 because it's set via config.
         self.assertEqual(conf_or_rel._max_body_size, "80m")
         self.harness.update_config({"max-body-size": 0})
@@ -185,14 +216,14 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"service-namespace": "mymodelname"})
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
         # And if we set relation data, config still takes precedence.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         self.assertEqual(self.harness.charm._namespace, "mymodelname")
         self.harness.update_config({"service-namespace": ""})
         # Now it reverts to the model name, because the relation isn't passing it.
@@ -205,7 +236,7 @@ class TestCharm(unittest.TestCase):
             "service-namespace": "relationnamespace",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
     def test_owasp_modsecurity_crs(self):
@@ -268,14 +299,14 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_port, 80)
         # Now set via the relation.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "88",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Config still overrides the relation value.
         self.assertEqual(conf_or_rel._service_port, 80)
         self.harness.update_config({"service-port": 0})
@@ -290,14 +321,14 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         # Now set via the relation.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo-bar.internal",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Config still overrides the relation value.
         self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         self.harness.update_config({"service-hostname": ""})
@@ -316,21 +347,21 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"session-cookie-max-age": 0})
         self.assertFalse(conf_or_rel._session_cookie_max_age)
         # Now set via the relation.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
             "service-port": "80",
             "session-cookie-max-age": "3688",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._session_cookie_max_age, "3688")
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._define_ingress')
-    @patch('charm.NginxIngressCharm._define_services')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_services")
     def test_tls_secret_name(self, mock_def_svc, mock_def_ingress, mock_report_ips):
         """Test the tls-secret-name property."""
         mock_report_ips.return_value = ["10.0.1.12"]
@@ -338,8 +369,8 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
         # Now set via the relation.
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
             "service-hostname": "foo.internal",
@@ -347,7 +378,7 @@ class TestCharm(unittest.TestCase):
             "tls-secret-name": "gunicorn-tls-new",
             "additional-hostnames": "lish.internal",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Config still overrides the relation data.
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
 
@@ -452,7 +483,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress().to_dict()
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
-    @patch('charm.NginxIngressCharm._on_config_changed')
+    @patch("charm.NginxIngressCharm._on_config_changed")
     def test_on_ingress_relation_changed(self, _on_config_changed):
         """Test ingress relation changed handler."""
         # Confirm we do nothing if we're not the leader.
@@ -463,13 +494,13 @@ class TestCharm(unittest.TestCase):
         # Now test on the leader, but with missing fields in the relation data.
         # We don't want leader-set to fire.
         self.harness.set_leader(True)
-        relation_id = self.harness.add_relation('ingress', 'gunicorn')
-        self.harness.add_relation_unit(relation_id, 'gunicorn/0')
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
         relations_data = {
             "service-name": "gunicorn",
         }
         with self.assertLogs(level="ERROR") as logger:
-            self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+            self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
             msg = (
                 "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
                 "for ingress relation: service-hostname, service-port"
@@ -487,15 +518,15 @@ class TestCharm(unittest.TestCase):
             "service-hostname": "foo.internal",
             "service-port": "80",
         }
-        self.harness.update_relation_data(relation_id, 'gunicorn', relations_data)
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Test we get the values we expect:
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo.internal")
         self.assertEqual(conf_or_rel._service_name, "gunicorn")
         self.assertEqual(conf_or_rel._service_port, 80)
 
-    @patch('charm.NginxIngressCharm._remove_ingress')
-    @patch('charm.NginxIngressCharm._remove_service')
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._remove_service")
     def test_on_ingress_relation_broken_unauthorized(self, _remove_service, _remove_ingress):
         """Test the Unauthorized case on relation-broken."""
         # Call the test test_on_ingress_relation_changed first
@@ -513,8 +544,8 @@ class TestCharm(unittest.TestCase):
         )
         self.assertEqual(self.harness.charm.unit.status, expected_status)
 
-    @patch('charm._networking_v1_api')
-    @patch('charm._core_v1_api')
+    @patch("charm._networking_v1_api")
+    @patch("charm._core_v1_api")
     def test_on_ingress_relation_broken(self, mock_core_api, mock_net_api):
         """Test relation-broken."""
         # Call the test test_on_ingress_relation_changed first
@@ -547,7 +578,11 @@ class TestCharm(unittest.TestCase):
         """Test getting our definition of a k8s ingress."""
         self.harness.disable_hooks()
         self.harness.update_config(
-            {"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80}
+            {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": 80,
+            }
         )
         expected_ingress_name = "foo-internal-ingress"
         expected = kubernetes.client.V1Ingress(
@@ -892,34 +927,34 @@ class TestCharm(unittest.TestCase):
 INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1beta1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
-            'ingressclass.kubernetes.io/is-default-class': 'true',
+            "ingressclass.kubernetes.io/is-default-class": "true",
         },
-        name='public',
+        name="public",
     ),
     spec=kubernetes.client.V1beta1IngressClassSpec(
-        controller='k8s.io/ingress-nginx',
+        controller="k8s.io/ingress-nginx",
     ),
 )
 
 INGRESS_CLASS_PRIVATE = kubernetes.client.V1beta1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={},
-        name='private',
+        name="private",
     ),
     spec=kubernetes.client.V1beta1IngressClassSpec(
-        controller='k8s.io/ingress-nginx',
+        controller="k8s.io/ingress-nginx",
     ),
 )
 
 INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1beta1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
-            'ingressclass.kubernetes.io/is-default-class': 'true',
+            "ingressclass.kubernetes.io/is-default-class": "true",
         },
-        name='private',
+        name="private",
     ),
     spec=kubernetes.client.V1beta1IngressClassSpec(
-        controller='k8s.io/ingress-nginx',
+        controller="k8s.io/ingress-nginx",
     ),
 )
 
@@ -959,7 +994,11 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         self.harness.begin()
         self.harness.disable_hooks()
         self.harness.update_config(
-            {"service-hostname": "foo.internal", "service-name": "gunicorn", "service-port": 80}
+            {
+                "service-hostname": "foo.internal",
+                "service-name": "gunicorn",
+                "service-port": 80,
+            }
         )
 
     def test_zero_ingress_class(self):
@@ -976,7 +1015,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
-        self.assertEqual(body.spec.ingress_class_name, 'public')
+        self.assertEqual(body.spec.ingress_class_name, "public")
 
     def test_two_ingress_classes(self):
         """If there are two ingress classes, one default, choose that."""
@@ -984,7 +1023,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         body = conf_or_rel._get_k8s_ingress()
         self.harness.charm._look_up_and_set_ingress_class(api, body)
-        self.assertEqual(body.spec.ingress_class_name, 'public')
+        self.assertEqual(body.spec.ingress_class_name, "public")
 
     def test_two_ingress_classes_two_default(self):
         """If there are two ingress classes, both default, choose neither."""
@@ -1003,8 +1042,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.begin()
 
     def _add_ingress_relation(self, relator_name, rel_data):
-        relation_id = self.harness.add_relation('ingress', relator_name)
-        self.harness.add_relation_unit(relation_id, '%s/0' % relator_name)
+        relation_id = self.harness.add_relation("ingress", relator_name)
+        self.harness.add_relation_unit(relation_id, "%s/0" % relator_name)
 
         self.harness.update_relation_data(relation_id, relator_name, rel_data)
         return relation_id
@@ -1014,7 +1053,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # Confirm we don't have any relation data yet in the relevant properties
         # NOTE: _all_config_or_relations will always have at least one element.
         conf_or_rels = self.harness.charm._all_config_or_relations
-        self.assertEqual(0, len(self.harness.charm.model.relations['ingress']))
+        self.assertEqual(0, len(self.harness.charm.model.relations["ingress"]))
         self.assertEqual(1, len(conf_or_rels))
 
         self.assertEqual(conf_or_rels[0]._service_name, "")
@@ -1028,7 +1067,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-port": "80",
             "path-routes": "/gunicorn",
         }
-        rel_id1 = self._add_ingress_relation('gunicorn', rel_data)
+        rel_id1 = self._add_ingress_relation("gunicorn", rel_data)
 
         # Add another relation with the same hostname.
         rel_data = {
@@ -1036,12 +1075,12 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "8080",
         }
-        rel_id2 = self._add_ingress_relation('funicorn', rel_data)
+        rel_id2 = self._add_ingress_relation("funicorn", rel_data)
 
         # And now, confirm we have 2 relations and their respective data, and that the expected
         # data is in the relevant properties.
         conf_or_rels = self.harness.charm._all_config_or_relations
-        self.assertEqual(2, len(self.harness.charm.model.relations['ingress']))
+        self.assertEqual(2, len(self.harness.charm.model.relations["ingress"]))
         self.assertEqual(2, len(conf_or_rels))
 
         self.assertEqual(conf_or_rels[0]._service_name, "gunicorn")
@@ -1085,12 +1124,12 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.remove_relation(rel_id1)
         self.harness.remove_relation(rel_id2)
 
-        self.assertEqual(0, len(self.harness.charm.model.relations['ingress']))
+        self.assertEqual(0, len(self.harness.charm.model.relations["ingress"]))
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._remove_ingress')
-    @patch('charm.NginxIngressCharm._define_ingress')
-    @patch('charm._core_v1_api')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm._core_v1_api")
     def test_services_for_multiple_relations(
         self, mock_api, mock_define_ingress, mock_remove_ingress, mock_report_ips
     ):
@@ -1110,7 +1149,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "80",
         }
-        self._add_ingress_relation('gunicorn', rel_data)
+        self._add_ingress_relation("gunicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_service = mock_api.return_value.create_namespaced_service
@@ -1131,7 +1170,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "8080",
         }
-        self._add_ingress_relation('funicorn', rel_data)
+        self._add_ingress_relation("funicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_patch_service = mock_api.return_value.patch_namespaced_service
@@ -1159,10 +1198,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
             namespace=self.harness.charm._namespace,
         )
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._remove_service')
-    @patch('charm.NginxIngressCharm._define_service')
-    @patch('charm._networking_v1_api')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_same_hostname(
         self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
     ):
@@ -1187,7 +1226,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "80",
         }
-        rel_id1 = self._add_ingress_relation('gunicorn', rel_data)
+        rel_id1 = self._add_ingress_relation("gunicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
@@ -1212,7 +1251,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             # Since it has the same service-hostname as gunicorn, we need a different route.
             "path-routes": "/funicorn",
         }
-        rel_id2 = self._add_ingress_relation('funicorn', rel_data)
+        rel_id2 = self._add_ingress_relation("funicorn", rel_data)
 
         # We're expecting that the K8s Ingress Resource will be replaced by one that contains
         # paths from both relations. A new one should not have been created.
@@ -1261,10 +1300,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
             self.harness.charm._namespace,
         )
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._remove_service')
-    @patch('charm.NginxIngressCharm._define_service')
-    @patch('charm._networking_v1_api')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_different_hostnames(
         self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
     ):
@@ -1287,7 +1326,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "80",
         }
-        rel_id1 = self._add_ingress_relation('gunicorn', rel_data)
+        rel_id1 = self._add_ingress_relation("gunicorn", rel_data)
 
         # Since we only have one relation, the merged ingress rule should be the same as before
         # the merge.
@@ -1310,7 +1349,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "lish.in.ternal",
             "service-port": "9090",
         }
-        rel_id2 = self._add_ingress_relation('punicorn', rel_data)
+        rel_id2 = self._add_ingress_relation("punicorn", rel_data)
 
         # We're expecting that the first K8s Ingress Resource will be updated, but it will not
         # change, and that a new K8s Ingress Resource will be created for the new relation,
@@ -1360,10 +1399,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._remove_service')
-    @patch('charm.NginxIngressCharm._define_service')
-    @patch('charm._networking_v1_api')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
     def test_ingress_multiple_relations_additional_hostnames(
         self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
     ):
@@ -1388,7 +1427,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "additional-hostnames": "lish.in.ternal",
             "tls-secret-name": "some-secret",
         }
-        rel_id1 = self._add_ingress_relation('gunicorn', rel_data)
+        rel_id1 = self._add_ingress_relation("gunicorn", rel_data)
 
         # It should create 2 different Ingress Resources, since we have an additional hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
@@ -1423,7 +1462,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "path-routes": "/lish",
             "tls-secret-name": "some-secret",
         }
-        self._add_ingress_relation('punicorn', rel_data)
+        self._add_ingress_relation("punicorn", rel_data)
 
         # We're expecting that the first K8s Ingress Resource will be updated, but it will not
         # change, and that the second K8s Ingress Resource will be updated to include the route
@@ -1469,10 +1508,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
             body=conf_or_rels[1]._get_k8s_ingress(),
         )
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._define_ingress')
-    @patch('charm.NginxIngressCharm._define_service')
-    @patch('charm._networking_v1_api')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_blocked(
         self, mock_api, mock_define_service, mock_define_ingress, mock_report_ips
     ):
@@ -1492,7 +1531,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "80",
         }
-        self._add_ingress_relation('gunicorn', rel_data)
+        self._add_ingress_relation("gunicorn", rel_data)
 
         # Add the second relation. It will have the same service-hostname as the first relation.
         # It will also have a conflicting annotation, and conflicting route "/", which will cause
@@ -1503,7 +1542,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-port": "9090",
             "retry-errors": "error,timeout",
         }
-        rel_id = self._add_ingress_relation('funicorn', rel_data)
+        rel_id = self._add_ingress_relation("funicorn", rel_data)
 
         expected_status = BlockedStatus(
             "Conflicting annotations from relations. Run juju debug-log for details. "
@@ -1527,9 +1566,9 @@ class TestCharmMultipleRelations(unittest.TestCase):
         expected_status = ActiveStatus("Ingress with service IP(s): 10.0.1.12")
         self.assertEqual(expected_status, self.harness.charm.unit.status)
 
-    @patch('charm.NginxIngressCharm._report_service_ips')
-    @patch('charm.NginxIngressCharm._define_ingress')
-    @patch('charm.NginxIngressCharm._define_service')
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
     def test_missing_relation_data(
         self, mock_define_service, mock_define_ingress, mock_report_ips
     ):
@@ -1545,18 +1584,17 @@ class TestCharmMultipleRelations(unittest.TestCase):
             "service-hostname": "foo.in.ternal",
             "service-port": "80",
         }
-        self._add_ingress_relation('gunicorn', rel_data)
+        self._add_ingress_relation("gunicorn", rel_data)
 
         # Add the second relation, but it will not have any relation data. No services or
         # ingresses should be defined for it.
         mock_define_service.reset_mock()
         mock_define_ingress.reset_mock()
-        rel_id = self._add_ingress_relation('funicorn', {})
+        rel_id = self._add_ingress_relation("funicorn", {})
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        mock_define_service.assert_called_once()
-        expected_body = conf_or_rels[0]._get_k8s_ingress()
-        mock_define_ingress.assert_called_once_with(expected_body)
+        mock_define_service.assert_not_called()
+        mock_define_ingress.assert_not_called()
 
         # Update the relation data to container proper data.
         mock_define_service.reset_mock()
@@ -1568,10 +1606,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
             # Since it has the same service-hostname as gunicorn, we need a different route.
             "path-routes": "/funicorn",
         }
-        self.harness.update_relation_data(rel_id, 'funicorn', rel_data)
+        self.harness.update_relation_data(rel_id, "funicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
         second_body = conf_or_rels[1]._get_k8s_ingress()
+        expected_body = conf_or_rels[0]._get_k8s_ingress()
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)

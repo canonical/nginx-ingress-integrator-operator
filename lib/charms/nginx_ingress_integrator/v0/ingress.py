@@ -70,11 +70,7 @@ LIBPATCH = 11
 
 LOGGER = logging.getLogger(__name__)
 
-REQUIRED_INGRESS_RELATION_FIELDS = {
-    "service-hostname",
-    "service-name",
-    "service-port",
-}
+REQUIRED_INGRESS_RELATION_FIELDS = {"service-hostname", "service-name", "service-port"}
 
 OPTIONAL_INGRESS_RELATION_FIELDS = {
     "additional-hostnames",
@@ -146,9 +142,9 @@ class IngressRequires(Object):
         """Check our config dict for errors."""
         blocked_message = "Error in ingress relation, check `juju debug-log`"
         unknown = [
-            x
-            for x in self.config_dict
-            if x
+            config_key
+            for config_key in self.config_dict
+            if config_key
             not in REQUIRED_INGRESS_RELATION_FIELDS
             | OPTIONAL_INGRESS_RELATION_FIELDS
             | RELATION_INTERFACES_MAPPINGS_VALUES
@@ -161,7 +157,20 @@ class IngressRequires(Object):
             self.model.unit.status = BlockedStatus(blocked_message)
             return True
         if not update_only:
-            missing = [x for x in REQUIRED_INGRESS_RELATION_FIELDS if x not in self.config_dict]
+            missing = [
+                config_key
+                for config_key in REQUIRED_INGRESS_RELATION_FIELDS
+                if config_key not in self.config_dict
+            ]
+            # Mapp configuration keys to new keys
+            missing = list(
+                map(
+                    lambda config_key: RELATION_INTERFACES_MAPPINGS[config_key]
+                    if config_key in RELATION_INTERFACES_MAPPINGS
+                    else config_key,
+                    missing,
+                )
+            )
             if missing:
                 LOGGER.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",

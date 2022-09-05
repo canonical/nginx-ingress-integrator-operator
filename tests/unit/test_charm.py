@@ -15,7 +15,6 @@ from ops.model import (
 )
 from ops.testing import Harness
 from charm import NginxIngressCharm
-import pdb
 
 
 class TestCharm(unittest.TestCase):

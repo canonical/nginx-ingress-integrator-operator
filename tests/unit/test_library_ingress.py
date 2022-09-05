@@ -5,14 +5,12 @@ import itertools
 import unittest
 
 import yaml
-
 from charms.nginx_ingress_integrator.v0.ingress import (
-    IngressRequires,
-    REQUIRED_INGRESS_RELATION_FIELDS,
     OPTIONAL_INGRESS_RELATION_FIELDS,
     RELATION_INTERFACES_MAPPINGS,
+    REQUIRED_INGRESS_RELATION_FIELDS,
+    IngressRequires,
 )
-
 from ops.charm import CharmBase
 from ops.testing import Harness
 

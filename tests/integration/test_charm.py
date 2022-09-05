@@ -4,8 +4,8 @@
 
 import re
 
-import requests
 import pytest
+import requests
 from ops.model import ActiveStatus, Application
 
 

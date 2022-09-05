@@ -24,13 +24,14 @@ def app_name(metadata):
 
 @pytest_asyncio.fixture(scope="module")
 async def app(ops_test: OpsTest, app_name: str):
-    """Indico charm used for integration testing.
-    Builds the charm and deploys it and the relations it depends on.
+    """Build ingress charm used for integration testing.
+    Builds the charm and deploys it and a charm that depends on it.
     """
-    # Deploy relations to speed up overall execution
+    # Deploy relations first to speed up overall execution
     hello_kubecon_app_name = "hello-kubecon"
     await ops_test.model.deploy(hello_kubecon_app_name)
 
+    # Build and deploy ingress
     charm = await ops_test.build_charm(".")
     resources = {"placeholder-image": "nginx"}
     application = await ops_test.model.deploy(
@@ -44,6 +45,7 @@ async def app(ops_test: OpsTest, app_name: str):
         ops_test.model.applications[hello_kubecon_app_name].units[0].workload_status
         == ActiveStatus.name
     )
+
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
     await ops_test.model.wait_for_idle(status="active")

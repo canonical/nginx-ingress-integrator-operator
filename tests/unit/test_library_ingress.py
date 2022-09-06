@@ -110,13 +110,9 @@ class TestCharmInit(unittest.TestCase):
 
     def test_with_new_config(self):
         """
-        <<<<<<< HEAD
-                arrange: given a configuration with all the items pre-standard
-        =======
-                arrange: given a configuration with all the items based on the new standard
-        >>>>>>> main
-                act: when the charm is constructed with the configuration
-                assert: then the configuration is stored with the new keys.
+        arrange: given a configuration with all the items based on the new standard
+        act: when the charm is constructed with the configuration
+        assert: then the configuration is stored with the new keys.
         """
         service_hostname = "service hostname 1"
         service_name = "service name 1"

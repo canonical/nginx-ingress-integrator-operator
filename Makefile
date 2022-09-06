@@ -9,7 +9,10 @@ lint: fmt
 unittest:
 	@tox -e unit
 
-test: lint unittest
+integrationtest:
+	@tox -e integration
+
+test: lint unittest integrationtest
 
 clean:
 	@echo "Cleaning files"

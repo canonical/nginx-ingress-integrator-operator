@@ -112,7 +112,7 @@ class TestCharmInit(unittest.TestCase):
 
     def test_with_new_config(self):
         """
-        arrange: given a configuration with all the items pre-standard
+        arrange: given a configuration with all the items based on the new standard
         act: when the charm is constructed with the configuration
         assert: then the configuration is stored with the new keys.
         """
@@ -166,9 +166,9 @@ class TestCharm(unittest.TestCase):
                 "ERROR:charms.nginx_ingress_integrator.v0.ingress:Ingress relation error",
                 logged_output,
             )
-            self.assertIn(" host", logged_output)
-            self.assertIn(" name", logged_output)
-            self.assertIn(" port", logged_output)
+            self.assertIn("service-hostname", logged_output)
+            self.assertIn("service-name", logged_output)
+            self.assertIn("service-port", logged_output)
 
     def test_config_dict_unknown(self):
         """

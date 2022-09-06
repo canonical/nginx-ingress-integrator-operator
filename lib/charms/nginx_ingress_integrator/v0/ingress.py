@@ -162,15 +162,6 @@ class IngressRequires(Object):
                 for config_key in REQUIRED_INGRESS_RELATION_FIELDS
                 if config_key not in self.config_dict
             ]
-            # Mapp configuration keys to new keys
-            missing = list(
-                map(
-                    lambda config_key: RELATION_INTERFACES_MAPPINGS[config_key]
-                    if config_key in RELATION_INTERFACES_MAPPINGS
-                    else config_key,
-                    missing,
-                )
-            )
             if missing:
                 LOGGER.error(
                     "Ingress relation error, missing required key(s) in config dictionary: %s",

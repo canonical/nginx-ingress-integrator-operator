@@ -48,6 +48,6 @@ async def app(ops_test: OpsTest, app_name: str):
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.wait_for_idle(status=ActiveStatus.name)
 
     yield application

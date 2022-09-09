@@ -1,21 +1,16 @@
-# Copyright 2021 Canonical Ltd.
+# Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import unittest
-
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import kubernetes
 import kubernetes.client
-
-from ops.model import (
-    ActiveStatus,
-    BlockedStatus,
-)
+from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
+
 from charm import NginxIngressCharm
-import pdb
 
 
 class TestCharm(unittest.TestCase):

@@ -1,15 +1,18 @@
-blacken:
-	@echo "Normalising python layout with black."
-	@tox -e black
+fmt:
+	@echo "Normalising python layout."
+	@tox -e fmt
 
-lint: blacken
+lint: fmt
 	@echo "Running flake8"
 	@tox -e lint
 
 unittest:
 	@tox -e unit
 
-test: lint unittest
+integrationtest:
+	@tox -e integration
+
+test: lint unittest integrationtest
 
 clean:
 	@echo "Cleaning files"

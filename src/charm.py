@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
-# Copyright 2021 Canonical Ltd.
+# Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import logging
 import re
 
 import kubernetes.client
-
 from charms.nginx_ingress_integrator.v0.ingress import (
-    IngressCharmEvents,
-    IngressProvides,
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
+    IngressCharmEvents,
+    IngressProvides,
 )
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
-
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")

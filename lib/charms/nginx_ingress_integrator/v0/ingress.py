@@ -4,25 +4,25 @@ This library contains the Requires and Provides classes for handling
 the ingress interface.
 
 Import `IngressRequires` in your charm, with two required options:
-    - "self" (the charm itself)
-    - config_dict
+- "self" (the charm itself)
+- config_dict
 
 `config_dict` accepts the following keys:
-    - service-hostname (required)
-    - service-name (required)
-    - service-port (required)
-    - additional-hostnames
-    - limit-rps
-    - limit-whitelist
-    - max-body-size
-    - owasp-modsecurity-crs
-    - path-routes
-    - retry-errors
-    - rewrite-enabled
-    - rewrite-target
-    - service-namespace
-    - session-cookie-max-age
-    - tls-secret-name
+- service-hostname (required)
+- service-name (required)
+- service-port (required)
+- additional-hostnames
+- limit-rps
+- limit-whitelist
+- max-body-size
+- owasp-modsecurity-crs
+- path-routes
+- retry-errors
+- rewrite-enabled
+- rewrite-target
+- service-namespace
+- session-cookie-max-age
+- tls-secret-name
 
 See [the config section](https://charmhub.io/nginx-ingress-integrator/configure) for descriptions
 of each, along with the required type.

@@ -241,6 +241,11 @@ class _ConfigOrRelation(object):
         """Return the tls-secret-name to use for k8s ingress (if any)."""
         return self._get_config_or_relation_data("tls-secret-name", "")
 
+    @property
+    def _whitelist_source_range(self):
+        """Return the whitelist-source-range config option."""
+        return self._get_config("whitelist-source-range")
+
     def _get_k8s_service(self):
         """Get a K8s service definition."""
         return kubernetes.client.V1Service(
@@ -329,6 +334,10 @@ class _ConfigOrRelation(object):
             ]
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
+        if self._whitelist_source_range:
+            annotations[
+                "nginx.ingress.kubernetes.io/whitelist-source-range"
+            ] = self._whitelist_source_range
 
         return kubernetes.client.V1Ingress(
             api_version="networking.k8s.io/v1",

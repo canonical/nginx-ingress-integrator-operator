@@ -441,6 +441,18 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._rewrite_enabled, False)
 
+    def test_whitelist_source_range(self):
+        self.harness.update_config({"whitelist-source-range": "10.0.0.0/24,172.10.0.1"})
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._whitelist_source_range, "10.0.0.0/24,172.10.0.1")
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        self.assertEqual(
+            result_dict["metadata"]["annotations"][
+                "nginx.ingress.kubernetes.io/whitelist-source-range"
+            ],
+            "10.0.0.0/24,172.10.0.1",
+        )
+
     def test_rewrite_annotations(self):
         self.harness.disable_hooks()
         self.harness.update_config(

@@ -102,3 +102,7 @@ options:
     default: ""
     description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled.
     type: string
+  whitelist-source-range:
+    default: ""
+    description: Allowed client IP source ranges. The value is a comma separated list of CIDRs.
+    type: string

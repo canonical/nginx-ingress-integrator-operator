@@ -446,14 +446,12 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._whitelist_source_range, "10.0.0.0/24,172.10.0.1")
         result_dict = conf_or_rel._get_k8s_ingress().to_dict()
-        # Expect default values plus the one we've added.
-        expected = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
-            "nginx.ingress.kubernetes.io/rewrite-target": "/",
-            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
-            "nginx.ingress.kubernetes.io/whitelist-source-range": "10.0.0.0/24,172.10.0.1",
-        }
-        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+        self.assertEqual(
+            result_dict["metadata"]["annotations"][
+                "nginx.ingress.kubernetes.io/whitelist-source-range"
+            ],
+            "10.0.0.0/24,172.10.0.1",
+        )
 
     def test_rewrite_annotations(self):
         self.harness.disable_hooks()

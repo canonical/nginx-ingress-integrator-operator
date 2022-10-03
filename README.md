@@ -15,7 +15,7 @@ enable it with `juju expose kubernetes-worker`.
 
 ## Usage
 
-You'll need version to be using Juju [version 2.9.0](https://discourse.charmhub.io/t/juju-2-9-0-release-notes/4525) or later, and Kubernetes version 1.19 or later.
+You'll need version to be using Juju [version 2.9.23](https://discourse.charmhub.io/t/roadmap-releases/5064) or later, and Kubernetes version 1.19 or later.
 
 As an example, you could deploy this charm as follows (we're using the name
 "ingress" in this model for brevity):

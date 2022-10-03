@@ -7,14 +7,8 @@ summary: |
   An operator to configure a kubernetes ingress.
 docs: https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511
 
-containers:
-  placeholder:
-    resource: placeholder-image
-
-resources:
-  placeholder-image:
-    type: oci-image
-    description: Docker image for placeholder - won't be used
+assumes:
+  - k8s-api
 
 provides:
   ingress:

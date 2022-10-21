@@ -34,7 +34,7 @@ async def app(ops_test: OpsTest, app_name: str):
     # Build and deploy ingress
     charm = await ops_test.build_charm(".")
     application = await ops_test.model.deploy(
-        charm, application_name=app_name, series="focal"
+        charm, application_name=app_name, series="focal", trust=True
     )
     await ops_test.model.wait_for_idle()
 

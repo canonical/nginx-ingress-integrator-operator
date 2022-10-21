@@ -791,7 +791,7 @@ class TestCharm(unittest.TestCase):
                     )
                 ],
                 tls=[
-                    kubernetes.client.V1IngressTLS(
+                    kubernetes.client.V1IngressTLS(  # nosec: gunicorn_tls is not a secret
                         hosts=["foo.internal"],
                         secret_name="gunicorn_tls",
                     ),

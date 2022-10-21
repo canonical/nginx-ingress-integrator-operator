@@ -35,7 +35,7 @@ async def app(ops_test: OpsTest, app_name: str):
     charm = await ops_test.build_charm(".")
     resources = {"placeholder-image": "nginx"}
     application = await ops_test.model.deploy(
-        charm, resources=resources, application_name=app_name
+        charm, resources=resources, application_name=app_name, series="focal"
     )
     await ops_test.model.wait_for_idle()
 

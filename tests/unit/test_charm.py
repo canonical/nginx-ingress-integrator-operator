@@ -437,7 +437,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Still /test-target because it's set via config.
         self.assertEqual(conf_or_rel._rewrite_enabled, True)
-        self.harness.update_config({"rewrite-enabled": ""})
+        self.harness.update_config({"rewrite-enabled": False})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._rewrite_enabled, False)
 
@@ -791,7 +791,7 @@ class TestCharm(unittest.TestCase):
                     )
                 ],
                 tls=[
-                    kubernetes.client.V1IngressTLS(
+                    kubernetes.client.V1IngressTLS(  # nosec: gunicorn_tls is not a secret
                         hosts=["foo.internal"],
                         secret_name="gunicorn_tls",
                     ),
@@ -1117,7 +1117,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.update_config(
             {
                 "service-name": "foo",
-                "service-port": "1111",
+                "service-port": 1111,
                 "path-routes": "/foo",
             }
         )

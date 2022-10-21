@@ -198,10 +198,8 @@ class TestCharm(unittest.TestCase):
         ):
             self.harness.charm.ingress.config_dict[key] = key
 
-        with self.assertNoLogs(level="ERROR"):
-            result = self.harness.charm.ingress._config_dict_errors()
-
-            self.assertFalse(result)
+        result = self.harness.charm.ingress._config_dict_errors()
+        self.assertFalse(result)
 
     def test_update_config(self):
         log_message = (

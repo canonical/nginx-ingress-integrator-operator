@@ -78,10 +78,6 @@ juju config ingress service-port=8080
 In this case, the charm will use the `service-hostname` and `service-name` as
 sent by the relation, but will use a `service-port` of 8080.
 
-## Testing
-
-Simply run `make test`.
-
 ---
 
 For more details, [see here](https://charmhub.io/nginx-ingress-integrator/docs).

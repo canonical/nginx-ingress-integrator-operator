@@ -20,14 +20,18 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
-    def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
+    def test_config_changed(
+        self, _define_service, _define_ingress, _report_service_ips, _report_ingress_ips
+    ):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
-        _report_service_ips.return_value = ["10.0.1.12"]
+        _report_ingress_ips.return_value = "Ingress IP(s): ['10.0.1.12'], "
+        _report_service_ips.return_value = ["10.0.1.13"]
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
@@ -49,7 +53,7 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(
             self.harness.charm.unit.status,
-            ActiveStatus("Ingress with service IP(s): 10.0.1.12"),
+            ActiveStatus("Ingress IP(s): ['10.0.1.12'], Service IP(s): 10.0.1.13"),
         )
         # And now test with leader is False.
         _define_ingress.reset_mock()
@@ -354,12 +358,16 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._session_cookie_max_age, "3688")
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_services")
-    def test_tls_secret_name(self, mock_def_svc, mock_def_ingress, mock_report_ips):
+    def test_tls_secret_name(
+        self, mock_def_svc, mock_def_ingress, mock_report_ips, mock_ingress_ips
+    ):
         """Test the tls-secret-name property."""
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         self.harness.update_config({"tls-secret-name": "gunicorn-tls"})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
@@ -1133,12 +1141,13 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         self.assertEqual(0, len(self.harness.charm.model.relations["ingress"]))
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm._core_v1_api")
     def test_services_for_multiple_relations(
-        self, mock_api, mock_define_ingress, mock_remove_ingress, mock_report_ips
+        self, mock_api, mock_define_ingress, mock_remove_ingress, mock_report_ips, mock_ingress_ips
     ):
         """Test for checking Service creation / deletion for multiple relations."""
         # Setting the leader to True will allow us to test the Service creation.
@@ -1146,6 +1155,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_services = mock_api.return_value.list_namespaced_service
         # We'll consider we don't have any service set yet.
         mock_list_services.return_value.items = []
@@ -1205,12 +1215,13 @@ class TestCharmMultipleRelations(unittest.TestCase):
             namespace=self.harness.charm._namespace,
         )
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
     @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_same_hostname(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips, mock_ingress_ips
     ):
         """Test for checking Ingress creation / deletion for multiple relations.
 
@@ -1223,6 +1234,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1307,12 +1319,13 @@ class TestCharmMultipleRelations(unittest.TestCase):
             self.harness.charm._namespace,
         )
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
     @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_different_hostnames(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips, mock_ingress_ips
     ):
         """Test for checking Ingress creation / deletion for multiple relations.
 
@@ -1323,6 +1336,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1407,11 +1421,69 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.assert_not_called()
 
     @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
+    def test_report_ingress_ips(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_define_ingress,
+        mock_k8s_auth,
+        mock_service_ips,
+    ):
+        """Test for checking the API call to obtain ingress IPs."""
+
+        mock_ingress = MagicMock()
+        mock_ingress.status.load_balancer.ingress[0].ip = "127.0.0.1"
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        mock_list_ingress.return_value.items = [mock_ingress]
+
+        expected_result = "Ingress IP(s): ['127.0.0.1'], "
+
+        result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)
+
+        self.assertEqual(result, expected_result)
+
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm._networking_v1_api")
+    def test_report_ingress_ips_fail(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_define_ingress,
+        mock_k8s_auth,
+        mock_service_ips,
+    ):
+        """
+        Test for checking the API call to obtain ingress IPs
+        when there is no Ingress configured yet.
+        """
+
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        mock_list_ingress.return_value.items = []
+
+        expected_result = ""
+
+        result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)
+
+        self.assertEqual(result, expected_result)
+
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
     @patch("charm._networking_v1_api")
     def test_ingress_multiple_relations_additional_hostnames(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips, mock_ingress_ips
     ):
         """Test for checking Ingress creation / deletion for multiple relations.
 
@@ -1422,6 +1494,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1515,12 +1588,13 @@ class TestCharmMultipleRelations(unittest.TestCase):
             body=conf_or_rels[1]._get_k8s_ingress(),
         )
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
     @patch("charm._networking_v1_api")
     def test_ingresses_for_multiple_relations_blocked(
-        self, mock_api, mock_define_service, mock_define_ingress, mock_report_ips
+        self, mock_api, mock_define_service, mock_define_ingress, mock_report_ips, mock_ingress_ips
     ):
         """Test for checking the Blocked cases for multiple relations."""
         # Setting the leader to True will allow us to test the Ingress creation.
@@ -1528,6 +1602,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1570,20 +1645,22 @@ class TestCharmMultipleRelations(unittest.TestCase):
         rel_data["path-routes"] = "/funicorn"
         self.harness.update_relation_data(rel_id, "funicorn", rel_data)
 
-        expected_status = ActiveStatus("Ingress with service IP(s): 10.0.1.12")
+        expected_status = ActiveStatus("Service IP(s): 10.0.1.12")
         self.assertEqual(expected_status, self.harness.charm.unit.status)
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
     def test_missing_relation_data(
-        self, mock_define_service, mock_define_ingress, mock_report_ips
+        self, mock_define_service, mock_define_ingress, mock_report_ips, mock_ingress_ips
     ):
         """Test for handling missing relation data."""
         # Setting the leader to True will allow us to test the Ingress creation.
         self.harness.set_leader(True)
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
 
         # Add the first relation.
         rel_data = {

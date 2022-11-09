@@ -30,7 +30,7 @@ class TestCharm(unittest.TestCase):
         """Test our config changed handler."""
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
-        _report_ingress_ips.return_value = "Ingress IP(s): ['10.0.1.12'], "
+        _report_ingress_ips.return_value = ["10.0.1.12"]
         _report_service_ips.return_value = ["10.0.1.13"]
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
@@ -53,7 +53,7 @@ class TestCharm(unittest.TestCase):
         # Confirm status is as expected.
         self.assertEqual(
             self.harness.charm.unit.status,
-            ActiveStatus("Ingress IP(s): ['10.0.1.12'], Service IP(s): 10.0.1.13"),
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
         )
         # And now test with leader is False.
         _define_ingress.reset_mock()
@@ -1442,7 +1442,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         mock_list_ingress.return_value.items = [mock_ingress]
 
-        expected_result = "Ingress IP(s): ['127.0.0.1'], "
+        expected_result = ["127.0.0.1"]
 
         result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)
 
@@ -1471,7 +1471,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         mock_list_ingress.return_value.items = []
 
-        expected_result = ""
+        expected_result = []
 
         result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)
 

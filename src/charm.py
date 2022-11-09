@@ -8,8 +8,11 @@ import time
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
-    RELATION_INTERFACES_MAPPINGS, REQUIRED_INGRESS_RELATION_FIELDS,
-    IngressCharmEvents, IngressProvides)
+    RELATION_INTERFACES_MAPPINGS,
+    REQUIRED_INGRESS_RELATION_FIELDS,
+    IngressCharmEvents,
+    IngressProvides,
+)
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
@@ -416,7 +419,7 @@ class NginxIngressCharm(CharmBase):
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
-    def _report_ingress_ips(self) -> str:
+    def _report_ingress_ips(self) -> list:
         """Report on ingress IP(s)."""
         self.k8s_auth()
         api = _networking_v1_api()
@@ -425,7 +428,6 @@ class NginxIngressCharm(CharmBase):
         count, interval = 100, 1
         for _ in range(count):
             ingresses = api.list_namespaced_ingress(namespace=self._namespace)
-            # XXX: Will this return multiple IPs if there are any?
             try:
                 ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
             except TypeError:
@@ -435,10 +437,7 @@ class NginxIngressCharm(CharmBase):
                 break
             LOGGER.info("Sleeping for %s seconds to wait for ingress IP", interval)
             time.sleep(interval)
-        if ips:
-            return "Ingress IP(s): {}, ".format(str(ips))
-        else:
-            return ""
+        return ips
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
         """Checks if the given config or relation has the required fields set."""
@@ -718,11 +717,15 @@ class NginxIngressCharm(CharmBase):
             try:
                 self._define_services()
                 self._define_ingresses()
-
+                ingress_ip = (
+                    "Ingress IP(s): {}, ".format(", ".join(self._report_ingress_ips()))
+                    if self._report_ingress_ips() != ""
+                    else ""
+                )
                 # It's not recommended to do this via ActiveStatus, but we don't
                 # have another way of reporting status yet.
                 msg = "{}Service IP(s): {}".format(
-                    self._report_ingress_ips(), ", ".join(self._report_service_ips())
+                    ingress_ip, ", ".join(self._report_service_ips())
                 )
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:

@@ -35,7 +35,7 @@ async def test_reachable(app: Application):
     assert (
         ip_address_match
     ), f"could not find IP address in status message: {app.units[0].workload_status_message}"
-    ip_address = ip_address_match[1]
+    ip_address = ip_address_match[-1]
     port = "8080"
 
     response = requests.get(f"http://{ip_address}:{port}")

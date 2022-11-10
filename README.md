@@ -5,9 +5,9 @@ Kubernetes cluster via an Nginx Ingress resource. This requires the Kubernetes
 cluster in question to have an Nginx Ingress Controller already deployed into it.
 
 This charm simplifies exposing services running inside a Kubernetes cluster to
-external clients. It offers TLS termination, and easy configuration of a
+external clients. It offers TLS termination as well as easy configuration of a
 number of advanced features including rate limiting, restricting access to
-specific client IP source ranges and OWASP ModSecurity Core Rule Set (CRS).
+specific client IP source ranges, and OWASP ModSecurity Core Rule Set (CRS).
 
 As such, the charm makes it easy for charm developers to provide external
 access to their HTTP workloads in Kubernetes by easy integration offered via

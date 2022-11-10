@@ -409,8 +409,8 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _report_service_ips(self) -> list:
-        """Report on service IP(s)."""
+    def _report_service_ips(self) -> list[str]:
+        """Report on service IP(s) and return a list of them."""
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
@@ -419,8 +419,8 @@ class NginxIngressCharm(CharmBase):
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
-    def _report_ingress_ips(self) -> list:
-        """Report on ingress IP(s)."""
+    def _report_ingress_ips(self) -> list[str]:
+        """Report on ingress IP(s) and return a list of them."""
         self.k8s_auth()
         api = _networking_v1_api()
 
@@ -718,14 +718,14 @@ class NginxIngressCharm(CharmBase):
                 self._define_services()
                 self._define_ingresses()
                 ingress_ip = (
-                    "Ingress IP(s): {}, ".format(", ".join(self._report_ingress_ips()))
+                    f"Ingress IP(s): {', '.join(self._report_ingress_ips())}, "
                     if self._report_ingress_ips() != ""
                     else ""
                 )
                 # It's not recommended to do this via ActiveStatus, but we don't
                 # have another way of reporting status yet.
-                msg = "{}Service IP(s): {}".format(
-                    ingress_ip, ", ".join(self._report_service_ips())
+                msg = f"{ingress_ip}Service IP(s): {', '.join(self._report_service_ips())}".format(
+                    ingress_ip,
                 )
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:

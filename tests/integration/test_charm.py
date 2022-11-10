@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 import re
+import time
 
 import pytest
 import requests
@@ -29,6 +30,7 @@ async def test_reachable(app: Application):
     """
     # Get the IP address which is in the status message
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
+    time.sleep(100)
     ip_address_match = re.findall(ip_regex, app.units[0].workload_status_message)
     assert (
         ip_address_match

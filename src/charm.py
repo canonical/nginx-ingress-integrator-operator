@@ -719,7 +719,7 @@ class NginxIngressCharm(CharmBase):
                 self._define_ingresses()
                 ingress_ip = (
                     f"Ingress IP(s): {', '.join(self._report_ingress_ips())}, "
-                    if self._report_ingress_ips() != ""
+                    if self._report_ingress_ips()
                     else ""
                 )
                 # It's not recommended to do this via ActiveStatus, but we don't

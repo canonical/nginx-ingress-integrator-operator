@@ -8,11 +8,8 @@ import time
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
-    RELATION_INTERFACES_MAPPINGS,
-    REQUIRED_INGRESS_RELATION_FIELDS,
-    IngressCharmEvents,
-    IngressProvides,
-)
+    RELATION_INTERFACES_MAPPINGS, REQUIRED_INGRESS_RELATION_FIELDS,
+    IngressCharmEvents, IngressProvides)
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
@@ -717,16 +714,12 @@ class NginxIngressCharm(CharmBase):
             try:
                 self._define_services()
                 self._define_ingresses()
-                ingress_ip = (
-                    f"Ingress IP(s): {', '.join(self._report_ingress_ips())}, "
-                    if self._report_ingress_ips()
-                    else ""
-                )
-                # It's not recommended to do this via ActiveStatus, but we don't
-                # have another way of reporting status yet.
-                msg = f"{ingress_ip}Service IP(s): {', '.join(self._report_service_ips())}".format(
-                    ingress_ip,
-                )
+                msgs = []
+                ingress_ips = self._report_ingress_ips()
+                if ingress_ips:
+                    msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
+                msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
+                msg = ", ".join(msgs)
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
                     LOGGER.error(

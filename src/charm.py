@@ -4,14 +4,12 @@
 
 import logging
 import re
+import time
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
-    RELATION_INTERFACES_MAPPINGS,
-    REQUIRED_INGRESS_RELATION_FIELDS,
-    IngressCharmEvents,
-    IngressProvides,
-)
+    RELATION_INTERFACES_MAPPINGS, REQUIRED_INGRESS_RELATION_FIELDS,
+    IngressCharmEvents, IngressProvides)
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
@@ -408,8 +406,8 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _report_service_ips(self):
-        """Report on service IP(s)."""
+    def _report_service_ips(self) -> list[str]:
+        """Report on service IP(s) and return a list of them."""
         self.k8s_auth()
         api = _core_v1_api()
         services = api.list_namespaced_service(namespace=self._namespace)
@@ -417,6 +415,26 @@ class NginxIngressCharm(CharmBase):
         return [
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
+
+    def _report_ingress_ips(self) -> list[str]:
+        """Report on ingress IP(s) and return a list of them."""
+        self.k8s_auth()
+        api = _networking_v1_api()
+
+        # Wait up to `interval * count` seconds for ingress IPs.
+        count, interval = 100, 1
+        for _ in range(count):
+            ingresses = api.list_namespaced_ingress(namespace=self._namespace)
+            try:
+                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
+            except TypeError:
+                # We have no IPs yet.
+                ips = []
+            if ips:
+                break
+            LOGGER.info("Sleeping for %s seconds to wait for ingress IP", interval)
+            time.sleep(interval)
+        return ips
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
         """Checks if the given config or relation has the required fields set."""
@@ -696,12 +714,12 @@ class NginxIngressCharm(CharmBase):
             try:
                 self._define_services()
                 self._define_ingresses()
-
-                # It's not recommended to do this via ActiveStatus, but we don't
-                # have another way of reporting status yet.
-                msg = "Ingress with service IP(s): {}".format(
-                    ", ".join(self._report_service_ips())
-                )
+                msgs = []
+                ingress_ips = self._report_ingress_ips()
+                if ingress_ips:
+                    msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
+                msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
+                msg = ", ".join(msgs)
             except kubernetes.client.exceptions.ApiException as e:
                 if e.status == 403:
                     LOGGER.error(

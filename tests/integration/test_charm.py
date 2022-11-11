@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 import re
+import time
 
 import pytest
 import requests
@@ -29,11 +30,12 @@ async def test_reachable(app: Application):
     """
     # Get the IP address which is in the status message
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
-    ip_address_match = re.search(ip_regex, app.units[0].workload_status_message)
+    time.sleep(100)
+    ip_address_match = re.findall(ip_regex, app.units[0].workload_status_message)
     assert (
         ip_address_match
     ), f"could not find IP address in status message: {app.units[0].workload_status_message}"
-    ip_address = ip_address_match.group(0)
+    ip_address = ip_address_match[-1]
     port = "8080"
 
     response = requests.get(f"http://{ip_address}:{port}")

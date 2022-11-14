@@ -61,7 +61,7 @@ async def test_ingress_reachable(app: Application):
     ip_address = ip_address_match[0]
     port = "80"
     ps = subprocess.Popen(['echo', f'{ip_address} hello-kubecon'], stdout=subprocess.PIPE)
-    subprocess.run(['sudo', 'tee', '-a' ,'/etc/hosts'], stdin=ps.stdout)
+    subprocess.run(['sudo', 'tee', '-a', '/etc/hosts'], stdin=ps.stdout)
 
     response = requests.get(f"http://hello-kubecon:{port}")
 

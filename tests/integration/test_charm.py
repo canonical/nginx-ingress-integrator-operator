@@ -46,7 +46,7 @@ async def test_service_reachable(app: Application):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
-async def test_ingress_reachable_ip_status_msg(app: Application):
+async def test_ingress_reachable(app: Application):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the dependent application is queried via the ingress

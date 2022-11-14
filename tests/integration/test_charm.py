@@ -62,6 +62,6 @@ async def test_ingress_reachable(app: Application):
     ps = subprocess.Popen(["echo", f"{ip_address} hello-kubecon"], stdout=subprocess.PIPE)  # nosec
     subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=ps.stdout)  # nosec
 
-    response = requests.get(f"http://hello-kubecon")
+    response = requests.get("http://hello-kubecon")
 
     assert response.status_code == 200

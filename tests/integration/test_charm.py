@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 import re
-import subprocess
+import subprocess  # nosec B404
 import time
 
 import pytest
@@ -60,8 +60,8 @@ async def test_ingress_reachable(app: Application):
     ), f"could not find IP address in status message: {app.units[0].workload_status_message}"
     ip_address = ip_address_match[0]
     port = "80"
-    ps = subprocess.Popen(['echo', f'{ip_address} hello-kubecon'], stdout=subprocess.PIPE)
-    subprocess.run(['sudo', 'tee', '-a', '/etc/hosts'], stdin=ps.stdout)
+    ps = subprocess.Popen(['echo', f'{ip_address} hello-kubecon'], stdout=subprocess.PIPE)  # nosec
+    subprocess.run(['sudo', 'tee', '-a', '/etc/hosts'], stdin=ps.stdout)  # nosec
 
     response = requests.get(f"http://hello-kubecon:{port}")
 

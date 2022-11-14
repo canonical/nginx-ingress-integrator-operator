@@ -31,7 +31,7 @@ class TestCharm(unittest.TestCase):
         arrange: given the harnessed charm
         act: when we change the service name, port and hostname config
         assert: _define_ingress and define_service are only called when changing
-        the hostname to a non-empty string, and the status message is appropiate.
+        the hostname to a non-empty string, and the status message is appropriate.
         """
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
@@ -1456,7 +1456,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         """
         arrange: given the harnessed charm
         act: when we execute report_ingress_ips()
-        assert: this test will check that the charm will return an appropiate value if
+        assert: this test will check that the charm will return an appropriate value if
         an ingress IP is found.
         """
 

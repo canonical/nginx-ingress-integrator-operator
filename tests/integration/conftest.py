@@ -34,7 +34,7 @@ async def app(ops_test: OpsTest, app_name: str):
     # Build and deploy ingress
     charm = await ops_test.build_charm(".")
     application = await ops_test.model.deploy(
-        charm, application_name=app_name, series="focal", trust=True
+        charm, application_name=app_name, series="jammy", trust=True
     )
     await ops_test.model.wait_for_idle()
 
@@ -47,6 +47,6 @@ async def app(ops_test: OpsTest, app_name: str):
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name)
+    await ops_test.model.wait_for_idle(status=ActiveStatus.name, idle_period=120)
 
     yield application

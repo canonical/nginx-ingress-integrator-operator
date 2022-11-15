@@ -31,11 +31,11 @@ def _networking_v1_api():
     return kubernetes.client.NetworkingV1Api()
 
 
-class ConflictingAnnotationsException(Exception):
+class ConflictingAnnotationsError(Exception):
     pass
 
 
-class ConflictingRoutesException(Exception):
+class ConflictingRoutesError(Exception):
     pass
 
 
@@ -581,7 +581,7 @@ class NginxIngressCharm(CharmBase):
                         ingress.metadata.annotations,
                         other_metadata.annotations,
                     )
-                    raise ConflictingAnnotationsException()
+                    raise ConflictingAnnotationsError()
 
                 # Ensure that the exact same route for this route was not yet defined.
                 defined_paths = ingress_paths[rule.host]
@@ -593,7 +593,7 @@ class NginxIngressCharm(CharmBase):
                             duplicate_paths[0],
                             path,
                         )
-                        raise ConflictingRoutesException()
+                        raise ConflictingRoutesError()
 
                 # Extend the list of routes for this hostname.
                 ingress_paths[rule.host].extend(rule.http.paths)
@@ -716,13 +716,13 @@ class NginxIngressCharm(CharmBase):
                     return
                 else:
                     raise
-            except ConflictingAnnotationsException:
+            except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "
                     "Set manually via juju config."
                 )
                 return
-            except ConflictingRoutesException:
+            except ConflictingRoutesError:
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
@@ -753,13 +753,13 @@ class NginxIngressCharm(CharmBase):
                     return
                 else:
                     raise
-            except ConflictingAnnotationsException:
+            except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "
                     "Set manually via juju config."
                 )
                 return
-            except ConflictingRoutesException:
+            except ConflictingRoutesError:
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )

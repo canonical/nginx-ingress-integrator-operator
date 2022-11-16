@@ -5,6 +5,7 @@
 import logging
 import re
 import time
+from typing import List
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
@@ -409,7 +410,7 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _report_service_ips(self) -> list[str]:
+    def _report_service_ips(self) -> List[str]:
         """Report on service IP(s) and return a list of them."""
         self.k8s_auth()
         api = _core_v1_api()
@@ -419,7 +420,7 @@ class NginxIngressCharm(CharmBase):
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
-    def _report_ingress_ips(self) -> list[str]:
+    def _report_ingress_ips(self) -> List[str]:
         """Report on ingress IP(s) and return a list of them."""
         self.k8s_auth()
         api = _networking_v1_api()

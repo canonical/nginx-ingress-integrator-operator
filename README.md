@@ -40,5 +40,19 @@ Once the deployment has completed and the "hello-kubecon" workload state in
 `juju status` has changed to "active" you can visit `http://hello-kubecon` in
 a browser (assuming `hello-kubecon` resolves to the IP(s) of your k8s ingress).
 
+## Project and community
+
+The Nginx Ingress Integrator Operator is a member of the Ubuntu family. It's an
+open source project that warmly welcomes community projects, contributions,
+suggestions, fixes and constructive feedback.
+* [Code of conduct](https://ubuntu.com/community/code-of-conduct)
+* [Get support](https://discourse.charmhub.io/)
+* [Join our online chat](https://chat.charmhub.io/charmhub/channels/charm-dev)
+* [Contribute](https://charmhub.io/nginx-ingress-integrator/docs/contributing)
+* [Roadmap](https://charmhub.io/nginx-ingress-integrator/docs/roadmap)
+Thinking about using the Nginx Ingress Integrator for your next project? [Get in touch](https://chat.charmhub.io/charmhub/channels/charm-dev)!
+
+---
+
 For further details,
 [see the charm's detailed documentation](https://charmhub.io/nginx-ingress-integrator/docs).

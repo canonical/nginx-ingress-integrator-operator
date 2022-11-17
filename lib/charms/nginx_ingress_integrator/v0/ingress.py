@@ -1,3 +1,5 @@
+# Copyright 2022 Canonical Ltd.
+# Licensed under the Apache2.0, see LICENCE file in charm source for details.
 """Library for the ingress relation.
 
 This library contains the Requires and Provides classes for handling
@@ -62,11 +64,11 @@ from ops.model import BlockedStatus
 LIBID = "db0af4367506491c91663468fb5caa4c"
 
 # Increment this major API version when introducing breaking changes
-LIBAPI = 0
+LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 12
+LIBPATCH = 1
 
 LOGGER = logging.getLogger(__name__)
 

@@ -1,12 +1,13 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 name: nginx-ingress-integrator
-description: |
-  An operator to configure a kubernetes ingress.
-summary: |
-  An operator to configure a kubernetes ingress.
+display-name: Nginx Ingress Integrator
+description: An operator to configure a kubernetes ingress.
+summary: An operator to configure a kubernetes ingress.
 docs: https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511
-
+maintainers:
+  - launchpad.net/~canonical-is-devops
+issues: https://github.com/canonical/nginx-ingress-integrator-operator/issues
 assumes:
   - k8s-api
 

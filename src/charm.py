@@ -158,8 +158,19 @@ class _ConfigOrRelation(object):
         return self._get_config_or_relation_data("owasp-modsecurity-crs", False)
 
     @property
+    def _owasp_modsecurity_custom_rules(self):
+        """Return the owasp-modsecurity-custom-rules value from config or relation."""
+        custom_rules = self._get_config_or_relation_data("owasp-modsecurity-custom-rules", "")
+        # Since expected value is something like the example below,
+        # we replace the escaped new line \\n for \n
+        # SecAction "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n
+        custom_rules.replace("\\n", "\n")
+
+        return custom_rules
+
+    @property
     def _rewrite_enabled(self):
-        """Return whether rewriting should be enabled from config or relation"""
+        """Return whether rewriting should be enabled from config or relation."""
         value = self._get_config_or_relation_data("rewrite-enabled", True)
         # config data is typed, relation data is a string
         # Convert to string, then compare to a known value.
@@ -309,9 +320,13 @@ class _ConfigOrRelation(object):
         if self._owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
             annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
+            nginx_modsec_file = "/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             annotations[
                 "nginx.ingress.kubernetes.io/modsecurity-snippet"
-            ] = "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+            ] = "SecRuleEngine On\n{}Include {}".format(
+                self._owasp_modsecurity_custom_rules, nginx_modsec_file
+            )
+
         if self._retry_errors:
             annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._rewrite_enabled:
@@ -637,7 +652,6 @@ class NginxIngressCharm(CharmBase):
 
     def _create_k8s_ingress_obj(self, svc_hostname, initial_ingress, paths):
         """Creates a Kubernetes Ingress Resources with the given data."""
-
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
             host=svc_hostname,

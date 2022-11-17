@@ -18,6 +18,7 @@ Import `IngressRequires` in your charm, with two required options:
 - limit-whitelist
 - max-body-size
 - owasp-modsecurity-crs
+- owasp-modsecurity-custom-rules
 - path-routes
 - retry-errors
 - rewrite-enabled
@@ -80,6 +81,7 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "limit-whitelist",
     "max-body-size",
     "owasp-modsecurity-crs",
+    "owasp-modsecurity-custom-rules",
     "path-routes",
     "retry-errors",
     "rewrite-target",

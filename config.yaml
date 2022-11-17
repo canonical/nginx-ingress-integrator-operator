@@ -49,12 +49,18 @@ options:
     type: int
   owasp-modsecurity-crs:
     default: false
-    description: >
+    description: |
       Enable OWASP ModSecurity Core Rule Set (CRS). A set of generic attack detection rules for use
       with ModSecurity or compatible web application firewalls. The CRS aims to protect web
       applications from a wide range of attacks, including the OWASP Top Ten, with a minimum of
       false alerts. See https://github.com/coreruleset/coreruleset for more details.
     type: boolean
+  owasp-modsecurity-custom-rules:
+    default: ""
+    description: >
+      /n separated list of custom rules to be added to modsecurity-snippet annotation.
+      Example: "SecAction id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1\n".
+    type: string
   path-routes:
     default: ""
     description: >

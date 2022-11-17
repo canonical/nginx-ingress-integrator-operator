@@ -1,5 +1,5 @@
 # Copyright 2022 Canonical Ltd.
-# Licensed under the GPLv3, see LICENCE file for details.
+# Licensed under the Apache2.0, see LICENCE file in charm source for details.
 """Library for the ingress relation.
 
 This library contains the Requires and Provides classes for handling

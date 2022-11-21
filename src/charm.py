@@ -41,7 +41,7 @@ class ConflictingRoutesError(Exception):
     pass
 
 
-class _ConfigOrRelation(object):
+class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
     def __init__(self, model, config, relation, multiple_relations):

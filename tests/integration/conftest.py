@@ -40,7 +40,7 @@ async def app(ops_test: OpsTest, app_name: str):
     application = await ops_test.model.deploy(
         charm, application_name=app_name, series="focal", trust=True
     )
-    await ops_test.model.wait_for_idle()
+    await ops_test.model.wait_for_idle(timeout=10 * 60)
 
     # Check that both ingress and hello-kubecon are active
     assert ops_test.model.applications[app_name].units[0].workload_status == ActiveStatus.name
@@ -51,6 +51,7 @@ async def app(ops_test: OpsTest, app_name: str):
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
+    await ops_test.model.wait_for_idle(timeout=10 * 60)
 
     yield application
 
@@ -61,9 +62,11 @@ async def ip_address_list(ops_test: OpsTest, app: Application):
 
     Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
     """
-    await ops_test.model.block_until(
-        lambda: "Ingress IP(s)" in app.units[0].workload_status_message, timeout=100
-    )
+    # Reduce the update_status frequency until the cluster is deployed
+    async with ops_test.fast_forward():
+        await ops_test.model.block_until(
+            lambda: "Ingress IP(s)" in app.units[0].workload_status_message, timeout=100
+        )
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
     ip_address_list = re.findall(ip_regex, app.units[0].workload_status_message)
     assert (
@@ -95,8 +98,9 @@ async def app_url(ingress_ip: str):
 @pytest_asyncio.fixture(scope="module")
 async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
     """Enable owasp-modsecurity-crs."""
-    await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
+    async with ops_test.fast_forward():
+        await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
+        await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
     yield f"{app_url}/?search=../../passwords"
 
 
@@ -105,6 +109,7 @@ async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec
     """Add ModSecurity Custom Rule."""
     ignore_rule = 'SecRule REQUEST_URI "/" "id:1,phase:2,nolog,allow,ctl:ruleEngine=Off"\\n'
     ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
-    await ops_test.juju("config", app_name, ignore_rule_cfg)
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
+    async with ops_test.fast_forward():
+        await ops_test.juju("config", app_name, ignore_rule_cfg)
+        await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
     yield app_url_modsec

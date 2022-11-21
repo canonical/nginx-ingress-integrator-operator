@@ -118,7 +118,7 @@ class _ConfigOrRelation(object):
         # Avoid collision with service name created by Juju. Currently
         # Juju creates a K8s service listening on port 65535/TCP so we
         # need to create a separate one.
-        return "{}-service".format(self._service_name)
+        return f"{self._service_name}-service"
 
     @property
     def _ingress_name(self):
@@ -130,7 +130,7 @@ class _ConfigOrRelation(object):
         # based on their requested service-hostname.
         svc_hostname = self._get_config_or_relation_data("service-hostname", "")
         ingress_name = _INGRESS_SUB_REGEX.sub("-", svc_hostname)
-        return "{}-ingress".format(ingress_name)
+        return f"{ingress_name}-ingress"
 
     @property
     def _limit_rps(self):
@@ -150,7 +150,7 @@ class _ConfigOrRelation(object):
     def _max_body_size(self):
         """Return the max-body-size to use for k8s ingress."""
         max_body_size = self._get_config_or_relation_data("max-body-size", 0)
-        return "{}m".format(max_body_size)
+        return f"{max_body_size}m"
 
     @property
     def _owasp_modsecurity_crs(self):
@@ -159,14 +159,14 @@ class _ConfigOrRelation(object):
 
     @property
     def _owasp_modsecurity_custom_rules(self):
-        """Return the owasp-modsecurity-custom-rules value from config or relation."""
-        custom_rules = self._get_config_or_relation_data("owasp-modsecurity-custom-rules", "")
-        # Since expected value is something like the example below,
-        # we replace the escaped new line \\n for \n
-        # SecAction "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n
-        custom_rules.replace("\\n", "\n")
+        r"""Return the owasp-modsecurity-custom-rules value from config or relation.
 
-        return custom_rules
+        Since when setting the config via CLI or via YAML file, the new line character ('\n')
+        is escaped ('\\n') we need to replace it for a new line character.
+        """
+        return self._get_config_or_relation_data("owasp-modsecurity-custom-rules", "").replace(
+            "\\n", "\n"
+        )
 
     @property
     def _rewrite_enabled(self):
@@ -269,7 +269,7 @@ class _ConfigOrRelation(object):
                 selector={"app.kubernetes.io/name": self._service_name},
                 ports=[
                     kubernetes.client.V1ServicePort(
-                        name="tcp-{}".format(self._service_port),
+                        name=f"tcp-{self._service_port}",
                         port=self._service_port,
                         target_port=self._service_port,
                     )
@@ -320,13 +320,11 @@ class _ConfigOrRelation(object):
         if self._owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
             annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
+            sec_rule_engine = f"SecRuleEngine On\n{self._owasp_modsecurity_custom_rules}"
             nginx_modsec_file = "/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             annotations[
                 "nginx.ingress.kubernetes.io/modsecurity-snippet"
-            ] = "SecRuleEngine On\n{}Include {}".format(
-                self._owasp_modsecurity_custom_rules, nginx_modsec_file
-            )
-
+            ] = f"{sec_rule_engine}\nInclude {nginx_modsec_file}"
         if self._retry_errors:
             annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._rewrite_enabled:
@@ -338,9 +336,9 @@ class _ConfigOrRelation(object):
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-max-age"
             ] = self._session_cookie_max_age
-            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
-                self._service_name.upper()
-            )
+            annotations[
+                "nginx.ingress.kubernetes.io/session-cookie-name"
+            ] = f"{self._service_name.upper()}_AFFINITY"
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
@@ -530,16 +528,15 @@ class NginxIngressCharm(CharmBase):
                 return
 
             if len(defaults) > 1:
+                default_ingress = " ".join(sorted(defaults))
                 LOGGER.warning(
                     "Multiple default ingress classes defined, declining to choose between them. "
-                    "They are: {}".format(" ".join(sorted(defaults)))
+                    f"They are: {default_ingress}"
                 )
                 return
 
             ingress_class = defaults[0]
-            LOGGER.info(
-                "Using ingress class {} as it is the cluster's default".format(ingress_class)
-            )
+            LOGGER.info(f"Using ingress class {ingress_class} as it is the cluster's default")
 
         body.spec.ingress_class_name = ingress_class
 
@@ -648,7 +645,7 @@ class NginxIngressCharm(CharmBase):
     def _ingress_name(self, hostname):
         """Returns the Kubernetes Ingress Resource name based on the given hostname."""
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
-        return "{}-ingress".format(ingress_name)
+        return f"{ingress_name}-ingress"
 
     def _create_k8s_ingress_obj(self, svc_hostname, initial_ingress, paths):
         """Creates a Kubernetes Ingress Resources with the given data."""
@@ -744,10 +741,9 @@ class NginxIngressCharm(CharmBase):
                         "Insufficient permissions to create the k8s service, "
                         "will request `juju trust` to be run"
                     )
+                    juju_trust_cmd = f"juju trust {self.app.name} --scope=cluster"
                     self.unit.status = BlockedStatus(
-                        "Insufficient permissions, try: `juju trust {} --scope=cluster`".format(
-                            self.app.name
-                        )
+                        f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
                 else:
@@ -781,10 +777,9 @@ class NginxIngressCharm(CharmBase):
                         "Insufficient permissions to delete the k8s ingress resource, "
                         "will request `juju trust` to be run"
                     )
+                    juju_trust_cmd = f"juju trust {self.app.name} --scope=cluster"
                     self.unit.status = BlockedStatus(
-                        "Insufficient permissions, try: `juju trust {} --scope=cluster`".format(
-                            self.app.name
-                        )
+                        f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
                 else:

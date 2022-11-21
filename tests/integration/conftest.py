@@ -3,8 +3,8 @@
 
 import re
 import subprocess  # nosec B404
-import time
 from pathlib import Path
+from typing import List
 
 import pytest_asyncio
 import yaml
@@ -28,6 +28,7 @@ def app_name(metadata):
 @pytest_asyncio.fixture(scope="module")
 async def app(ops_test: OpsTest, app_name: str):
     """Build ingress charm used for integration testing.
+
     Builds the charm and deploys it and a charm that depends on it.
     """
     # Deploy relations first to speed up overall execution
@@ -50,29 +51,43 @@ async def app(ops_test: OpsTest, app_name: str):
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name, idle_period=120)
 
     yield application
 
 
 @pytest_asyncio.fixture(scope="module")
-async def app_ip(app: Application):
-    """Get unit IP address and add to /etc/hosts."""
-    # Get the IP address which is in the status message
+async def ip_address_list(ops_test: OpsTest, app: Application):
+    """Get unit IP address from workload message.
+
+    Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
+    """
+    await ops_test.model.block_until(
+        lambda: "Ingress IP(s)" in app.units[0].workload_status_message, timeout=100
+    )
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
-    time.sleep(100)  # wait for ingress
-    ip_address_match = re.findall(ip_regex, app.units[0].workload_status_message)
+    ip_address_list = re.findall(ip_regex, app.units[0].workload_status_message)
     assert (
-        ip_address_match
+        ip_address_list
     ), f"could not find IP address in status message: {app.units[0].workload_status_message}"
-    ip_address = ip_address_match[-1]
-    yield ip_address
+    yield ip_address_list
 
 
 @pytest_asyncio.fixture(scope="module")
-async def app_url(app_ip: str):
+async def service_ip(ip_address_list: List):
+    """Last match is the service IP."""
+    yield ip_address_list[-1]
+
+
+@pytest_asyncio.fixture(scope="module")
+async def ingress_ip(ip_address_list: List):
+    """First match is the ingress IP."""
+    yield ip_address_list[0]
+
+
+@pytest_asyncio.fixture(scope="module")
+async def app_url(ingress_ip: str):
     """Add to /etc/hosts."""
-    ps = subprocess.Popen(["echo", f"{app_ip} hello-kubecon"], stdout=subprocess.PIPE)  # nosec
+    ps = subprocess.Popen(["echo", f"{ingress_ip} hello-kubecon"], stdout=subprocess.PIPE)  # nosec
     subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=ps.stdout)  # nosec
     yield "http://hello-kubecon"
 
@@ -81,16 +96,15 @@ async def app_url(app_ip: str):
 async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
     """Enable owasp-modsecurity-crs."""
     await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-
+    await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
     yield f"{app_url}/?search=../../passwords"
 
 
 @pytest_asyncio.fixture(scope="module")
 async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec: str):
     """Add ModSecurity Custom Rule."""
-    # Add ignore rule
-    ignore_rule = 'SecRule REQUEST_URI "/ignore" "id:1,phase:2,nolog,allow,ctl:ruleEngine=Off"\\n'
-    ignore_rule_cfg = "owasp-modsecurity-custom-rules={}".format(ignore_rule)
+    ignore_rule = 'SecRule REQUEST_URI "/" "id:1,phase:2,nolog,allow,ctl:ruleEngine=Off"\\n'
+    ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
     await ops_test.juju("config", app_name, ignore_rule_cfg)
-    app_url_modsec_ignore = app_url_modsec.replace("?", "ignore?")
-    yield app_url_modsec_ignore
+    await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
+    yield app_url_modsec

@@ -283,7 +283,34 @@ class TestCharm(unittest.TestCase):
             "nginx.ingress.kubernetes.io/modsecurity-snippet": (
                 "SecRuleEngine On\nSecAction"
                 ' "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n'
-                "Include /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+                "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+            ),
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
+    def test_owasp_modsecurity_custom_rules_new_lines(self):
+        r"""Test if new lines ('\n') in custom rules are correctly handled."""
+        self.maxDiff = None
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.harness.update_config({"owasp-modsecurity-crs": True})
+        custom_rule = (
+            "SecAction "
+            '"id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n\n'
+        )
+        self.harness.update_config({"owasp-modsecurity-custom-rules": custom_rule})
+        self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
+        self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, custom_rule)
+        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        expected = {
+            "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
+            "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
+            "nginx.ingress.kubernetes.io/modsecurity-snippet": (
+                "SecRuleEngine On\nSecAction"
+                ' "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n\n'
+                "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",

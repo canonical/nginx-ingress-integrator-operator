@@ -19,14 +19,14 @@ async def test_active(app: Application):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
-async def test_service_reachable(app_ip: str):
+async def test_service_reachable(service_ip: str):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the dependent application is queried via the service
     assert: then the response is HTTP 200 OK.
     """
     port = "8080"
-    response = requests.get(f"http://{app_ip}:{port}")
+    response = requests.get(f"http://{service_ip}:{port}")
 
     assert response.status_code == 200
 
@@ -64,7 +64,7 @@ async def test_owasp_modsecurity_custom_rules(app_url_modsec_ignore: str):
     arrange: given charm has been built, deployed, related to a dependent application,
         owasp-modsecurity-crs is set to True and owasp-modsecurity-custom-rules has ignore rule
     act: when the dependent application is queried via the ingress with malicious request
-    assert: then the response is HTTP 404 not found
+    assert: then the response is HTTP 200 OK.
     """
     response = requests.get(app_url_modsec_ignore)
-    assert response.status_code == 404
+    assert response.status_code == 200

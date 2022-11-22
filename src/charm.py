@@ -529,14 +529,16 @@ class NginxIngressCharm(CharmBase):
 
             if len(defaults) > 1:
                 default_ingress = " ".join(sorted(defaults))
+                msg = "Multiple default ingress classes defined, declining to choose between them."
                 LOGGER.warning(
-                    "Multiple default ingress classes defined, declining to choose between them. "
-                    f"They are: {default_ingress}"
+                    "%s. They are: %s",
+                    msg,
+                    default_ingress,
                 )
                 return
 
             ingress_class = defaults[0]
-            LOGGER.info(f"Using ingress class {ingress_class} as it is the cluster's default")
+            LOGGER.info("Using ingress class %s as it is the cluster's default", ingress_class)
 
         body.spec.ingress_class_name = ingress_class
 

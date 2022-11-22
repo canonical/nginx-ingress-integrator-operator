@@ -18,6 +18,7 @@ Import `IngressRequires` in your charm, with two required options:
 - limit-whitelist
 - max-body-size
 - owasp-modsecurity-crs
+- owasp-modsecurity-custom-rules
 - path-routes
 - retry-errors
 - rewrite-enabled
@@ -68,7 +69,7 @@ LIBAPI = 1
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 1
+LIBPATCH = 2
 
 LOGGER = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ OPTIONAL_INGRESS_RELATION_FIELDS = {
     "limit-whitelist",
     "max-body-size",
     "owasp-modsecurity-crs",
+    "owasp-modsecurity-custom-rules",
     "path-routes",
     "retry-errors",
     "rewrite-target",
@@ -212,7 +214,8 @@ class IngressProvides(Object):
     def _on_relation_changed(self, event):
         """Handle a change to the ingress relation.
 
-        Confirm we have the fields we expect to receive."""
+        Confirm we have the fields we expect to receive.
+        """
         # `self.unit` isn't available here, so use `self.model.unit`.
         if not self.model.unit.is_leader():
             return

@@ -8,7 +8,7 @@ options:
     type: string
   ingress-class:
     default: ""
-    description: >
+    description: |
       The ingress class to target for this ingress resource.
 
       If your cluster has multiple ingress controllers, this allows
@@ -31,7 +31,7 @@ options:
     type: string
   limit-rps:
     default: 0
-    description: >
+    description: |
       Number of requests accepted from a given IP each second. The burst limit
       is set to this limit multiplied by 5. When clients exceed this limit a
       503 error will be returned.
@@ -39,7 +39,7 @@ options:
     type: int
   limit-whitelist:
     default: ""
-    description: >
+    description: |
       If rate-limiting is set, client IP source ranges to be excluded. The value
       is a comma-separated list of CIDRs.
     type: string
@@ -49,21 +49,27 @@ options:
     type: int
   owasp-modsecurity-crs:
     default: false
-    description: >
+    description: |
       Enable OWASP ModSecurity Core Rule Set (CRS). A set of generic attack detection rules for use
       with ModSecurity or compatible web application firewalls. The CRS aims to protect web
       applications from a wide range of attacks, including the OWASP Top Ten, with a minimum of
       false alerts. See https://github.com/coreruleset/coreruleset for more details.
     type: boolean
+  owasp-modsecurity-custom-rules:
+    default: ""
+    description: |
+      New line ('\n') separated list of custom rules to be added to modsecurity-snippet annotation.
+      Example: "SecAction id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1\n".
+    type: string
   path-routes:
     default: ""
-    description: >
+    description: |
       Comma separated list of the routes under the hostname that you wish to map to the relation.
       Example: "/admin,/portal" will map example.test/admin and example.test/portal only.
     type: string
   retry-errors:
     default: ""
-    description: >
+    description: |
       Specifies in which cases a request should be retried against the next server.
       Comma-separated list, e.g. "error,timeout,http_502,http_503,http_504".
       See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream

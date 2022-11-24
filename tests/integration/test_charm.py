@@ -91,7 +91,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
     any_charm_tmp_path = tmp_path / "any-charm"
     if not any_charm_tmp_path.exists():
         subprocess.run(  # nosec
-            ["git", "clone", "https://github.com/weiiwang01/any-charm.git", any_charm_tmp_path]
+            ["git", "clone", "https://github.com/canonical/any-charm.git", any_charm_tmp_path]
         )
 
     any_charm = await ops_test.build_charm(any_charm_tmp_path)

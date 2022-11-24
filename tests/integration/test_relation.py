@@ -8,6 +8,19 @@ import pytest
 from ops.model import ActiveStatus
 from pytest_operator.plugin import OpsTest
 
+async def build_and_deploy(ops_test: OpsTest, app_name: str):
+    """Build ingress charm used for integration testing.
+
+    Builds the charm and deploys it and a charm that depends on it.
+    """
+    # Build and deploy ingress
+    charm = await ops_test.build_charm(".")
+    await ops_test.model.deploy(
+        str(charm), application_name=app_name, series="focal", trust=True
+    )
+    await ops_test.model.wait_for_idle(status=ActiveStatus.name)
+
+
 @pytest.mark.usefixtures("app")
 async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, tmp_path: Path):
     """

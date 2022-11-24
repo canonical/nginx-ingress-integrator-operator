@@ -87,7 +87,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
     """
     await ops_test.model.remove_application("hello-kubecon")
     await ops_test.model.applications[app_name].set_config({
-        "owasp-modsecurity-crs": False,
+        "owasp-modsecurity-crs": "false",
         "owasp-modsecurity-custom-rules": ""
     })
     any_charm_tmp_path = tmp_path / "any-charm"

@@ -85,10 +85,9 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
     assert: modsecurity annotations should be attached and detached from the kubernetes ingress
         resource according to the modsecurity option.
     """
-    await ops_test.model.applications[app_name].set_config({
-        "owasp-modsecurity-crs": "false",
-        "owasp-modsecurity-custom-rules": ""
-    })
+    await ops_test.model.applications[app_name].set_config(
+        {"owasp-modsecurity-crs": "false", "owasp-modsecurity-custom-rules": ""}
+    )
     any_charm_tmp_path = tmp_path / "any-charm"
     if not any_charm_tmp_path.exists():
         subprocess.run(  # nosec
@@ -107,7 +106,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.ingress = IngressRequires(
-                    self, 
+                    self,
                     {
                         "service-hostname": "any",
                         "service-name": self.app.name,

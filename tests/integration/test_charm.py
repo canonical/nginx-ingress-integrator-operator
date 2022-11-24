@@ -77,7 +77,6 @@ async def test_owasp_modsecurity_custom_rules(app_url_modsec_ignore: str):
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("app")
 async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, tmp_path: Path):
     """
     arrange: given charm has been built and deployed
@@ -86,6 +85,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
     assert: modsecurity annotations should be attached and detached from the kubernetes ingress
         resource according to the modsecurity option.
     """
+    await ops_test.model.remove_application("hello-kubecon")
     any_charm_tmp_path = tmp_path / "any-charm"
     if not any_charm_tmp_path.exists():
         subprocess.run(

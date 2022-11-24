@@ -86,11 +86,15 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
         resource according to the modsecurity option.
     """
     await ops_test.model.remove_application("hello-kubecon")
+    await ops_test.model.applications[app_name].set_config({
+        "owasp-modsecurity-crs": False,
+        "owasp-modsecurity-custom-rules": ""
+    })
     any_charm_tmp_path = tmp_path / "any-charm"
     if not any_charm_tmp_path.exists():
-        subprocess.run(
+        subprocess.run(  # nosec
             ["git", "clone", "https://github.com/weiiwang01/any-charm.git", any_charm_tmp_path]
-        )  # nosec
+        )
 
     any_charm = await ops_test.build_charm(any_charm_tmp_path)
     ingress_lib = Path("lib/charms/nginx_ingress_integrator/v0/ingress.py").read_text()

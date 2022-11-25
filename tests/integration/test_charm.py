@@ -2,9 +2,7 @@
 # See LICENSE file for licensing details.
 
 import json
-import subprocess  # nosec B404
 from pathlib import Path
-from textwrap import dedent
 
 import kubernetes
 import pytest
@@ -88,41 +86,16 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, 
     await ops_test.model.applications[app_name].set_config(
         {"owasp-modsecurity-crs": "false", "owasp-modsecurity-custom-rules": ""}
     )
-    any_charm_tmp_path = tmp_path / "any-charm"
-    if not any_charm_tmp_path.exists():
-        subprocess.run(  # nosec
-            ["git", "clone", "https://github.com/canonical/any-charm.git", any_charm_tmp_path]
-        )
-
-    any_charm = await ops_test.build_charm(any_charm_tmp_path)
     ingress_lib = Path("lib/charms/nginx_ingress_integrator/v0/ingress.py").read_text()
+    any_charm_script = Path("tests/integration/any_charm.py").read_text()
     any_charm_src_overwrite = {
         "ingress.py": ingress_lib,
-        "any_charm.py": dedent(
-            """\
-        from ingress import IngressRequires
-        from any_charm_base import AnyCharmBase
-        class AnyCharm(AnyCharmBase):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.ingress = IngressRequires(
-                    self,
-                    {
-                        "service-hostname": "any",
-                        "service-name": self.app.name,
-                        "service-port": 80,
-                        "owasp-modsecurity-crs": True
-                    }
-                )
-            def update_ingress(self, ingress_config):
-                self.ingress.update_config(ingress_config)
-        """
-        ),
+        "any_charm.py": any_charm_script,
     }
     await ops_test.model.deploy(
-        str(any_charm),
+        "any-charm",
         application_name="any",
-        series="focal",
+        channel="beta",
         config={"src-overwrite": json.dumps(any_charm_src_overwrite)},
     )
     await ops_test.model.add_relation("any", f"{app_name}:ingress")

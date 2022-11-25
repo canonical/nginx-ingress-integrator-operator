@@ -155,7 +155,8 @@ class _ConfigOrRelation:
     @property
     def _owasp_modsecurity_crs(self):
         """Return a boolean indicating whether OWASP ModSecurity CRS is enabled."""
-        return self._get_config_or_relation_data("owasp-modsecurity-crs", False)
+        value = self._get_config_or_relation_data("owasp-modsecurity-crs", False)
+        return str(value).lower() == "true"
 
     @property
     def _owasp_modsecurity_custom_rules(self):

@@ -41,10 +41,10 @@ async def test_build_and_deploy(ops_test: OpsTest, run_action):
         ),
         build_and_deploy(),
     )
+    await ops_test.model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     await ops_test.model.add_relation(ANY_APP_NAME, f"{INGRESS_APP_NAME}:ingress")
-
-    await ops_test.model.wait_for_idle(raise_on_error=False)
+    await ops_test.model.wait_for_idle()
 
 
 async def test_ingress_connectivity():
@@ -81,7 +81,7 @@ async def test_update_host_and_port_via_relation(ops_test, run_action):
             {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
         ),
     )
-    await ops_test.model.wait_for_idle(status="active", raise_on_error=False)
+    await ops_test.model.wait_for_idle(status="active")
 
     response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME})
     assert response.text == "ok"
@@ -117,7 +117,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
             }
         ),
     )
-    await ops_test.model.wait_for_idle(status="active", raise_on_error=False)
+    await ops_test.model.wait_for_idle(status="active")
 
     assert (
         requests.get(

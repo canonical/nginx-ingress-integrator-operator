@@ -55,6 +55,7 @@ registered to handle the event (because it wasn't created in `__init__` when
 the event was fired).
 """
 
+import copy
 import logging
 
 from ops.charm import CharmEvents, RelationEvent
@@ -135,12 +136,16 @@ class IngressRequires(Object):
             if default_key not in config_dict or not config_dict[default_key]:
                 config_dict[default_key] = default_value
 
-        # And now populate data for conformity with charm-relation-interfaces.
+        self.config_dict = self._convert_to_relation_interface(config_dict)
+
+    @staticmethod
+    def _convert_to_relation_interface(config_dict):
+        """create a new relation dict that conforms with charm-relation-interfaces."""
+        config_dict = copy.copy(config_dict)
         for old_key, new_key in RELATION_INTERFACES_MAPPINGS.items():
             if old_key in config_dict and config_dict[old_key]:
                 config_dict[new_key] = config_dict[old_key]
-
-        self.config_dict = config_dict
+        return config_dict
 
     def _config_dict_errors(self, update_only=False):
         """Check our config dict for errors."""
@@ -187,7 +192,7 @@ class IngressRequires(Object):
     def update_config(self, config_dict):
         """Allow for updates to relation."""
         if self.model.unit.is_leader():
-            self.config_dict = config_dict
+            self.config_dict = self._convert_to_relation_interface(config_dict)
             if self._config_dict_errors(update_only=True):
                 return
             relation = self.model.get_relation("ingress")

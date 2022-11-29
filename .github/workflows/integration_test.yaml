@@ -5,5 +5,7 @@ on:
 
 jobs:
   integration-tests:
-    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@integration-module-matrix
     secrets: inherit
+    with:
+      modules: '["test_charm", "test_relation"]'

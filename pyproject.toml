@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 [tool.bandit]
-exclude_dirs = ["/venv/"]
+exclude_dirs = ["/venv/", "tests/integration/any_charm.py"]
 [tool.bandit.assert_used]
 skips = ["*/*test.py", "*/test_*.py"]
 

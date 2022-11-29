@@ -15,7 +15,7 @@ NEW_PORT = 18080
 async def test_build_and_deploy(ops_test: OpsTest, run_action):
     """
     arrange: no arrange.
-    act: build and deploy nginx-ingress-integrator charm, also deploy and relate a any-charm
+    act: build and deploy nginx-ingress-integrator charm, also deploy and relate an any-charm
         application for test purposes.
     assert: all application should be active.
     """
@@ -50,7 +50,7 @@ async def test_build_and_deploy(ops_test: OpsTest, run_action):
 async def test_ingress_connectivity():
     """
     arrange: given charm has been built and deployed.
-    act: access ingress IP address with correct host name in HTTP headers
+    act: access ingress IP address with correct host name in HTTP headers.
     assert: HTTP request should be forwarded to the application.
     """
     response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=5)
@@ -61,8 +61,8 @@ async def test_ingress_connectivity():
 async def test_update_host_and_port_via_relation(ops_test, run_action):
     """
     arrange: given charm has been built and deployed.
-    act: update service-hostname nad service-port through relation via ingress lib.
-    assert: kubernetes ingress should be updated accommodate the relation data update.
+    act: update service-hostname and service-port via ingress library.
+    assert: kubernetes ingress should be updated to accommodate the relation data update.
     """
     assert (
         requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5).status_code
@@ -91,7 +91,7 @@ async def test_update_host_and_port_via_relation(ops_test, run_action):
 async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     arrange: given charm has been built and deployed.
-    act: toggle modsecurity option through relation via ingress lib.
+    act: toggle modsecurity option via ingress library.
     assert: modsecurity should be enabled and ingress should reject malicious requests.
     """
     kubernetes.config.load_kube_config()

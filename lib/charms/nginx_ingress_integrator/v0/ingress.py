@@ -65,11 +65,11 @@ from ops.model import BlockedStatus
 LIBID = "db0af4367506491c91663468fb5caa4c"
 
 # Increment this major API version when introducing breaking changes
-LIBAPI = 1
+LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 11
 
 LOGGER = logging.getLogger(__name__)
 

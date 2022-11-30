@@ -9,6 +9,7 @@ from pytest_operator.plugin import OpsTest
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"
 NEW_HOSTNAME = "any.other"
+NEW_INGRESS = "any-other-ingress"
 NEW_PORT = 18080
 
 
@@ -58,7 +59,7 @@ async def test_ingress_connectivity():
     assert response.status_code == 200
 
 
-async def test_update_host_and_port_via_relation(ops_test, run_action):
+async def test_update_host_and_port_via_relation(ops_test, run_action, wait_for_ingress):
     """
     arrange: given charm has been built and deployed.
     act: update service-hostname and service-port via ingress library.
@@ -82,6 +83,7 @@ async def test_update_host_and_port_via_relation(ops_test, run_action):
         ),
     )
     await ops_test.model.wait_for_idle(status="active")
+    await wait_for_ingress(NEW_INGRESS)
 
     response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME})
     assert response.text == "ok"
@@ -96,9 +98,12 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    ingress_annotations = kube.read_namespaced_ingress(
-        "any-other-ingress", namespace=ops_test.model.name
-    ).metadata.annotations
+    model_name = ops_test.model.name
+
+    def get_ingress_annotation():
+        return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
+
+    ingress_annotations = get_ingress_annotation()
     assert "nginx.ingress.kubernetes.io/enable-modsecurity" not in ingress_annotations
     assert "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs" not in ingress_annotations
     assert "nginx.ingress.kubernetes.io/modsecurity-snippet" not in ingress_annotations
@@ -118,6 +123,11 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
         ),
     )
     await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.block_until(
+        lambda: "nginx.ingress.kubernetes.io/enable-modsecurity" in get_ingress_annotation(),
+        wait_period=5,
+        timeout=300,
+    )
 
     assert (
         requests.get(
@@ -125,10 +135,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
         ).status_code
         == 403
     )
-
-    ingress_annotations = kube.read_namespaced_ingress(
-        "any-other-ingress", namespace=ops_test.model.name
-    ).metadata.annotations
+    ingress_annotations = get_ingress_annotation()
     assert ingress_annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] == "true"
     assert (
         ingress_annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] == "true"

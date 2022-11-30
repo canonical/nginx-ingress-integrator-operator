@@ -6,6 +6,7 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import List
 
+import kubernetes
 import pytest_asyncio
 import yaml
 from ops.model import ActiveStatus, Application
@@ -126,3 +127,23 @@ def run_action(ops_test: OpsTest):
         return action.results
 
     return _run_action
+
+
+@fixture()
+def wait_for_ingress(ops_test: OpsTest):
+    """Create an async function, that will wait until ingress resource with certain name exists."""
+    kubernetes.config.load_kube_config()
+    kube = kubernetes.client.NetworkingV1Api()
+
+    async def _wait_for_ingress(ingress_name):
+        await ops_test.model.block_until(
+            lambda: ingress_name
+            in [
+                ingress.metadata.name
+                for ingress in kube.list_namespaced_ingress(ops_test.model.name).items
+            ],
+            wait_period=5,
+            timeout=300,
+        )
+
+    return _wait_for_ingress

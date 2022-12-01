@@ -985,56 +985,56 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._get_k8s_service(), expected)
 
 
-INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
             "ingressclass.kubernetes.io/is-default-class": "true",
         },
         name="public",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-INGRESS_CLASS_PRIVATE = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PRIVATE = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={},
         name="private",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
             "ingressclass.kubernetes.io/is-default-class": "true",
         },
         name="private",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-ZERO_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(items=[])
+ZERO_INGRESS_CLASS_LIST = kubernetes.client.V1IngressClassList(items=[])
 
-ONE_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(
+ONE_INGRESS_CLASS_LIST = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
     ],
 )
 
-TWO_INGRESS_CLASSES_LIST = kubernetes.client.V1beta1IngressClassList(
+TWO_INGRESS_CLASSES_LIST = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
         INGRESS_CLASS_PRIVATE,
     ]
 )
 
-TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1beta1IngressClassList(
+TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
         INGRESS_CLASS_PRIVATE_DEFAULT,

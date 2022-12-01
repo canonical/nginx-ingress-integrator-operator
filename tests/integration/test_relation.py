@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 
 import kubernetes
+import pytest
+import pytest_asyncio
 import requests
 from pytest_operator.plugin import OpsTest
 
@@ -13,12 +15,13 @@ NEW_INGRESS = "any-other-ingress"
 NEW_PORT = 18080
 
 
-async def test_build_and_deploy(ops_test: OpsTest, run_action):
-    """
-    arrange: no arrange.
-    act: build and deploy nginx-ingress-integrator charm, also deploy and relate an any-charm
-        application for test purposes.
-    assert: all application should be active.
+@pytest_asyncio.fixture(scope="module")
+async def build_and_deploy(ops_test: OpsTest, run_action):
+    """build and deploy nginx-ingress-integrator charm.
+
+    Also deploy and relate an any-charm application for test purposes.
+
+    Returns: None.
     """
     ingress_lib = Path("lib/charms/nginx_ingress_integrator/v0/ingress.py").read_text()
     any_charm_script = Path("tests/integration/any_charm.py").read_text()
@@ -27,7 +30,7 @@ async def test_build_and_deploy(ops_test: OpsTest, run_action):
         "any_charm.py": any_charm_script,
     }
 
-    async def build_and_deploy():
+    async def build_and_deploy_ingress():
         charm = await ops_test.build_charm(".")
         return await ops_test.model.deploy(
             str(charm), application_name="ingress", series="focal", trust=True
@@ -40,7 +43,7 @@ async def test_build_and_deploy(ops_test: OpsTest, run_action):
             channel="beta",
             config={"src-overwrite": json.dumps(any_charm_src_overwrite)},
         ),
-        build_and_deploy(),
+        build_and_deploy_ingress(),
     )
     await ops_test.model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
@@ -48,28 +51,12 @@ async def test_build_and_deploy(ops_test: OpsTest, run_action):
     await ops_test.model.wait_for_idle()
 
 
-async def test_ingress_connectivity():
-    """
-    arrange: given charm has been built and deployed.
-    act: access ingress IP address with correct host name in HTTP headers.
-    assert: HTTP request should be forwarded to the application.
-    """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=5)
-    assert response.text == "ok"
-    assert response.status_code == 200
+@pytest_asyncio.fixture(scope="module")
+async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wait_for_ingress):
+    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
 
-
-async def test_update_host_and_port_via_relation(ops_test, run_action, wait_for_ingress):
+    Returns: None.
     """
-    arrange: given charm has been built and deployed.
-    act: update service-hostname and service-port via ingress library.
-    assert: kubernetes ingress should be updated to accommodate the relation data update.
-    """
-    assert (
-        requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5).status_code
-        == 404
-    )
-
     rpc_return = await run_action(
         ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
     )
@@ -85,11 +72,36 @@ async def test_update_host_and_port_via_relation(ops_test, run_action, wait_for_
     await ops_test.model.wait_for_idle(status="active")
     await wait_for_ingress(NEW_INGRESS)
 
+
+@pytest.mark.usefixtures("build_and_deploy")
+async def test_ingress_connectivity():
+    """
+    arrange: given charm has been built and deployed.
+    act: access ingress IP address with correct host name in HTTP headers.
+    assert: HTTP request should be forwarded to the application.
+    """
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=5)
+    assert response.text == "ok"
+    assert response.status_code == 200
+    assert (
+        requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5).status_code
+        == 404
+    )
+
+
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
+    """
+    arrange: given charm has been built and deployed.
+    act: update service-hostname and service-port via ingress library.
+    assert: kubernetes ingress should be updated to accommodate the relation data update.
+    """
     response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME})
     assert response.text == "ok"
     assert response.status_code == 200
 
 
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
 async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     arrange: given charm has been built and deployed.

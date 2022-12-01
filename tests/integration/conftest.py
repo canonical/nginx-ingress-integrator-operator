@@ -116,7 +116,7 @@ async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec
     yield app_url_modsec
 
 
-@fixture
+@fixture(scope="module")
 def run_action(ops_test: OpsTest):
     """Create a async function to run action and return results."""
 
@@ -129,7 +129,7 @@ def run_action(ops_test: OpsTest):
     return _run_action
 
 
-@fixture()
+@fixture(scope="module")
 def wait_for_ingress(ops_test: OpsTest):
     """Create an async function, that will wait until ingress resource with certain name exists."""
     kubernetes.config.load_kube_config()

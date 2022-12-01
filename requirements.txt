@@ -1,2 +1,2 @@
-kubernetes == 19.15.0
+kubernetes == 25.3.0
 ops

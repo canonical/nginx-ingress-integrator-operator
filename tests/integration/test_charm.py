@@ -1,14 +1,9 @@
 # Copyright 2022 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-import json
-from pathlib import Path
-
-import kubernetes
 import pytest
 import requests
 from ops.model import ActiveStatus, Application
-from pytest_operator.plugin import OpsTest
 
 
 @pytest.mark.asyncio
@@ -73,60 +68,3 @@ async def test_owasp_modsecurity_custom_rules(app_url_modsec_ignore: str):
     """
     response = requests.get(app_url_modsec_ignore)
     assert response.status_code == 200
-
-
-async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, app_name: str, tmp_path: Path):
-    """
-    arrange: given charm has been built and deployed
-    act: relate the ingress integrator with any-charm and use any-charm to toggle modsecurity
-        option through relation via ingress lib.
-    assert: modsecurity annotations should be attached and detached from the kubernetes ingress
-        resource according to the modsecurity option.
-    """
-    await ops_test.model.applications[app_name].set_config(
-        {"owasp-modsecurity-crs": "false", "owasp-modsecurity-custom-rules": ""}
-    )
-    ingress_lib = Path("lib/charms/nginx_ingress_integrator/v0/ingress.py").read_text()
-    any_charm_script = Path("tests/integration/any_charm.py").read_text()
-    any_charm_src_overwrite = {
-        "ingress.py": ingress_lib,
-        "any_charm.py": any_charm_script,
-    }
-    await ops_test.model.deploy(
-        "any-charm",
-        application_name="any",
-        channel="beta",
-        config={"src-overwrite": json.dumps(any_charm_src_overwrite)},
-    )
-    await ops_test.model.add_relation("any", f"{app_name}:ingress")
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name)
-
-    kubernetes.config.load_kube_config()
-    kube = kubernetes.client.NetworkingV1Api()
-    ingress_annotations = kube.read_namespaced_ingress(
-        "any-ingress", namespace=ops_test.model.name
-    ).metadata.annotations
-    assert ingress_annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] == "true"
-    assert (
-        ingress_annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] == "true"
-    )
-    assert ingress_annotations["nginx.ingress.kubernetes.io/modsecurity-snippet"]
-
-    action = (
-        await ops_test.model.applications["any"]
-        .units[0]
-        .run_action(
-            "rpc",
-            method="update_ingress",
-            kwargs=json.dumps({"ingress_config": {"owasp-modsecurity-crs": False}}),
-        )
-    )
-    await action.wait()
-    await ops_test.model.wait_for_idle(status=ActiveStatus.name)
-
-    ingress_annotations = kube.read_namespaced_ingress(
-        "any-ingress", namespace=ops_test.model.name
-    ).metadata.annotations
-    assert "nginx.ingress.kubernetes.io/enable-modsecurity" not in ingress_annotations
-    assert "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs" not in ingress_annotations
-    assert "nginx.ingress.kubernetes.io/modsecurity-snippet" not in ingress_annotations

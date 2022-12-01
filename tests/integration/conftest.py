@@ -6,6 +6,7 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import List
 
+import kubernetes
 import pytest_asyncio
 import yaml
 from ops.model import ActiveStatus, Application
@@ -113,3 +114,36 @@ async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec
         await ops_test.juju("config", app_name, ignore_rule_cfg)
         await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
     yield app_url_modsec
+
+
+@fixture(scope="module")
+def run_action(ops_test: OpsTest):
+    """Create a async function to run action and return results."""
+
+    async def _run_action(application_name, action_name, **params):
+        application = ops_test.model.applications[application_name]
+        action = await application.units[0].run_action(action_name, **params)
+        await action.wait()
+        return action.results
+
+    return _run_action
+
+
+@fixture(scope="module")
+def wait_for_ingress(ops_test: OpsTest):
+    """Create an async function, that will wait until ingress resource with certain name exists."""
+    kubernetes.config.load_kube_config()
+    kube = kubernetes.client.NetworkingV1Api()
+
+    async def _wait_for_ingress(ingress_name):
+        await ops_test.model.block_until(
+            lambda: ingress_name
+            in [
+                ingress.metadata.name
+                for ingress in kube.list_namespaced_ingress(ops_test.model.name).items
+            ],
+            wait_period=5,
+            timeout=300,
+        )
+
+    return _wait_for_ingress

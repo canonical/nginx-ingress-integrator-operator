@@ -19,7 +19,7 @@ jobs:
           git status
           git branch
       - name: Publish documentation
-        uses: canonical/upload-charm-docs@main
+        uses: canonical/upload-charm-docs@debugging
         with:
           discourse_host: discourse.charmhub.io
           discourse_api_username: ${{ secrets.DISCOURSE_API_USERNAME }}

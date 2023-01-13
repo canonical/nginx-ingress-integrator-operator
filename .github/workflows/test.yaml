@@ -16,5 +16,5 @@ jobs:
           repository: canonical/Inclusive-naming
           path: ${{ inputs.working-directory }}
       - run: |
-        git status
-        git branch
+          git status
+          git branch

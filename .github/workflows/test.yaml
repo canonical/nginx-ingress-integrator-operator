@@ -12,9 +12,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-        with:
-          repository: canonical/Inclusive-naming
-          path: ${{ inputs.working-directory }}
       - run: |
           git status
           git branch

@@ -7,3 +7,12 @@ jobs:
   unit-tests:
     uses: canonical/operator-workflows/.github/workflows/test.yaml@enable-docs-migration
     secrets: inherit
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: canonical/Inclusive-naming
+          path: ${{ inputs.working-directory }}
+      - run: git branch

@@ -58,11 +58,11 @@ changed event to be properly handled.
 
 import copy
 import logging
+from typing import Dict
 
 from ops.charm import CharmEvents, RelationBrokenEvent, RelationChangedEvent
 from ops.framework import EventBase, EventSource, Object
 from ops.model import BlockedStatus
-from typing import Dict
 
 # The unique Charmhub library identifier, never change it
 LIBID = "db0af4367506491c91663468fb5caa4c"
@@ -269,3 +269,48 @@ class IngressProvides(Object):
 
         # Create an event that our charm can use to remove the ingress resource.
         self.charm.on.ingress_broken.emit(event.relation)
+
+class IngressProxyProvides(Object):
+
+    def __init__(self, charm):
+        super().__init__(charm, "ingress")
+        # Observe the relation-changed hook event and bind
+        # self.on_relation_changed() to handle the event.
+        self.framework.observe(charm.on["ingress"].relation_joined, self._on_relation_joined)
+        self.charm = charm
+
+    def _on_relation_joined(self, event):
+        """Handle a change to the ingress relation.
+
+        Confirm we have the fields we expect to receive."""
+        # `self.unit` isn't available here, so use `self.model.unit`.
+        if not self.model.unit.is_leader():
+            return
+        if not event.relation.data[event.app]:
+            LOGGER.info("Ingress hasn't finished configuring, waiting until relation is joined again.")
+            self.charm.on.ingress_available.emit()
+            return
+            
+        ingress_data = {
+            field: event.relation.data[event.app].get(field)
+            for field in REQUIRED_INGRESS_RELATION_FIELDS | OPTIONAL_INGRESS_RELATION_FIELDS
+        }
+
+        missing_fields = sorted(
+            [
+                field
+                for field in REQUIRED_INGRESS_RELATION_FIELDS
+                if ingress_data.get(field) is None
+            ]
+        )
+
+        if missing_fields:
+            LOGGER.error(
+                "Missing required data fields for ingress-proxy relation: {}".format(
+                    ", ".join(missing_fields)
+                )
+            )
+            self.model.unit.status = BlockedStatus(
+                "Missing fields for ingress-proxy: {}".format(", ".join(missing_fields))
+            )
+            self.charm.on.ingress_available.emit()

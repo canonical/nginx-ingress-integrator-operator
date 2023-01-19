@@ -1,4 +1,4 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import unittest
@@ -560,10 +560,10 @@ class TestCharm(unittest.TestCase):
         relations_data = {
             "service-name": "gunicorn",
         }
-        with self.assertLogs(level="ERROR") as logger:
+        with self.assertLogs(level="WARNING") as logger:
             self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
             msg = (
-                "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
+                "WARNING:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
                 "for ingress relation: service-hostname, service-port"
             )
             self.assertEqual(sorted(logger.output), [msg])

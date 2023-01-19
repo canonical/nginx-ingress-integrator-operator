@@ -1,6 +1,7 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+"""General configuration module for integration tests."""
 import re
 import subprocess  # nosec B404
 from pathlib import Path
@@ -16,13 +17,13 @@ from pytest_operator.plugin import OpsTest
 
 @fixture(scope="module")
 def metadata():
-    """Provides charm metadata."""
+    """Provide charm metadata."""
     yield yaml.safe_load(Path("./metadata.yaml").read_text())
 
 
 @fixture(scope="module")
 def app_name(metadata):
-    """Provides app name from the metadata."""
+    """Provide app name from the metadata."""
     yield metadata["name"]
 
 

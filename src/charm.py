@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
+
+"""Nginx-ingress-integrator charm file."""
 
 import logging
 import re
@@ -34,18 +36,18 @@ def _networking_v1_api():
 
 
 class ConflictingAnnotationsError(Exception):
-    pass
+    """Custom error that indicates conflicting annotations."""
 
 
 class ConflictingRoutesError(Exception):
-    pass
+    """Custom error that indicates conflicting routes."""
 
 
 class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
     def __init__(self, model, config, relation, multiple_relations):
-        """Creates a _ConfigOrRelation Object.
+        """Create a _ConfigOrRelation Object.
 
         :param model: The charm model.
         :param config: The charm's configuration.
@@ -59,7 +61,7 @@ class _ConfigOrRelation:
         self.multiple_relations = multiple_relations
 
     def _get_config(self, field):
-        """Helper method to get data from config."""
+        """Get data from config."""
         # Config fields with a default of None don't appear in the dict
         config_data = self.config.get(field, None)
         # A value of False is valid in these fields, so check it's not a null-value instead
@@ -71,7 +73,7 @@ class _ConfigOrRelation:
         return None
 
     def _get_relation(self, field):
-        """Helper method to get data from the relation, if any."""
+        """Get data from the relation, if any."""
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
@@ -89,7 +91,7 @@ class _ConfigOrRelation:
         return None
 
     def _get_config_or_relation_data(self, field, fallback):
-        """Helper method to get data from config or the ingress relation, in that order."""
+        """Get data from config or the ingress relation, in that order."""
         data = self._get_config(field)
         if data is not None:
             return data
@@ -101,7 +103,7 @@ class _ConfigOrRelation:
         return fallback
 
     def _get_relation_data_or_config(self, field, fallback):
-        """Helper method to get data from the ingress relation or config, in that order."""
+        """Get data from the ingress relation or config, in that order."""
         data = self._get_relation(field)
         if data is not None:
             return data
@@ -373,6 +375,11 @@ class NginxIngressCharm(CharmBase):
     on = IngressCharmEvents()
 
     def __init__(self, *args):
+        """Init function for the class.
+
+        Args:
+            args: Variable list of positional arguments passed to the parent constructor.
+        """
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
@@ -455,10 +462,10 @@ class NginxIngressCharm(CharmBase):
         return ips
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
-        """Checks if the given config or relation has the required fields set."""
+        """Check if the given config or relation has the required fields set."""
         # We use the same names in _ConfigOrRelation, but with _ instead of -.
-        field_names = ["_%s" % f.replace("-", "_") for f in REQUIRED_INGRESS_RELATION_FIELDS]
-        return all([getattr(conf_or_rel, f) for f in field_names])
+        field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
+        return all(getattr(conf_or_rel, f) for f in field_names)
 
     def _define_services(self):
         """Create or update the services in Kubernetes from multiple ingress relations."""
@@ -646,12 +653,12 @@ class NginxIngressCharm(CharmBase):
         return ingress_objs
 
     def _ingress_name(self, hostname):
-        """Returns the Kubernetes Ingress Resource name based on the given hostname."""
+        """Return the Kubernetes Ingress Resource name based on the given hostname."""
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
         return f"{ingress_name}-ingress"
 
     def _create_k8s_ingress_obj(self, svc_hostname, initial_ingress, paths):
-        """Creates a Kubernetes Ingress Resources with the given data."""
+        """Create a Kubernetes Ingress Resources with the given data."""
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
             host=svc_hostname,
@@ -738,8 +745,8 @@ class NginxIngressCharm(CharmBase):
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
                 msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
                 msg = ", ".join(msgs)
-            except kubernetes.client.exceptions.ApiException as e:
-                if e.status == 403:
+            except kubernetes.client.exceptions.ApiException as exception:
+                if exception.status == 403:
                     LOGGER.error(
                         "Insufficient permissions to create the k8s service, "
                         "will request `juju trust` to be run"
@@ -749,8 +756,7 @@ class NginxIngressCharm(CharmBase):
                         f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
-                else:
-                    raise
+                raise
             except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "
@@ -774,8 +780,8 @@ class NginxIngressCharm(CharmBase):
                 # (they were needed by the event relation).
                 self._define_ingresses(excluded_relation=event.relation)
                 self._remove_service(conf_or_rel)
-            except kubernetes.client.exceptions.ApiException as e:
-                if e.status == 403:
+            except kubernetes.client.exceptions.ApiException as exception:
+                if exception.status == 403:
                     LOGGER.error(
                         "Insufficient permissions to delete the k8s ingress resource, "
                         "will request `juju trust` to be run"
@@ -785,8 +791,7 @@ class NginxIngressCharm(CharmBase):
                         f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
-                else:
-                    raise
+                raise
             except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "

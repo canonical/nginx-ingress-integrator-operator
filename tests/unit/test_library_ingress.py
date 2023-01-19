@@ -1,4 +1,4 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import itertools
@@ -155,7 +155,7 @@ class TestCharm(unittest.TestCase):
         assert: then True is returned and a message with the missing configuration is logged.
         """
         with self.assertLogs(level="ERROR") as logger:
-            result = self.harness.charm.ingress._config_dict_errors()
+            result = self.harness.charm.ingress._config_dict_errors({})
 
             self.assertTrue(result)
 
@@ -178,7 +178,9 @@ class TestCharm(unittest.TestCase):
         self.harness.charm.ingress.config_dict[unknown_key] = "unknown value"
 
         with self.assertLogs(level="ERROR") as logger:
-            result = self.harness.charm.ingress._config_dict_errors()
+            result = self.harness.charm.ingress._config_dict_errors(
+                self.harness.charm.ingress.config_dict
+            )
 
             self.assertTrue(result)
 
@@ -198,7 +200,9 @@ class TestCharm(unittest.TestCase):
         ):
             self.harness.charm.ingress.config_dict[key] = key
 
-        result = self.harness.charm.ingress._config_dict_errors()
+        result = self.harness.charm.ingress._config_dict_errors(
+            self.harness.charm.ingress.config_dict
+        )
         self.assertFalse(result)
 
     def test_update_config(self):

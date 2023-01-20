@@ -6,7 +6,6 @@ import os
 import pathlib
 import signal
 import subprocess
-import tempfile
 
 from any_charm_base import AnyCharmBase
 from ingress import IngressRequires
@@ -29,7 +28,7 @@ class AnyCharm(AnyCharmBase):
         super().__init__(*args, **kwargs)
         self.ingress = IngressRequires(
             self,
-            {"service-hostname": self.app.name, "service-name": self.app.name, "service-port": 80},
+            {"service-hostname": "any", "service-name": self.app.name, "service-port": 8080},
         )
 
     def update_ingress(self, ingress_config):
@@ -41,7 +40,7 @@ class AnyCharm(AnyCharmBase):
         self.ingress.update_config(ingress_config)
 
     @staticmethod
-    def start_server(port: int = 80):
+    def start_server(port: int = 8080):
         """Start an HTTP server daemon.
 
         Args:
@@ -50,7 +49,10 @@ class AnyCharm(AnyCharmBase):
         Returns:
             The port where the server is connected.
         """
-        www_dir = tempfile.mkdtemp()
+        www_dir = pathlib.Path("/tmp/www")
+        www_dir.mkdir(exist_ok=True)
+        ok_file = www_dir / "ok"
+        ok_file.write_text("ok")
         # We create a pid file to avoid concurrent executions of the http server
         pid_file = pathlib.Path("/tmp/any.pid")
         if pid_file.exists():

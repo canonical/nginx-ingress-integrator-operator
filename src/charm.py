@@ -768,7 +768,16 @@ class NginxIngressCharm(CharmBase):
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
                 return
+        self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
+
+    def _get_kubernetes_library_version(self) -> str:
+        """Retrieve the current version of Kubernetes library.
+
+        Returns:
+            The Kubernetes library used.
+        """
+        return kubernetes.__version__
 
     def _on_ingress_broken(self, event):
         """Handle the ingress broken event."""

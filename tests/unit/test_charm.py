@@ -25,7 +25,11 @@ class TestCharm(unittest.TestCase):
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
     def test_config_changed(
-        self, _define_service, _define_ingress, _report_service_ips, _report_ingress_ips
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
     ):
         """
         arrange: given the harnessed charm
@@ -60,6 +64,11 @@ class TestCharm(unittest.TestCase):
             self.harness.charm.unit.status,
             ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
         )
+        # Confirm version is set correctly
+        self.assertEqual(
+            self.harness.get_workload_version(),
+            self.harness.charm._get_kubernetes_library_version(),
+        )
         # And now test with leader is False.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
@@ -73,6 +82,11 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(_define_service.call_count, 0)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
+        # Confirm version is set correctly
+        self.assertEqual(
+            self.harness.get_workload_version(),
+            self.harness.charm._get_kubernetes_library_version(),
+        )
 
         # Confirm if we get a 403 error from k8s API we block with an appropriate message.
         _define_ingress.reset_mock()

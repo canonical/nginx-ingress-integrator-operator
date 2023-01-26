@@ -424,7 +424,7 @@ class TestCharm(unittest.TestCase):
         """
         arrange: existing ingress not used anymore
         act: set service-name by configuration and no additional-hostnames
-        assert: Status is active with appropriate message and _remove_ingress is called once with right parameter
+        assert: Status is active and _remove_ingress is called once with right parameter
         """
         self.harness.set_leader(True)
         _report_ingress_ips.return_value = ["10.0.1.12"]

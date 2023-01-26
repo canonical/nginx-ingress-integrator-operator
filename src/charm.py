@@ -116,6 +116,19 @@ class _ConfigOrRelation:
         return fallback
 
     @property
+    def _additional_hostnames(self) -> List[str]:
+        """Return a list with additional hostnames.
+
+        Returns:
+            The additional hostnames set by configuration already split by comma.
+        """
+        return [
+            x
+            for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
+            if x
+        ]
+
+    @property
     def _k8s_service_name(self):
         """Return a service name for the use creating a k8s service."""
         # Avoid collision with service name created by Juju. Currently
@@ -300,13 +313,7 @@ class _ConfigOrRelation:
         ]
 
         hostnames = [self._service_hostname]
-        hostnames.extend(
-            [
-                x
-                for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
-                if x
-            ]
-        )
+        hostnames.extend(self._additional_hostnames)
         ingress_rules = [
             kubernetes.client.V1IngressRule(
                 host=hostname,
@@ -811,6 +818,12 @@ class NginxIngressCharm(CharmBase):
                 svc_hostnames = [
                     conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
                 ]
+                all_additional_hostnames = [
+                    conf_or_rel._additional_hostnames
+                    for conf_or_rel in self._all_config_or_relations
+                ]
+                for additional_hostname in all_additional_hostnames:
+                    svc_hostnames.extend(additional_hostname)
                 self._delete_unused_ingresses(svc_hostnames)
             except kubernetes.client.exceptions.ApiException as exception:
                 if exception.status == 403:

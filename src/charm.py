@@ -23,6 +23,7 @@ from ops.model import ActiveStatus, BlockedStatus
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
+CREATED_BY_LABEL = "app.juju.is/created-by="
 
 
 def _core_v1_api():
@@ -467,6 +468,42 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
+    def _delete_unused_services(self, current_svc_names: List[str]):
+        """Delete services and ingresses that are no longer used.
+
+        Args:
+            current_svc_names: service names set by config or relation data
+            current_svc_hostnames: service hostnames set by config or relation data
+        """
+        self.k8s_auth()
+        api = _core_v1_api()
+        created_by_label = f"{CREATED_BY_LABEL}{self.app.name}"
+        all_services = api.list_namespaced_service(
+            namespace=self._namespace, label_selector=created_by_label
+        )
+        all_svc_names = [item.metadata.name for item in all_services.items]
+        unused_svc_names = [
+            svc_name
+            for svc_name in all_svc_names
+            if svc_name.replace("-service", "") not in current_svc_names
+        ]
+        LOGGER.info(
+            "Checking for unused services. Configured: %s Found: %s Unused: %s",
+            current_svc_names,
+            all_svc_names,
+            unused_svc_names,
+        )
+        for unused_svc_name in unused_svc_names:
+            api.delete_namespaced_service(
+                name=unused_svc_name,
+                namespace=self._namespace,
+            )
+            LOGGER.info(
+                "Service deleted in namespace %s with name %s",
+                self._namespace,
+                unused_svc_name,
+            )
+
     def _define_services(self):
         """Create or update the services in Kubernetes from multiple ingress relations."""
         for conf_or_rel in self._all_config_or_relations:
@@ -549,6 +586,31 @@ class NginxIngressCharm(CharmBase):
             LOGGER.info("Using ingress class %s as it is the cluster's default", ingress_class)
 
         body.spec.ingress_class_name = ingress_class
+
+    def _delete_unused_ingresses(self, current_svc_hostnames: List[str]):
+        """Delete ingresses that are no longer managed by nginx-ingress-integrator charm.
+
+        Args:
+            current_svc_hostnames: service hostnames set by config or relation data
+        """
+        self.k8s_auth()
+        api = _networking_v1_api()
+        created_by_label = f"{CREATED_BY_LABEL}{self.app.name}"
+        all_ingresses = api.list_namespaced_ingress(
+            namespace=self._namespace, label_selector=created_by_label
+        )
+        all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+        unused_svc_hostnames = [
+            hostname for hostname in all_svc_hostnames if hostname not in current_svc_hostnames
+        ]
+        LOGGER.info(
+            "Checking for unused ingresses. Configured: %s Found: %s Unused: %s",
+            current_svc_hostnames,
+            all_svc_hostnames,
+            unused_svc_hostnames,
+        )
+        for unused_src_hostname in unused_svc_hostnames:
+            self._remove_ingress(self._ingress_name(unused_src_hostname))
 
     def _define_ingresses(self, excluded_relation=None):
         """(Re)Creates the Ingress Resources in Kubernetes from multiple ingress relations.
@@ -745,6 +807,11 @@ class NginxIngressCharm(CharmBase):
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
                 msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
                 msg = ", ".join(msgs)
+                self._delete_unused_services(svc_names)
+                svc_hostnames = [
+                    conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
+                ]
+                self._delete_unused_ingresses(svc_hostnames)
             except kubernetes.client.exceptions.ApiException as exception:
                 if exception.status == 403:
                     LOGGER.error(

@@ -48,6 +48,8 @@ class TestCharm(unittest.TestCase):
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
+        self.assertEqual(_delete_unused_services.call_count, 0)
+        self.assertEqual(_delete_unused_ingresses.call_count, 0)
         # Test if config-changed is called with service-hostname, service-name, service-port empty,
         # our methods still aren't called.
         self.harness.update_config({"service-name": ""})
@@ -63,6 +65,10 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"service-hostname": "gunic.orn"})
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
+        # _delete_unused_services and _delete_unused_ingresses should be called
+        # every time that the configuration is updated to a valid value
+        self.assertEqual(_delete_unused_services.call_count, 3)
+        self.assertEqual(_delete_unused_ingresses.call_count, 3)
         # Confirm status is as expected.
         self.assertTrue(
             self.harness.charm.unit.status,
@@ -76,6 +82,8 @@ class TestCharm(unittest.TestCase):
         # And now test with leader is False.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
+        _delete_unused_services.reset_mock()
+        _delete_unused_ingresses.reset_mock()
         self.harness.set_leader(False)
         self.harness.update_config({"service-name": ""})
         self.assertEqual(_define_ingress.call_count, 0)
@@ -84,6 +92,8 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"service-name": "gunicorn"})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
+        self.assertEqual(_delete_unused_services.call_count, 0)
+        self.assertEqual(_delete_unused_ingresses.call_count, 0)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
         # Confirm version is set correctly
@@ -393,6 +403,48 @@ class TestCharm(unittest.TestCase):
         # Now it's the value from the relation.
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo-bar.internal")
+
+    @patch("charm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    def test_remove_unused_service_hostname(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_services,
+        _remove_ingress,
+        _networking_v1_api,
+    ):
+        """
+        arrange: existing ingress not used anymore
+        act: set service-name by configuration and no additional-hostnames
+        assert: Status is active with appropriate message and _remove_ingress is called once with right parameter
+        """
+        self.harness.set_leader(True)
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
+        self.harness.charm._authed = True
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress]
+        self.harness.update_config({"service-name": "foo"})
+        self.assertTrue(
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        expected = self.harness.charm._ingress_name("to-be-removed.local")
+        _remove_ingress.assert_called_once_with(expected)
 
     def test_session_cookie_max_age(self):
         """Test the session-cookie-max-age property."""
@@ -1233,7 +1285,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         """
         arrange: given the harnessed charm
         act: when we create/delete services for multiple relations
-        assert: the process of creating/delleting the relations and services runs correctly.
+        assert: the process of creating/deleting the relations and services runs correctly.
         """
         # Setting the leader to True will allow us to test the Service creation.
         self.harness.set_leader(True)

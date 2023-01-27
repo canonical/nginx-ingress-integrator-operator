@@ -487,6 +487,63 @@ class TestCharm(unittest.TestCase):
         expected = self.harness.charm._ingress_name("to-be-removed.local")
         _remove_ingress.assert_called_once_with(expected)
 
+    @patch("charm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    def test_delete_unused_ingresses_additional_hostnames(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_services,
+        _remove_ingress,
+        _networking_v1_api,
+    ):
+        """
+        arrange: existing ingress not used anymore
+        act: set service-hostname by configuration and set additional-hostnames
+        assert: Status is active and _remove_ingress is called once with right parameter
+        """
+        self.harness.set_leader(True)
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
+        self.harness.charm._authed = True
+        self.harness.update_config({"service-name": "foo"})
+        self.harness.update_config({"additional-hostnames": "some-host1.local,some-host2.local"})
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingress_additional1 = mock.Mock()
+        mock_ingress_additional1.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="some-host1.local",
+            )
+        ]
+        mock_ingress_additional2 = mock.Mock()
+        mock_ingress_additional2.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="some-host2.local",
+            )
+        ]
+        mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress,mock_ingress_additional1,mock_ingress_additional2]
+        self.harness.update_config({"service-hostname": "foo.local"})
+        self.assertTrue(
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        expected = self.harness.charm._ingress_name("to-be-removed.local")
+        _remove_ingress.assert_called_once_with(expected)
+
+
     def test_session_cookie_max_age(self):
         """Test the session-cookie-max-age property."""
         # First set via config.

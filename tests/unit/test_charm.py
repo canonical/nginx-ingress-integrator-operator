@@ -534,7 +534,7 @@ class TestCharm(unittest.TestCase):
             )
         ]
         mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
-        mock_ingresses.items = [mock_ingress,mock_ingress_additional1,mock_ingress_additional2]
+        mock_ingresses.items = [mock_ingress, mock_ingress_additional1, mock_ingress_additional2]
         self.harness.update_config({"service-hostname": "foo.local"})
         self.assertTrue(
             self.harness.charm.unit.status,
@@ -542,7 +542,6 @@ class TestCharm(unittest.TestCase):
         )
         expected = self.harness.charm._ingress_name("to-be-removed.local")
         _remove_ingress.assert_called_once_with(expected)
-
 
     def test_session_cookie_max_age(self):
         """Test the session-cookie-max-age property."""

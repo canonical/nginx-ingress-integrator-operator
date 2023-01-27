@@ -8,6 +8,8 @@ import pytest_asyncio
 import requests
 from pytest_operator.plugin import OpsTest
 
+from charm import CREATED_BY_LABEL
+
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"
 NEW_HOSTNAME = "any.other"
@@ -49,6 +51,38 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     await ops_test.model.add_relation(ANY_APP_NAME, f"{INGRESS_APP_NAME}:ingress")
     await ops_test.model.wait_for_idle()
+
+
+@pytest.mark.usefixtures("build_and_deploy")
+async def test_delete_unused_ingresses(ops_test: OpsTest):
+    """
+    arrange: given charm has been built, deployed and related to a dependent application
+    act: when the service-hostname is changed and when is back to previous value
+    assert: then the workload status is active and the unused ingress is deleted
+    """
+    kubernetes.config.load_kube_config()
+    api_networking = kubernetes.client.NetworkingV1Api()
+    model_name = ops_test.model.name
+    created_by_label = f"{CREATED_BY_LABEL}ingress"
+    all_ingresses = api_networking.list_namespaced_ingress(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+    assert all_svc_hostnames == ["any"]
+    await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
+    await ops_test.model.wait_for_idle(status="active")
+    all_ingresses = api_networking.list_namespaced_ingress(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+    assert all_svc_hostnames == ["new-name"]
+    await ops_test.juju("config", INGRESS_APP_NAME, "")
+    await ops_test.model.wait_for_idle(status="active")
+    all_ingresses = api_networking.list_namespaced_ingress(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+    assert all_svc_hostnames == ["any"]
 
 
 @pytest_asyncio.fixture(scope="module")

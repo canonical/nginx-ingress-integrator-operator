@@ -494,7 +494,7 @@ class NginxIngressCharm(CharmBase):
             for svc_name in all_svc_names
             if svc_name.replace("-service", "") not in current_svc_names
         ]
-        LOGGER.info(
+        LOGGER.debug(
             "Checking for unused services. Configured: %s Found: %s Unused: %s",
             current_svc_names,
             all_svc_names,
@@ -610,7 +610,7 @@ class NginxIngressCharm(CharmBase):
         unused_svc_hostnames = [
             hostname for hostname in all_svc_hostnames if hostname not in current_svc_hostnames
         ]
-        LOGGER.info(
+        LOGGER.debug(
             "Checking for unused ingresses. Configured: %s Found: %s Unused: %s",
             current_svc_hostnames,
             all_svc_hostnames,
@@ -803,7 +803,6 @@ class NginxIngressCharm(CharmBase):
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
         svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
-        print(svc_names)
         if self.unit.is_leader() and any(svc_names):
             try:
                 self._define_services()

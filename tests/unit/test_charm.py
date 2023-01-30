@@ -566,8 +566,8 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._session_cookie_max_age, "3688")
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
@@ -1362,8 +1362,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         self.assertEqual(0, len(self.harness.charm.model.relations["ingress"]))
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_ingress")
@@ -1449,8 +1449,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
             namespace=self.harness.charm._namespace,
         )
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
@@ -1563,8 +1563,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
             self.harness.charm._namespace,
         )
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
@@ -1740,8 +1740,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         self.assertEqual(result, expected_result)
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
@@ -1863,8 +1863,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
             body=conf_or_rels[1]._get_k8s_ingress(),
         )
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
@@ -1936,8 +1936,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
         expected_status = ActiveStatus("Service IP(s): 10.0.1.12")
         self.assertEqual(expected_status, self.harness.charm.unit.status)
 
-    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
-    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")

@@ -1,6 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import List
 
 import kubernetes
 import pytest
@@ -64,28 +65,23 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
     api_networking = kubernetes.client.NetworkingV1Api()
     model_name = ops_test.model.name
     created_by_label = f"{CREATED_BY_LABEL}ingress"
-    all_ingresses = api_networking.list_namespaced_ingress(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
-    assert all_svc_hostnames == ["any"]
+
+    def compare_svc_hostnames(expected: List[str]) -> bool:
+        all_ingresses = api_networking.list_namespaced_ingress(
+            namespace=model_name, label_selector=created_by_label
+        )
+        return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+
+    assert compare_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
     await ops_test.model.wait_for_idle(status="active")
-    all_ingresses = api_networking.list_namespaced_ingress(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
-    assert all_svc_hostnames == ["new-name"]
+    assert compare_svc_hostnames(["new-name"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
     await ops_test.model.wait_for_idle(status="active")
-    all_ingresses = api_networking.list_namespaced_ingress(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
-    assert all_svc_hostnames == ["any"]
+    assert compare_svc_hostnames(["any"])
 
 
-# @pytest.mark.usefixtures("build_and_deploy")
+@pytest.mark.usefixtures("build_and_deploy")
 async def test_delete_unused_services(ops_test: OpsTest):
     """
     arrange: given charm has been built, deployed and related to a dependent application
@@ -96,25 +92,20 @@ async def test_delete_unused_services(ops_test: OpsTest):
     api_core = kubernetes.client.CoreV1Api()
     model_name = ops_test.model.name
     created_by_label = f"{CREATED_BY_LABEL}ingress"
-    all_services = api_core.list_namespaced_service(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_names = [item.metadata.name for item in all_services.items]
-    assert all_svc_names == ["any-service"]
+
+    def compare_svc_names(expected: List[str]) -> bool:
+        all_services = api_core.list_namespaced_service(
+            namespace=model_name, label_selector=created_by_label
+        )
+        return expected == [item.metadata.name for item in all_services.items]
+
+    assert compare_svc_names(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
     await ops_test.model.wait_for_idle(status="active")
-    all_services = api_core.list_namespaced_service(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_names = [item.metadata.name for item in all_services.items]
-    assert all_svc_names == ["new-name-service"]
+    assert compare_svc_names(["new-name-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=")
     await ops_test.model.wait_for_idle(status="active")
-    all_services = api_core.list_namespaced_service(
-        namespace=model_name, label_selector=created_by_label
-    )
-    all_svc_names = [item.metadata.name for item in all_services.items]
-    assert all_svc_names == ["any-service"]
+    assert compare_svc_names(["any-service"])
 
 
 @pytest_asyncio.fixture(scope="module")

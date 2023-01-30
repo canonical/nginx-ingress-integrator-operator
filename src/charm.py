@@ -23,6 +23,9 @@ from ops.model import ActiveStatus, BlockedStatus
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
+# Juju defines the value of this label.
+# It has the same value as the label "app.kubernetes.io/name"
+# set in the service account associated with the application.
 CREATED_BY_LABEL = "app.juju.is/created-by="
 
 

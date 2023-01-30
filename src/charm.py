@@ -123,9 +123,11 @@ class _ConfigOrRelation:
             The additional hostnames set by configuration already split by comma.
         """
         return [
-            x
-            for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
-            if x
+            hostname
+            for hostname in self._get_config_or_relation_data("additional-hostnames", "").split(
+                ","
+            )
+            if hostname
         ]
 
     @property
@@ -475,7 +477,7 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
-    def _delete_unused_services(self, current_svc_names: List[str]):
+    def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
 
         Args:
@@ -488,12 +490,12 @@ class NginxIngressCharm(CharmBase):
         all_services = api.list_namespaced_service(
             namespace=self._namespace, label_selector=created_by_label
         )
-        all_svc_names = [item.metadata.name for item in all_services.items]
-        unused_svc_names = [
+        all_svc_names = tuple(item.metadata.name for item in all_services.items)
+        unused_svc_names = tuple(
             svc_name
             for svc_name in all_svc_names
             if svc_name.replace("-service", "") not in current_svc_names
-        ]
+        )
         LOGGER.debug(
             "Checking for unused services. Configured: %s Found: %s Unused: %s",
             current_svc_names,
@@ -594,7 +596,7 @@ class NginxIngressCharm(CharmBase):
 
         body.spec.ingress_class_name = ingress_class
 
-    def _delete_unused_ingresses(self, current_svc_hostnames: List[str]):
+    def _delete_unused_ingresses(self, current_svc_hostnames: List[str]) -> None:
         """Delete ingresses that are no longer managed by nginx-ingress-integrator charm.
 
         Args:
@@ -606,10 +608,10 @@ class NginxIngressCharm(CharmBase):
         all_ingresses = api.list_namespaced_ingress(
             namespace=self._namespace, label_selector=created_by_label
         )
-        all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
-        unused_svc_hostnames = [
+        all_svc_hostnames = tuple(ingress.spec.rules[0].host for ingress in all_ingresses.items)
+        unused_svc_hostnames = tuple(
             hostname for hostname in all_svc_hostnames if hostname not in current_svc_hostnames
-        ]
+        )
         LOGGER.debug(
             "Checking for unused ingresses. Configured: %s Found: %s Unused: %s",
             current_svc_hostnames,

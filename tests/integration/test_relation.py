@@ -76,13 +76,45 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
     )
     all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
     assert all_svc_hostnames == ["new-name"]
-    await ops_test.juju("config", INGRESS_APP_NAME, "")
+    await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
     await ops_test.model.wait_for_idle(status="active")
     all_ingresses = api_networking.list_namespaced_ingress(
         namespace=model_name, label_selector=created_by_label
     )
     all_svc_hostnames = [ingress.spec.rules[0].host for ingress in all_ingresses.items]
     assert all_svc_hostnames == ["any"]
+
+
+# @pytest.mark.usefixtures("build_and_deploy")
+async def test_delete_unused_services(ops_test: OpsTest):
+    """
+    arrange: given charm has been built, deployed and related to a dependent application
+    act: when the service-name is changed and when is back to previous value
+    assert: then the workload status is active and the unused service is deleted
+    """
+    kubernetes.config.load_kube_config()
+    api_core = kubernetes.client.CoreV1Api()
+    model_name = ops_test.model.name
+    created_by_label = f"{CREATED_BY_LABEL}ingress"
+    all_services = api_core.list_namespaced_service(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_names = [item.metadata.name for item in all_services.items]
+    assert all_svc_names == ["any-service"]
+    await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
+    await ops_test.model.wait_for_idle(status="active")
+    all_services = api_core.list_namespaced_service(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_names = [item.metadata.name for item in all_services.items]
+    assert all_svc_names == ["new-name-service"]
+    await ops_test.juju("config", INGRESS_APP_NAME, "service-name=")
+    await ops_test.model.wait_for_idle(status="active")
+    all_services = api_core.list_namespaced_service(
+        namespace=model_name, label_selector=created_by_label
+    )
+    all_svc_names = [item.metadata.name for item in all_services.items]
+    assert all_svc_names == ["any-service"]
 
 
 @pytest_asyncio.fixture(scope="module")

@@ -802,7 +802,23 @@ class NginxIngressCharm(CharmBase):
                 ingress_name,
             )
 
-    def _on_config_changed(self, _):
+    def _delete_unused_resources(self) -> None:
+        """Delete unused services and ingresses"""
+        svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
+        self._delete_unused_services(svc_names)
+        svc_hostnames = [
+            conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
+        ]
+        all_additional_hostnames = [
+            conf_or_rel._additional_hostnames
+            for conf_or_rel in self._all_config_or_relations
+        ]
+        for additional_hostname in all_additional_hostnames:
+            svc_hostnames.extend(additional_hostname)
+        self._delete_unused_ingresses(svc_hostnames)
+
+
+    def _on_config_changed(self, event):
         """Handle the config changed event."""
         msg = ""
         # We only want to do anything here if we're the leader to avoid
@@ -818,17 +834,7 @@ class NginxIngressCharm(CharmBase):
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
                 msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
                 msg = ", ".join(msgs)
-                self._delete_unused_services(svc_names)
-                svc_hostnames = [
-                    conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
-                ]
-                all_additional_hostnames = [
-                    conf_or_rel._additional_hostnames
-                    for conf_or_rel in self._all_config_or_relations
-                ]
-                for additional_hostname in all_additional_hostnames:
-                    svc_hostnames.extend(additional_hostname)
-                self._delete_unused_ingresses(svc_hostnames)
+                self._delete_unused_resources()
             except kubernetes.client.exceptions.ApiException as exception:
                 if exception.status == 403:
                     LOGGER.error(

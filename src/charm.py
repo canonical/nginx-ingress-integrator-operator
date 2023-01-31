@@ -127,13 +127,8 @@ class _ConfigOrRelation:
         Returns:
             The additional hostnames set by configuration already split by comma.
         """
-        return [
-            hostname
-            for hostname in self._get_config_or_relation_data("additional-hostnames", "").split(
-                ","
-            )
-            if hostname
-        ]
+        additional_hostnames = self._get_config_or_relation_data("additional-hostnames", "")
+        return [hostname for hostname in additional_hostnames.split(",") if hostname]
 
     @property
     def _k8s_service_name(self):

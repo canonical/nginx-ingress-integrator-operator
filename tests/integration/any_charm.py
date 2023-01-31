@@ -1,6 +1,8 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+# pylint: disable=import-error,consider-using-with
+
 """This code snippet is used to be loaded into any-charm which is used for integration tests."""
 import os
 import pathlib
@@ -56,11 +58,11 @@ class AnyCharm(AnyCharmBase):
         # We create a pid file to avoid concurrent executions of the http server
         pid_file = pathlib.Path("/tmp/any.pid")
         if pid_file.exists():
-            os.kill(int(pid_file.read_text()), signal.SIGKILL)
+            os.kill(int(pid_file.read_text(encoding="utf8")), signal.SIGKILL)
             pid_file.unlink()
-        p = subprocess.Popen(
+        proc_http = subprocess.Popen(
             ["python3", "-m", "http.server", "-d", www_dir, str(port)],
             start_new_session=True,
         )
-        pid_file.write_text(str(p.pid))
+        pid_file.write_text(str(proc_http.pid), encoding="utf8")
         return port

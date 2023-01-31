@@ -14,6 +14,9 @@ branch = true
 fail_under = 93
 show_missing = true
 
+[tool.mypy]
+ignore_missing_imports = true
+allow_redefinition = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"

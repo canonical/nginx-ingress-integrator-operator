@@ -1,6 +1,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+
 import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch

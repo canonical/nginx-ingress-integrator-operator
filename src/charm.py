@@ -2,6 +2,8 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+# pylint: disable=protected-access,too-few-public-methods
+
 """Nginx-ingress-integrator charm file."""
 
 import logging
@@ -704,7 +706,12 @@ class NginxIngressCharm(CharmBase):
                 # Ensure that the exact same route for this route was not yet defined.
                 defined_paths = ingress_paths[rule.host]
                 for path in rule.http.paths:
-                    duplicate_paths = list(filter(lambda p: p.path == path.path, defined_paths))
+                    duplicate_paths = list(
+                        filter(
+                            lambda p: p.path == path.path,  # pylint: disable=cell-var-from-loop
+                            defined_paths,
+                        )
+                    )
                     if duplicate_paths:
                         LOGGER.error(
                             "Duplicate routes found:\nFirst route: %s\nSecond route: %s",
@@ -803,22 +810,20 @@ class NginxIngressCharm(CharmBase):
             )
 
     def _delete_unused_resources(self) -> None:
-        """Delete unused services and ingresses"""
+        """Delete unused services and ingresses."""
         svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
         self._delete_unused_services(svc_names)
         svc_hostnames = [
             conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
         ]
         all_additional_hostnames = [
-            conf_or_rel._additional_hostnames
-            for conf_or_rel in self._all_config_or_relations
+            conf_or_rel._additional_hostnames for conf_or_rel in self._all_config_or_relations
         ]
         for additional_hostname in all_additional_hostnames:
             svc_hostnames.extend(additional_hostname)
         self._delete_unused_ingresses(svc_hostnames)
 
-
-    def _on_config_changed(self, event):
+    def _on_config_changed(self, _):
         """Handle the config changed event."""
         msg = ""
         # We only want to do anything here if we're the leader to avoid

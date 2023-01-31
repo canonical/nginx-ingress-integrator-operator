@@ -1,3 +1,10 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+# pylint: disable=redefined-outer-name,unused-argument
+
+"""Integration test relation file."""
+
 import asyncio
 import json
 from pathlib import Path
@@ -26,8 +33,9 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
 
     Returns: None.
     """
-    ingress_lib = Path("lib/charms/nginx_ingress_integrator/v0/ingress.py").read_text()
-    any_charm_script = Path("tests/integration/any_charm.py").read_text()
+    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
+    ingress_lib = Path(path_lib).read_text(encoding="utf8")
+    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
     any_charm_src_overwrite = {
         "ingress.py": ingress_lib,
         "any_charm.py": any_charm_script,
@@ -40,7 +48,7 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         )
 
     await asyncio.gather(
-        ops_test.model.deploy(
+        ops_test.model.deploy(  # type: ignore[union-attr]
             "any-charm",
             application_name="any",
             channel="beta",
@@ -48,10 +56,11 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         ),
         build_and_deploy_ingress(),
     )
-    await ops_test.model.wait_for_idle()
+    await ops_test.model.wait_for_idle()  # type: ignore[union-attr]
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
-    await ops_test.model.add_relation(ANY_APP_NAME, f"{INGRESS_APP_NAME}:ingress")
-    await ops_test.model.wait_for_idle()
+    relation_name = f"{INGRESS_APP_NAME}:ingress"
+    await ops_test.model.add_relation(ANY_APP_NAME, relation_name)  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle()  # type: ignore[union-attr]
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -63,7 +72,7 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
     """
     kubernetes.config.load_kube_config()
     api_networking = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name
+    model_name = ops_test.model.name  # type: ignore[union-attr]
     created_by_label = f"{CREATED_BY_LABEL}ingress"
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
@@ -74,10 +83,10 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
 
     assert compare_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
-    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
     assert compare_svc_hostnames(["new-name"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
-    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
     assert compare_svc_hostnames(["any"])
 
 
@@ -90,7 +99,7 @@ async def test_delete_unused_services(ops_test: OpsTest):
     """
     kubernetes.config.load_kube_config()
     api_core = kubernetes.client.CoreV1Api()
-    model_name = ops_test.model.name
+    model_name = ops_test.model.name  # type: ignore[union-attr]
     created_by_label = f"{CREATED_BY_LABEL}ingress"
 
     def compare_svc_names(expected: List[str]) -> bool:
@@ -101,10 +110,10 @@ async def test_delete_unused_services(ops_test: OpsTest):
 
     assert compare_svc_names(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
-    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
     assert compare_svc_names(["new-name-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=")
-    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
     assert compare_svc_names(["any-service"])
 
 
@@ -153,7 +162,7 @@ async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
     act: update service-hostname and service-port via ingress library.
     assert: kubernetes ingress should be updated to accommodate the relation data update.
     """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME})
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=30)
     assert response.text == "ok"
     assert response.status_code == 200
 
@@ -167,7 +176,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name
+    model_name = ops_test.model.name  # type: ignore[union-attr]
 
     def get_ingress_annotation():
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
@@ -191,8 +200,8 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
             }
         ),
     )
-    await ops_test.model.wait_for_idle(status="active")
-    await ops_test.model.block_until(
+    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
+    await ops_test.model.block_until(  # type: ignore[union-attr]
         lambda: "nginx.ingress.kubernetes.io/enable-modsecurity" in get_ingress_annotation(),
         wait_period=5,
         timeout=300,

@@ -28,6 +28,8 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # Juju defines the value of this label.
 # It has the same value as the label "app.kubernetes.io/name"
 # set in the service account associated with the application.
+KUBERNETES_CORE_API = "core"
+KUBERNETES_NETWORKING_API = "networking"
 CREATED_BY_LABEL = "app.juju.is/created-by="
 
 
@@ -428,9 +430,7 @@ class NginxIngressCharm(CharmBase):
 
     def _describe_ingresses_action(self, event):
         """Handle the 'describe-ingresses' action."""
-        self.k8s_auth()
-        api = _networking_v1_api()
-
+        api = self.k8s_api(api=KUBERNETES_NETWORKING_API)
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         event.set_results({"ingresses": ingresses})
 
@@ -443,11 +443,26 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
+    def k8s_api(self, api: str) -> object:
+        """Authenticate and return a k8s API.
+
+        Args:
+            api: Which API should be returned. If is not found, None is returned.
+        """
+        self.k8s_auth()
+        if api == KUBERNETES_CORE_API:
+            return _core_v1_api()
+        if api == KUBERNETES_NETWORKING_API:
+            return _networking_v1_api()
+        LOGGER.error("k8s api %s not found", api)
+        return None
+
     def _report_service_ips(self) -> List[str]:
         """Report on service IP(s) and return a list of them."""
-        self.k8s_auth()
-        api = _core_v1_api()
-        services = api.list_namespaced_service(namespace=self._namespace)
+        api = self.k8s_api(KUBERNETES_CORE_API)
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         all_k8s_service_names = [rel._k8s_service_name for rel in self._all_config_or_relations]
         return [
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
@@ -455,13 +470,13 @@ class NginxIngressCharm(CharmBase):
 
     def _report_ingress_ips(self) -> List[str]:
         """Report on ingress IP(s) and return a list of them."""
-        self.k8s_auth()
-        api = _networking_v1_api()
-
+        api = self.k8s_api(KUBERNETES_NETWORKING_API)
         # Wait up to `interval * count` seconds for ingress IPs.
         count, interval = 100, 1
         for _ in range(count):
-            ingresses = api.list_namespaced_ingress(namespace=self._namespace)
+            ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
+                namespace=self._namespace
+            )
             try:
                 ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
             except TypeError:
@@ -479,6 +494,9 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
+    def _get_created_label(self) -> str:
+        return f"{CREATED_BY_LABEL}{self.app.name}"
+
     def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
 
@@ -486,11 +504,9 @@ class NginxIngressCharm(CharmBase):
             current_svc_names: service names set by config or relation data
             current_svc_hostnames: service hostnames set by config or relation data
         """
-        self.k8s_auth()
-        api = _core_v1_api()
-        created_by_label = f"{CREATED_BY_LABEL}{self.app.name}"
-        all_services = api.list_namespaced_service(
-            namespace=self._namespace, label_selector=created_by_label
+        api = self.k8s_api(KUBERNETES_CORE_API)
+        all_services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace, label_selector=self._get_created_label()
         )
         all_svc_names = tuple(item.metadata.name for item in all_services.items)
         unused_svc_names = tuple(
@@ -505,7 +521,7 @@ class NginxIngressCharm(CharmBase):
             unused_svc_names,
         )
         for unused_svc_name in unused_svc_names:
-            api.delete_namespaced_service(
+            api.delete_namespaced_service(  # type: ignore[attr-defined]
                 name=unused_svc_name,
                 namespace=self._namespace,
             )
@@ -526,12 +542,13 @@ class NginxIngressCharm(CharmBase):
 
     def _define_service(self, conf_or_rel: _ConfigOrRelation):
         """Create or update a service in kubernetes."""
-        self.k8s_auth()
-        api = _core_v1_api()
+        api = self.k8s_api(KUBERNETES_CORE_API)
         body = conf_or_rel._get_k8s_service()
-        services = api.list_namespaced_service(namespace=self._namespace)
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
-            api.patch_namespaced_service(
+            api.patch_namespaced_service(  # type: ignore[attr-defined]
                 name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
                 body=body,
@@ -542,7 +559,7 @@ class NginxIngressCharm(CharmBase):
                 conf_or_rel._service_name,
             )
         else:
-            api.create_namespaced_service(
+            api.create_namespaced_service(  # type: ignore[attr-defined]
                 namespace=self._namespace,
                 body=body,
             )
@@ -554,11 +571,12 @@ class NginxIngressCharm(CharmBase):
 
     def _remove_service(self, conf_or_rel: _ConfigOrRelation):
         """Remove the created service in kubernetes."""
-        self.k8s_auth()
-        api = _core_v1_api()
-        services = api.list_namespaced_service(namespace=self._namespace)
+        api = self.k8s_api(KUBERNETES_CORE_API)
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
-            api.delete_namespaced_service(
+            api.delete_namespaced_service(  # type: ignore[attr-defined]
                 name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
             )
@@ -604,11 +622,9 @@ class NginxIngressCharm(CharmBase):
         Args:
             current_svc_hostnames: service hostnames set by config or relation data
         """
-        self.k8s_auth()
-        api = _networking_v1_api()
-        created_by_label = f"{CREATED_BY_LABEL}{self.app.name}"
-        all_ingresses = api.list_namespaced_ingress(
-            namespace=self._namespace, label_selector=created_by_label
+        api = self.k8s_api(KUBERNETES_NETWORKING_API)
+        all_ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
+            namespace=self._namespace, label_selector=self._get_created_label()
         )
         all_svc_hostnames = tuple(ingress.spec.rules[0].host for ingress in all_ingresses.items)
         unused_svc_hostnames = tuple(
@@ -766,8 +782,7 @@ class NginxIngressCharm(CharmBase):
 
     def _define_ingress(self, body):
         """Create or update an ingress in kubernetes."""
-        self.k8s_auth()
-        api = _networking_v1_api()
+        api = self.k8s_api(KUBERNETES_NETWORKING_API)
         self._look_up_and_set_ingress_class(api, body)
         ingress_name = body.metadata.name
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
@@ -795,8 +810,7 @@ class NginxIngressCharm(CharmBase):
 
     def _remove_ingress(self, ingress_name):
         """Remove ingress resource."""
-        self.k8s_auth()
-        api = _networking_v1_api()
+        api = self.k8s_api(KUBERNETES_NETWORKING_API)
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if ingress_name in [x.metadata.name for x in ingresses.items]:
             api.delete_namespaced_ingress(ingress_name, self._namespace)

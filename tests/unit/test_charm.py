@@ -1678,7 +1678,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.assert_not_called()
 
     @patch("charm.NginxIngressCharm._report_service_ips")
-    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm.k8s_api")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
@@ -1689,7 +1689,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_define_service,
         mock_remove_service,
         mock_define_ingress,
-        mock_k8s_auth,
+        mock_k8s_api,
         mock_service_ips,
     ):
         """
@@ -1698,11 +1698,16 @@ class TestCharmMultipleRelations(unittest.TestCase):
         assert: this test will check that the charm will return an appropriate value if
         an ingress IP is found.
         """
-
+        mock_k8s_api.return_value = mock_api
+        def get_item_lb(id):
+                mock_ip = mock.Mock()
+                mock_ip.ip = "127.0.0.1"
+                return mock_ip
         mock_ingress = MagicMock()
-        mock_ingress.status.load_balancer.ingress[0].ip = "127.0.0.1"
-        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
-        mock_list_ingress.return_value.items = [mock_ingress]
+        mock_ingress.status.load_balancer.ingress.__getitem__.side_effect = get_item_lb
+        mock_items = MagicMock()
+        mock_items.items = [mock_ingress]
+        mock_api.list_namespaced_ingress.return_value = mock_items
 
         expected_result = ["127.0.0.1"]
 
@@ -1711,7 +1716,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.assertEqual(result, expected_result)
 
     @patch("charm.NginxIngressCharm._report_service_ips")
-    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm.k8s_api")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
@@ -1722,7 +1727,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_define_service,
         mock_remove_service,
         mock_define_ingress,
-        mock_k8s_auth,
+        mock_k8s_api,
         mock_service_ips,
     ):
         """
@@ -1732,8 +1737,13 @@ class TestCharmMultipleRelations(unittest.TestCase):
         an ingress IP is not found.
         """
 
-        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
-        mock_list_ingress.return_value.items = []
+        #mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        #mock_list_ingress.return_value.items = []
+
+        mock_k8s_api.return_value = mock_api
+        mock_items = MagicMock()
+        mock_items.items = []
+        mock_api.list_namespaced_ingress.return_value = mock_items
 
         expected_result = []
 

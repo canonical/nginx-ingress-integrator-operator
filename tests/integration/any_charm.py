@@ -8,9 +8,12 @@ import os
 import pathlib
 import signal
 import subprocess
+from typing import Dict
 
 from any_charm_base import AnyCharmBase
 from ingress import IngressRequires
+
+INGRESS_CONFIG_ENVVAR = "ANYCHARM_INGRESS_CONFIG"
 
 
 class AnyCharm(AnyCharmBase):
@@ -30,7 +33,7 @@ class AnyCharm(AnyCharmBase):
         super().__init__(*args, **kwargs)
         self.ingress = IngressRequires(
             self,
-            {"service-hostname": "any", "service-name": self.app.name, "service-port": 8080},
+            self.ingress_config(),
         )
 
     def update_ingress(self, ingress_config):
@@ -40,6 +43,49 @@ class AnyCharm(AnyCharmBase):
             ingress_config: New Ingress configuration to be applied.
         """
         self.ingress.update_config(ingress_config)
+
+    def _has_required_fields(self, rel: Dict) -> bool:
+        """Check for required fields in relation
+
+        Args:
+            rel: relation to check
+
+        Returns:
+            Returns true if all fields exist
+        """
+        return "service-hostname" in rel and "service-name" in rel and "service-port" in rel
+
+    def _has_app_data(self) -> bool:
+        """Check for app in relation data
+
+        Returns:
+            Returns true if app data exist
+        """
+        return self.app in self.model.relations["ingress"][0].data
+
+    def _has_ingress_relation(self) -> bool:
+        """Check for ingress relation
+
+        Returns:
+            Returns true if ingress relation exist
+        """
+        return "ingress" in self.model.relations and len(self.model.relations["ingress"]) > 0
+
+    def ingress_config(self) -> Dict:
+        """Get ingress config from relation or default
+
+        Returns:
+            The ingress config to be used
+        """
+        if self._has_ingress_relation() and self._has_app_data():
+            rel = self.model.relations["ingress"][0].data[self.app]
+            if self._has_required_fields(rel):
+                return {
+                    "service-hostname": rel["service-hostname"],
+                    "service-name": rel["service-name"],
+                    "service-port": rel["service-port"],
+                }
+        return {"service-hostname": "any", "service-name": self.app.name, "service-port": 8080}
 
     @staticmethod
     def start_server(port: int = 8080):

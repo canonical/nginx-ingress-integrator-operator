@@ -9,7 +9,7 @@
 import logging
 import re
 import time
-from typing import List
+from typing import Generator, List
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.ingress import (
@@ -121,14 +121,16 @@ class _ConfigOrRelation:
         return fallback
 
     @property
-    def _additional_hostnames(self) -> List[str]:
+    def _additional_hostnames(self) -> Generator[str, None, None]:
         """Return a list with additional hostnames.
 
         Returns:
             The additional hostnames set by configuration already split by comma.
         """
         additional_hostnames = self._get_config_or_relation_data("additional-hostnames", "")
-        return [hostname for hostname in additional_hostnames.split(",") if hostname]
+        for hostname in additional_hostnames.split(","):
+            if hostname:
+                yield hostname
 
     @property
     def _k8s_service_name(self):

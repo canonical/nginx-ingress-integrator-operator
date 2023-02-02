@@ -3,6 +3,7 @@
 
 import itertools
 import unittest
+from typing import Dict
 
 import yaml
 from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
@@ -33,7 +34,7 @@ class TestCharmInit(unittest.TestCase):
         act: when the charm is constructed with the configuration
         assert: then the default value is set.
         """
-        config_dict: dict[str, str] = {}
+        config_dict: Dict[str, str] = {}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
             def __init__(self, *args):

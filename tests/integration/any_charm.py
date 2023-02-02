@@ -10,8 +10,8 @@ import signal
 import subprocess
 from typing import Dict
 
-from any_charm_base import AnyCharmBase
-from ingress import IngressRequires
+from any_charm_base import AnyCharmBase  # type: ignore[import]
+from ingress import IngressRequires  # type: ignore[import]
 
 INGRESS_CONFIG_ENVVAR = "ANYCHARM_INGRESS_CONFIG"
 

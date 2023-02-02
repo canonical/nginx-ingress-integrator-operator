@@ -10,10 +10,11 @@ import json
 from pathlib import Path
 from typing import List
 
-import kubernetes
+import kubernetes  # type: ignore[import]
 import pytest
 import pytest_asyncio
 import requests
+from ops.model import Model
 from pytest_operator.plugin import OpsTest
 
 from charm import CREATED_BY_LABEL
@@ -40,6 +41,7 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         "ingress.py": ingress_lib,
         "any_charm.py": any_charm_script,
     }
+    assert isinstance(ops_test.model, Model)
 
     async def build_and_deploy_ingress():
         charm = await ops_test.build_charm(".")

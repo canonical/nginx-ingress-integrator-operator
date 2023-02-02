@@ -10,7 +10,7 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import List
 
-import kubernetes
+import kubernetes  # type: ignore[import]
 import pytest_asyncio
 import yaml
 from ops.model import ActiveStatus, Application

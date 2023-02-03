@@ -29,6 +29,16 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # It has the same value as the label "app.kubernetes.io/name"
 # set in the service account associated with the application.
 CREATED_BY_LABEL = "app.juju.is/created-by="
+REPORT_INTERVAL_COUNT = 100
+
+
+def _report_interval_count() -> int:
+    """Set interval count for report ingress.
+
+    Returns:
+         Interval count
+    """
+    return REPORT_INTERVAL_COUNT
 
 
 class ConflictingAnnotationsError(Exception):
@@ -235,7 +245,7 @@ class _ConfigOrRelation:
         return self._get_config_or_relation_data("service-name", "")
 
     @property
-    def _service_port(self) -> Any:
+    def _service_port(self) -> int:
         """Return the port for the service we're connecting to."""
         # NOTE: If the charm has multiple relations, use the service port given by the relation.
         if self.multiple_relations:
@@ -431,12 +441,12 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _core_v1_api(self) -> Any:
+    def _core_v1_api(self) -> kubernetes.client.CoreV1Api:
         """Use the v1 k8s API."""
         self.k8s_auth()
         return kubernetes.client.CoreV1Api()
 
-    def _networking_v1_api(self) -> Any:
+    def _networking_v1_api(self) -> kubernetes.client.NetworkingV1Api:
         """Use the v1 beta1 networking API."""
         self.k8s_auth()
         return kubernetes.client.NetworkingV1Api()
@@ -456,7 +466,7 @@ class NginxIngressCharm(CharmBase):
         """Report on ingress IP(s) and return a list of them."""
         api = self._networking_v1_api()
         # Wait up to `interval * count` seconds for ingress IPs.
-        count, interval = 100, 1
+        count, interval = _report_interval_count(), 1
         for _ in range(count):
             ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
                 namespace=self._namespace

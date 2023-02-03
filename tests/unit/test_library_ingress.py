@@ -61,6 +61,7 @@ class TestCharmInit(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args, config_dict=config_dict)
 
+        # CharmType in Harness should be changed to fix this error
         self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()

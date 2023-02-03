@@ -14,6 +14,7 @@ import kubernetes  # type: ignore[import]
 import pytest
 import pytest_asyncio
 import requests
+from juju.model import Model
 from pytest_operator.plugin import OpsTest
 
 from charm import CREATED_BY_LABEL
@@ -41,14 +42,17 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         "any_charm.py": any_charm_script,
     }
 
+    assert isinstance(ops_test.model, Model)
+
     async def build_and_deploy_ingress():
         charm = await ops_test.build_charm(".")
-        return await ops_test.model.deploy(  # type: ignore[union-attr]
+        assert isinstance(ops_test.model, Model)
+        return await ops_test.model.deploy(
             str(charm), application_name="ingress", series="focal", trust=True
         )
 
     await asyncio.gather(
-        ops_test.model.deploy(  # type: ignore[union-attr]
+        ops_test.model.deploy(
             "any-charm",
             application_name="any",
             channel="beta",
@@ -56,11 +60,11 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         ),
         build_and_deploy_ingress(),
     )
-    await ops_test.model.wait_for_idle()  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:ingress"
-    await ops_test.model.add_relation(ANY_APP_NAME, relation_name)  # type: ignore[union-attr]
-    await ops_test.model.wait_for_idle()  # type: ignore[union-attr]
+    await ops_test.model.add_relation(ANY_APP_NAME, relation_name)
+    await ops_test.model.wait_for_idle()
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -72,7 +76,8 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
     """
     kubernetes.config.load_kube_config()
     api_networking = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name  # type: ignore[union-attr]
+    assert isinstance(ops_test.model, Model)
+    model_name = ops_test.model.name
     created_by_label = f"{CREATED_BY_LABEL}ingress"
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
@@ -83,10 +88,10 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
 
     assert compare_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
-    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle(status="active")
     assert compare_svc_hostnames(["new-name"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
-    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle(status="active")
     assert compare_svc_hostnames(["any"])
 
 
@@ -99,7 +104,8 @@ async def test_delete_unused_services(ops_test: OpsTest):
     """
     kubernetes.config.load_kube_config()
     api_core = kubernetes.client.CoreV1Api()
-    model_name = ops_test.model.name  # type: ignore[union-attr]
+    assert isinstance(ops_test.model, Model)
+    model_name = ops_test.model.name
     created_by_label = f"{CREATED_BY_LABEL}ingress"
 
     def compare_svc_names(expected: List[str]) -> bool:
@@ -110,10 +116,10 @@ async def test_delete_unused_services(ops_test: OpsTest):
 
     assert compare_svc_names(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
-    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle(status="active")
     assert compare_svc_names(["new-name-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=")
-    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
+    await ops_test.model.wait_for_idle(status="active")
     assert compare_svc_names(["any-service"])
 
 
@@ -176,7 +182,8 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name  # type: ignore[union-attr]
+    assert isinstance(ops_test.model, Model)
+    model_name = ops_test.model.name
 
     def get_ingress_annotation():
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
@@ -200,8 +207,9 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
             }
         ),
     )
-    await ops_test.model.wait_for_idle(status="active")  # type: ignore[union-attr]
-    await ops_test.model.block_until(  # type: ignore[union-attr]
+    assert isinstance(ops_test.model, Model)
+    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.block_until(
         lambda: "nginx.ingress.kubernetes.io/enable-modsecurity" in get_ingress_annotation(),
         wait_period=5,
         timeout=300,

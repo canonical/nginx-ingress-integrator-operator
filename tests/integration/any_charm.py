@@ -14,6 +14,9 @@ from any_charm_base import AnyCharmBase  # type: ignore[import]
 from ingress import IngressRequires  # type: ignore[import]
 
 INGRESS_CONFIG_ENVVAR = "ANYCHARM_INGRESS_CONFIG"
+SVC_HOSTNAME = "service-hostname"
+SVC_NAME = "service-name"
+SVC_PORT = "service-port"
 
 
 class AnyCharm(AnyCharmBase):
@@ -53,7 +56,7 @@ class AnyCharm(AnyCharmBase):
         Returns:
             Returns true if all fields exist
         """
-        return "service-hostname" in rel and "service-name" in rel and "service-port" in rel
+        return all(key in rel for key in (SVC_HOSTNAME, SVC_NAME, SVC_PORT))
 
     def _has_app_data(self) -> bool:
         """Check for app in relation data
@@ -81,11 +84,11 @@ class AnyCharm(AnyCharmBase):
             rel = self.model.relations["ingress"][0].data[self.app]
             if self._has_required_fields(rel):
                 return {
-                    "service-hostname": rel["service-hostname"],
-                    "service-name": rel["service-name"],
-                    "service-port": rel["service-port"],
+                    SVC_HOSTNAME: rel[SVC_HOSTNAME],
+                    SVC_NAME: rel[SVC_NAME],
+                    SVC_PORT: rel[SVC_PORT],
                 }
-        return {"service-hostname": "any", "service-name": self.app.name, "service-port": 8080}
+        return {SVC_HOSTNAME: "any", SVC_NAME: self.app.name, SVC_PORT: 8080}
 
     @staticmethod
     def start_server(port: int = 8080):

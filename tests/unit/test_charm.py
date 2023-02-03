@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 
 import unittest
-from typing import List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -1719,6 +1718,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         self.assertEqual(result, expected_result)
 
+    @patch("charm._report_interval_count")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm.k8s_auth")
     @patch("charm.NginxIngressCharm._define_ingress")
@@ -1733,6 +1733,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_define_ingress,
         mock_k8s_auth,
         mock_service_ips,
+        _report_interval_count,
     ):
         """
         arrange: given the harnessed charm
@@ -1744,7 +1745,9 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_items.items = []
         mock_api.list_namespaced_ingress.return_value = mock_items
 
-        expected_result: List = []
+        expected_result: list = []
+
+        _report_interval_count.return_value = 1
 
         result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)  # type: ignore[arg-type]
 

@@ -1,13 +1,16 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+# mypy: disable-error-code="union-attr"
+# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with
+
 """General configuration module for integration tests."""
 import re
 import subprocess  # nosec B404
 from pathlib import Path
 from typing import List
 
-import kubernetes
+import kubernetes  # type: ignore[import]
 import pytest_asyncio
 import yaml
 from ops.model import ActiveStatus, Application
@@ -18,7 +21,7 @@ from pytest_operator.plugin import OpsTest
 @fixture(scope="module")
 def metadata():
     """Provide charm metadata."""
-    yield yaml.safe_load(Path("./metadata.yaml").read_text())
+    yield yaml.safe_load(Path("./metadata.yaml").read_text(encoding="utf8"))
 
 
 @fixture(scope="module")
@@ -45,11 +48,12 @@ async def app(ops_test: OpsTest, app_name: str):
     await ops_test.model.wait_for_idle(timeout=10 * 60)
 
     # Check that both ingress and hello-kubecon are active
-    assert ops_test.model.applications[app_name].units[0].workload_status == ActiveStatus.name
-    assert (
-        ops_test.model.applications[hello_kubecon_app_name].units[0].workload_status
-        == ActiveStatus.name
-    )
+    model_app = ops_test.model.applications[app_name]
+    app_status = model_app.units[0].workload_status
+    assert app_status == ActiveStatus.name  # type: ignore[has-type]
+    model_hello = ops_test.model.applications[hello_kubecon_app_name]
+    hello_status = model_hello.units[0].workload_status
+    assert hello_status == ActiveStatus.name  # type: ignore[has-type]
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
@@ -65,15 +69,12 @@ async def ip_address_list(ops_test: OpsTest, app: Application):
     Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
     """
     # Reduce the update_status frequency until the cluster is deployed
+    status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
     async with ops_test.fast_forward():
-        await ops_test.model.block_until(
-            lambda: "Ingress IP(s)" in app.units[0].workload_status_message, timeout=100
-        )
+        await ops_test.model.block_until(lambda: "Ingress IP(s)" in status_message, timeout=100)
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
-    ip_address_list = re.findall(ip_regex, app.units[0].workload_status_message)
-    assert (
-        ip_address_list
-    ), f"could not find IP address in status message: {app.units[0].workload_status_message}"
+    ip_address_list = re.findall(ip_regex, status_message)
+    assert ip_address_list, f"could not find IP address in status message: {status_message}"
     yield ip_address_list
 
 
@@ -92,8 +93,9 @@ async def ingress_ip(ip_address_list: List):
 @pytest_asyncio.fixture(scope="module")
 async def app_url(ingress_ip: str):
     """Add to /etc/hosts."""
-    ps = subprocess.Popen(["echo", f"{ingress_ip} hello-kubecon"], stdout=subprocess.PIPE)  # nosec
-    subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=ps.stdout)  # nosec
+    host_line = f"{ingress_ip} hello-kubecon"
+    proc_echo = subprocess.Popen(["echo", host_line], stdout=subprocess.PIPE)  # nosec
+    subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=proc_echo.stdout)  # nosec
     yield "http://hello-kubecon"
 
 
@@ -102,7 +104,8 @@ async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
     """Enable owasp-modsecurity-crs."""
     async with ops_test.fast_forward():
         await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-        await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
+        active = ActiveStatus.name  # type: ignore[has-type]
+        await ops_test.model.wait_for_idle(status=active, timeout=60)
     yield f"{app_url}/?search=../../passwords"
 
 
@@ -113,7 +116,8 @@ async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec
     ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
     async with ops_test.fast_forward():
         await ops_test.juju("config", app_name, ignore_rule_cfg)
-        await ops_test.model.wait_for_idle(status=ActiveStatus.name, timeout=60)
+        active = ActiveStatus.name  # type: ignore[has-type]
+        await ops_test.model.wait_for_idle(status=active, timeout=60)
     yield app_url_modsec
 
 

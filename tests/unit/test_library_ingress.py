@@ -3,9 +3,10 @@
 
 import itertools
 import unittest
+from typing import Dict
 
 import yaml
-from charms.nginx_ingress_integrator.v0.ingress import (
+from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
     OPTIONAL_INGRESS_RELATION_FIELDS,
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
@@ -33,7 +34,7 @@ class TestCharmInit(unittest.TestCase):
         act: when the charm is constructed with the configuration
         assert: then the default value is set.
         """
-        config_dict = {}
+        config_dict: Dict[str, str] = {}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
             def __init__(self, *args):
@@ -60,7 +61,8 @@ class TestCharmInit(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        # CharmType in Harness should be changed to fix this error
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
@@ -90,7 +92,7 @@ class TestCharmInit(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
@@ -129,7 +131,7 @@ class TestCharmInit(unittest.TestCase):
             def __init__(self, *args):
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 

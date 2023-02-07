@@ -108,7 +108,7 @@ juju refresh my-charm --path=./my-charm_ubuntu-22.04-amd64.charm
 And now we can deploy the Nginx Ingress Integrator and add the relation:
 ```
 juju deploy nginx-ingress-integrator
-juju relate nginx-ingress-integtator my-charm
+juju relate nginx-ingress-integrator my-charm
 # If you have RBAC enabled, you'll also need to run this
 juju trust nginx-ingress-integrator --scope cluster
 ```

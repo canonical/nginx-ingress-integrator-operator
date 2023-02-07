@@ -81,7 +81,7 @@ options:
     description: Whether requests should be written to the `rewrite-target`
     type: boolean
   rewrite-target:
-    default: "/"
+    default: ""
     description: The path to rewrite requests to.
     type: string
   service-hostname:

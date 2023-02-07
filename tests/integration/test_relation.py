@@ -231,3 +231,54 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
         ingress_annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] == "true"
     )
     assert ingress_annotations["nginx.ingress.kubernetes.io/modsecurity-snippet"]
+
+
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+async def test_rewrite_target_relation(ops_test: OpsTest, run_action):
+    """
+    arrange: given charm has been built and deployed.
+    act: update rewrite-target option via ingress library.
+    assert: rewrite-target annotation on the ingress resource should update accordingly.
+    """
+    kubernetes.config.load_kube_config()
+    kube = kubernetes.client.NetworkingV1Api()
+    assert isinstance(ops_test.model, Model)
+    model_name = ops_test.model.name
+
+    def get_ingress_annotation():
+        return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
+
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps(
+            {
+                "ingress_config": {
+                    "rewrite-target": "/foo",
+                }
+            }
+        ),
+    )
+    assert isinstance(ops_test.model, Model)
+    await ops_test.model.wait_for_idle(status="active")
+    await ops_test.model.block_until(
+        lambda: "nginx.ingress.kubernetes.io/rewrite-target" in get_ingress_annotation(),
+        wait_period=5,
+        timeout=300,
+    )
+
+    ingress_annotations = get_ingress_annotation()
+    assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/foo"
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps(
+            {
+                "ingress_config": {
+                    "rewrite-target": "",
+                }
+            }
+        ),
+    )

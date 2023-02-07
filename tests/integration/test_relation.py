@@ -156,7 +156,9 @@ async def test_ingress_connectivity():
     assert response.text == "ok"
     assert response.status_code == 200
     assert (
-        requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300).status_code
+        requests.get(
+            "http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300
+        ).status_code
         == 404
     )
 

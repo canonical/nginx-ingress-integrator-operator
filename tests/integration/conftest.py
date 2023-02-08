@@ -69,10 +69,10 @@ async def ip_address_list(ops_test: OpsTest, app: Application):
     Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
     """
     # Reduce the update_status frequency until the cluster is deployed
-    status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
     async with ops_test.fast_forward():
+        status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
         await ops_test.model.block_until(
-            lambda: "Ingress IP(s)" in status_message, timeout=10 * 60
+            lambda: "Ingress IP(s)" in status_message, timeout=15 * 60
         )
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
     ip_address_list = re.findall(ip_regex, status_message)

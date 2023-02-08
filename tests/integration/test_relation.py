@@ -267,25 +267,28 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     ],
     indirect=True,
 )
-async def test_rewrite_target_relation(ops_test: OpsTest, anycharm_update_ingress_config):
+async def test_rewrite_target_relation(
+    anycharm_update_ingress_config, wait_ingress_annotation, get_ingress_annotation
+):
     """
     arrange: given charm has been built and deployed.
     act: update rewrite-target option via ingress library.
     assert: rewrite-target annotation on the ingress resource should update accordingly.
     """
-    assert isinstance(ops_test.model, Model)
-    kubernetes.config.load_kube_config()
-    kube = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name
+    await wait_ingress_annotation(NEW_INGRESS, "nginx.ingress.kubernetes.io/rewrite-target")
 
-    def get_ingress_annotation():
-        return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
-
-    await ops_test.model.block_until(
-        lambda: "nginx.ingress.kubernetes.io/rewrite-target" in get_ingress_annotation(),
-        wait_period=5,
-        timeout=300,
-    )
-
-    ingress_annotations = get_ingress_annotation()
+    ingress_annotations = get_ingress_annotation(NEW_INGRESS)
     assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/foo"
+
+
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+async def test_rewrite_target_default(wait_ingress_annotation, get_ingress_annotation):
+    """
+    arrange: given charm has been built and deployed, rewrite-target option is reset in relation.
+    act:  no act.
+    assert: rewrite-target annotation on the ingress resource should be the default value "/".
+    """
+    await wait_ingress_annotation(NEW_INGRESS, "nginx.ingress.kubernetes.io/rewrite-target")
+
+    ingress_annotations = get_ingress_annotation(NEW_INGRESS)
+    assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"

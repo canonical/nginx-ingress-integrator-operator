@@ -152,12 +152,12 @@ async def test_ingress_connectivity():
     act: access ingress IP address with correct host name in HTTP headers.
     assert: HTTP request should be forwarded to the application.
     """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=300)
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=5 * 60)
     assert response.text == "ok"
     assert response.status_code == 200
     assert (
         requests.get(
-            "http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300
+            "http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5 * 60
         ).status_code
         == 404
     )
@@ -170,7 +170,7 @@ async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
     act: update service-hostname and service-port via ingress library.
     assert: kubernetes ingress should be updated to accommodate the relation data update.
     """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300)
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5 * 60)
     assert response.text == "ok"
     assert response.status_code == 200
 
@@ -214,12 +214,14 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     await ops_test.model.block_until(
         lambda: "nginx.ingress.kubernetes.io/enable-modsecurity" in get_ingress_annotation(),
         wait_period=5,
-        timeout=300,
+        timeout=5 * 60,
     )
 
     assert (
         requests.get(
-            "http://127.0.0.1/?search=../../passwords", headers={"Host": NEW_HOSTNAME}, timeout=300
+            "http://127.0.0.1/?search=../../passwords",
+            headers={"Host": NEW_HOSTNAME},
+            timeout=5 * 60,
         ).status_code
         == 403
     )

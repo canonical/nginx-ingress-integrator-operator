@@ -260,7 +260,6 @@ async def test_rewrite_target_relation(ops_test: OpsTest, run_action):
             }
         ),
     )
-    assert isinstance(ops_test.model, Model)
     await ops_test.model.wait_for_idle(status="active")
     await ops_test.model.block_until(
         lambda: "nginx.ingress.kubernetes.io/rewrite-target" in get_ingress_annotation(),

@@ -6,6 +6,7 @@
 """Integration test relation file."""
 
 import asyncio
+import copy
 import json
 from pathlib import Path
 from typing import List
@@ -65,6 +66,29 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
     relation_name = f"{INGRESS_APP_NAME}:ingress"
     await ops_test.model.add_relation(ANY_APP_NAME, relation_name)
     await ops_test.model.wait_for_idle()
+
+
+@pytest_asyncio.fixture(name="anycharm_update_ingress_config")
+async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
+    """Temporarily update the ingress relation data using anycharm update_ingress method."""
+    config = copy.deepcopy(request.param)
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps({"ingress_config": config}),
+    )
+    await ops_test.model.wait_for_idle(status="active")
+
+    yield config
+
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps({"ingress_config": {k: "" for k in config.keys()}}),
+    )
+    await ops_test.model.wait_for_idle(status="active")
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -234,33 +258,29 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
 
 
 @pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
-async def test_rewrite_target_relation(ops_test: OpsTest, run_action):
+@pytest.mark.parametrize(
+    "anycharm_update_ingress_config",
+    [
+        {
+            "rewrite-target": "/foo",
+        }
+    ],
+    indirect=True,
+)
+async def test_rewrite_target_relation(ops_test: OpsTest, anycharm_update_ingress_config):
     """
     arrange: given charm has been built and deployed.
     act: update rewrite-target option via ingress library.
     assert: rewrite-target annotation on the ingress resource should update accordingly.
     """
+    assert isinstance(ops_test.model, Model)
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    assert isinstance(ops_test.model, Model)
     model_name = ops_test.model.name
 
     def get_ingress_annotation():
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
 
-    await run_action(
-        ANY_APP_NAME,
-        "rpc",
-        method="update_ingress",
-        kwargs=json.dumps(
-            {
-                "ingress_config": {
-                    "rewrite-target": "/foo",
-                }
-            }
-        ),
-    )
-    await ops_test.model.wait_for_idle(status="active")
     await ops_test.model.block_until(
         lambda: "nginx.ingress.kubernetes.io/rewrite-target" in get_ingress_annotation(),
         wait_period=5,
@@ -269,15 +289,3 @@ async def test_rewrite_target_relation(ops_test: OpsTest, run_action):
 
     ingress_annotations = get_ingress_annotation()
     assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/foo"
-    await run_action(
-        ANY_APP_NAME,
-        "rpc",
-        method="update_ingress",
-        kwargs=json.dumps(
-            {
-                "ingress_config": {
-                    "rewrite-target": "",
-                }
-            }
-        ),
-    )

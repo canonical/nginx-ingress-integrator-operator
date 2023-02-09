@@ -86,7 +86,7 @@ async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
         ANY_APP_NAME,
         "rpc",
         method="update_ingress",
-        kwargs=json.dumps({"ingress_config": {k: "" for k in config.keys()}}),
+        kwargs=json.dumps({"ingress_config": {k: "" for k in config}}),
     )
     await ops_test.model.wait_for_idle(status="active")
 

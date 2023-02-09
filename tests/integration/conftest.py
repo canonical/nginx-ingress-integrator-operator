@@ -154,3 +154,34 @@ def wait_for_ingress(ops_test: OpsTest):
         )
 
     return _wait_for_ingress
+
+
+@fixture(scope="module")
+def get_ingress_annotation(ops_test: OpsTest):
+    """Create a function that will retrieve all annotation from a ingress by its name."""
+    assert ops_test.model
+    kubernetes.config.load_kube_config()
+    kube = kubernetes.client.NetworkingV1Api()
+    model_name = ops_test.model.name
+
+    def _get_ingress_annotation(ingress_name: str):
+        return kube.read_namespaced_ingress(
+            ingress_name, namespace=model_name
+        ).metadata.annotations
+
+    return _get_ingress_annotation
+
+
+@pytest_asyncio.fixture(scope="module")
+async def wait_ingress_annotation(ops_test: OpsTest, get_ingress_annotation):
+    """Create an async function that will wait until certain annotation exists on ingress."""
+    assert ops_test.model
+
+    async def _wait_ingress_annotation(ingress_name: str, annotation_name: str):
+        await ops_test.model.block_until(
+            lambda: annotation_name in get_ingress_annotation(ingress_name),
+            wait_period=5,
+            timeout=300,
+        )
+
+    return _wait_ingress_annotation

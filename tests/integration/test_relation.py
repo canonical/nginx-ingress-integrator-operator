@@ -6,6 +6,7 @@
 """Integration test relation file."""
 
 import asyncio
+import copy
 import json
 from pathlib import Path
 from typing import List
@@ -65,6 +66,29 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
     relation_name = f"{INGRESS_APP_NAME}:ingress"
     await ops_test.model.add_relation(ANY_APP_NAME, relation_name)
     await ops_test.model.wait_for_idle()
+
+
+@pytest_asyncio.fixture(name="anycharm_update_ingress_config")
+async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
+    """Temporarily update the ingress relation data using anycharm update_ingress method."""
+    config = copy.deepcopy(request.param)
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps({"ingress_config": config}),
+    )
+    await ops_test.model.wait_for_idle(status="active")
+
+    yield config
+
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps({"ingress_config": {k: "" for k in config}}),
+    )
+    await ops_test.model.wait_for_idle(status="active")
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -231,3 +255,40 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
         ingress_annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] == "true"
     )
     assert ingress_annotations["nginx.ingress.kubernetes.io/modsecurity-snippet"]
+
+
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+@pytest.mark.parametrize(
+    "anycharm_update_ingress_config",
+    [
+        {
+            "rewrite-target": "/foo",
+        }
+    ],
+    indirect=True,
+)
+async def test_rewrite_target_relation(
+    anycharm_update_ingress_config, wait_ingress_annotation, get_ingress_annotation
+):
+    """
+    arrange: given charm has been built and deployed.
+    act: update rewrite-target option via ingress library.
+    assert: rewrite-target annotation on the ingress resource should update accordingly.
+    """
+    await wait_ingress_annotation(NEW_INGRESS, "nginx.ingress.kubernetes.io/rewrite-target")
+
+    ingress_annotations = get_ingress_annotation(NEW_INGRESS)
+    assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/foo"
+
+
+@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+async def test_rewrite_target_default(wait_ingress_annotation, get_ingress_annotation):
+    """
+    arrange: given charm has been built and deployed, rewrite-target option is reset in relation.
+    act:  no act.
+    assert: rewrite-target annotation on the ingress resource should be the default value "/".
+    """
+    await wait_ingress_annotation(NEW_INGRESS, "nginx.ingress.kubernetes.io/rewrite-target")
+
+    ingress_annotations = get_ingress_annotation(NEW_INGRESS)
+    assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"

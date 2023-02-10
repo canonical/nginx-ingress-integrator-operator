@@ -129,7 +129,7 @@ async def test_delete_unused_services(ops_test: OpsTest):
     kubernetes.config.load_kube_config()
     api_core = kubernetes.client.CoreV1Api()
     assert isinstance(ops_test.model, Model)
-    model_name = ops_test.model.name
+    model_name = ops_test.model_name
     created_by_label = f"{CREATED_BY_LABEL}=ingress"
 
     def compare_svc_names(expected: List[str]) -> bool:
@@ -209,7 +209,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
     assert isinstance(ops_test.model, Model)
-    model_name = ops_test.model.name
+    model_name = ops_test.model_name
 
     def get_ingress_annotation():
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations

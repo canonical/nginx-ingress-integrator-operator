@@ -130,7 +130,8 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
     api_core = kubernetes.client.CoreV1Api()
     assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
-    created_by_label = f"{CREATED_BY_LABEL}={app_name}"
+    print(app_name)
+    created_by_label = f"app.juju.is/created-by={app_name}"
 
     def compare_svc_names(expected: List[str]) -> bool:
         all_services = api_core.list_namespaced_service(

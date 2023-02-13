@@ -108,7 +108,8 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
             namespace=model_name, label_selector=f"{CREATED_BY_LABEL}={app_name}"
         )
         return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
-
+    func_result = compare_svc_hostnames(["any-service"])
+    print(func_result)
     assert compare_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
     await ops_test.model.wait_for_idle(status="active")
@@ -136,7 +137,8 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
             namespace=model_name, label_selector=created_by_label
         )
         return expected == [item.metadata.name for item in all_services.items]
-
+    func_result = compare_svc_names(["any-service"])
+    print(func_result)
     assert compare_svc_names(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
     await ops_test.model.wait_for_idle(status="active")

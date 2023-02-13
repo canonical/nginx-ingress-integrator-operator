@@ -103,20 +103,17 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
     assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
 
-    # def compare_svc_hostnames(expected: List[str]) -> bool:
-    all_ingresses = api_networking.list_namespaced_ingress(
-        namespace=model_name
-    )
+    def compare_svc_hostnames(expected: List[str]) -> bool:
+        all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
+        return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
 
-    # func_result = compare_svc_hostnames(["any-service"])
-    # print(func_result)
-    assert ["any-service"] == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+    assert compare_svc_hostnames(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
     await ops_test.model.wait_for_idle(status="active")
-    # assert compare_svc_hostnames(["new-name"])
+    assert compare_svc_hostnames(["new-name"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
     await ops_test.model.wait_for_idle(status="active")
-    # assert compare_svc_hostnames(["any"])
+    assert compare_svc_hostnames(["any"])
 
 
 @pytest.mark.usefixtures("build_and_deploy")

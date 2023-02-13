@@ -147,7 +147,7 @@ def wait_for_ingress(ops_test: OpsTest):
             lambda: ingress_name
             in [
                 ingress.metadata.name
-                for ingress in kube.list_namespaced_ingress(ops_test.model.name).items
+                for ingress in kube.list_namespaced_ingress(ops_test.model_name).items
             ],
             wait_period=5,
             timeout=10 * 60,
@@ -162,7 +162,7 @@ def get_ingress_annotation(ops_test: OpsTest):
     assert ops_test.model
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    model_name = ops_test.model.name
+    model_name = ops_test.model_name
 
     def _get_ingress_annotation(ingress_name: str):
         return kube.read_namespaced_ingress(

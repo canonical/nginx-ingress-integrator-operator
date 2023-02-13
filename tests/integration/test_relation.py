@@ -156,6 +156,7 @@ async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wa
     rpc_return = await run_action(
         ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
     )
+    print(rpc_return)
     assert rpc_return["return-code"] == 0 and json.loads(rpc_return["return"]) == NEW_PORT
     await run_action(
         ANY_APP_NAME,

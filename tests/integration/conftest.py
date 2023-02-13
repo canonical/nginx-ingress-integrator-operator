@@ -36,6 +36,7 @@ async def app(ops_test: OpsTest, app_name: str):
 
     Builds the charm and deploys it and a charm that depends on it.
     """
+    print("LETS GO")
     # Deploy relations first to speed up overall execution
     hello_kubecon_app_name = "hello-kubecon"
     await ops_test.model.deploy(hello_kubecon_app_name)

@@ -102,7 +102,6 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
     api_networking = kubernetes.client.NetworkingV1Api()
     assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
-    created_by_label = f"{CREATED_BY_LABEL}={app_name}"
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
         all_ingresses = api_networking.list_namespaced_ingress(

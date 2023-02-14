@@ -108,7 +108,7 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
         print([ingress.spec.rules[0].host for ingress in all_ingresses.items])
         return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
 
-    assert compare_svc_hostnames(["any-service"])
+    assert compare_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
     await ops_test.model.wait_for_idle(status="active")
     assert compare_svc_hostnames(["new-name"])

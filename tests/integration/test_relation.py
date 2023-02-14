@@ -134,6 +134,7 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
         all_services = api_core.list_namespaced_service(
             namespace=model_name, label_selector=created_by_label
         )
+        print([item.metadata.name for item in all_services.items])
         return expected == [item.metadata.name for item in all_services.items]
 
     assert compare_svc_names(["any-service"])

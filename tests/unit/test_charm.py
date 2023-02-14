@@ -619,7 +619,6 @@ class TestCharm(unittest.TestCase):
 
         mock_def_svc.assert_called_once()
         base_ingress = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
-        base_ingress.metadata.labels = None
 
         tls_lish = kubernetes.client.V1IngressTLS(
             hosts=["lish.internal"],
@@ -631,6 +630,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="lish-internal-ingress",
                 annotations=base_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 tls=[tls_lish],
@@ -1508,7 +1508,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # Since we only have one relation, the merged ingress rule should be the same as before
         # the merge.
         expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
             body=expected_body,
@@ -1538,7 +1537,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
 
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
-        expected_body.metadata.labels = None
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
@@ -1558,7 +1556,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_delete_ingress.assert_not_called()
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        second_body.metadata.labels = None
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
             namespace=self.harness.charm._namespace,
@@ -1622,7 +1619,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
         expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
             body=expected_body,
@@ -1647,14 +1643,12 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # since it has a different service-hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
         expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
             body=expected_body,
         )
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
         expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
             namespace=self.harness.charm._namespace,
@@ -1677,7 +1671,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         )
         mock_create_ingress.assert_not_called()
         expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
@@ -1819,12 +1812,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
         first_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         first_body.spec.rules = [first_body.spec.rules[0]]
-        first_body.metadata.labels = None
         second_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         second_body.metadata.name = "lish-in-ternal-ingress"
         second_body.spec.rules = [second_body.spec.rules[1]]
         second_body.spec.tls[0].hosts = ["lish.in.ternal"]
-        second_body.metadata.labels = None
         mock_create_ingress.assert_has_calls(
             [
                 mock.call(namespace=self.harness.charm._namespace, body=first_body),
@@ -1890,7 +1881,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
         )
         mock_create_ingress.assert_not_called()
         expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
-        expected_body.metadata.labels = None
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
@@ -2024,8 +2014,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
-        second_body = conf_or_rels[1]._get_k8s_ingress(None)
-        expected_body = conf_or_rels[0]._get_k8s_ingress(None)
+        second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
-        expected_body.metadata.labels = None
         mock_define_ingress.assert_called_once_with(expected_body)

@@ -20,7 +20,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
 )
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -742,7 +742,9 @@ class NginxIngressCharm(CharmBase):
         for hostname, paths in ingress_paths.items():
             # Use the metadata from the first rule.
             initial_ingress = hostname_ingress[hostname]
-            add_ingress = self._create_k8s_ingress_obj(hostname, initial_ingress, paths)
+            add_ingress = self._create_k8s_ingress_obj(
+                hostname, initial_ingress, paths, self.app.name
+            )
             ingress_objs.append(add_ingress)
 
         return ingress_objs
@@ -752,7 +754,9 @@ class NginxIngressCharm(CharmBase):
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
         return f"{ingress_name}-ingress"
 
-    def _create_k8s_ingress_obj(self, svc_hostname: str, initial_ingress: Any, paths: Any) -> Any:
+    def _create_k8s_ingress_obj(
+        self, svc_hostname: str, initial_ingress: Any, paths: Any, label: str
+    ) -> Any:
         """Create a Kubernetes Ingress Resources with the given data."""
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
@@ -777,6 +781,7 @@ class NginxIngressCharm(CharmBase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=ingress_name,
                 annotations=initial_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: label},
             ),
             spec=new_spec,
         )
@@ -846,6 +851,7 @@ class NginxIngressCharm(CharmBase):
                 self._define_services()
                 self._define_ingresses()
                 msgs = []
+                self.unit.status = WaitingStatus("Waiting for ingress IP availability")
                 ingress_ips = self._report_ingress_ips()
                 if ingress_ips:
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")

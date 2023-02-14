@@ -105,6 +105,7 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
         all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
+        print([ingress.spec.rules[0].host for ingress in all_ingresses.items])
         return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
 
     assert compare_svc_hostnames(["any-service"])
@@ -127,14 +128,12 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
     api_core = kubernetes.client.CoreV1Api()
     assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
-    print(app_name)
     created_by_label = f"{CREATED_BY_LABEL}={INGRESS_APP_NAME}"
 
     def compare_svc_names(expected: List[str]) -> bool:
         all_services = api_core.list_namespaced_service(
             namespace=model_name, label_selector=created_by_label
         )
-        print([item.metadata.name for item in all_services.items])
         return expected == [item.metadata.name for item in all_services.items]
 
     assert compare_svc_names(["any-service"])

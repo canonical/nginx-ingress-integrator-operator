@@ -28,7 +28,7 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # Juju defines the value of this label.
 # It has the same value as the label "app.kubernetes.io/name"
 # set in the service account associated with the application.
-CREATED_BY_LABEL = "Ingress-label"
+CREATED_BY_LABEL = "created-by"
 REPORT_INTERVAL_COUNT = 100
 
 
@@ -280,7 +280,7 @@ class _ConfigOrRelation:
         """Return the whitelist-source-range config option."""
         return self._get_config("whitelist-source-range")
 
-    def _get_k8s_service(self, label: str) -> Any:
+    def _get_k8s_service(self, label: str) -> kubernetes.client.V1Service:
         """Get a K8s service definition.
 
         Args:
@@ -304,7 +304,7 @@ class _ConfigOrRelation:
             ),
         )
 
-    def _get_k8s_ingress(self, label: str) -> Any:
+    def _get_k8s_ingress(self, label: str) -> kubernetes.client.V1Ingress:
         """Get a K8s ingress definition.
 
         Args:

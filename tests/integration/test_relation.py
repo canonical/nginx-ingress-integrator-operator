@@ -105,7 +105,6 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
         all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
-        print([ingress.spec.rules[0].host for ingress in all_ingresses.items])
         return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
 
     assert compare_svc_hostnames(["any"])

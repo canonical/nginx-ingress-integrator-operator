@@ -72,7 +72,6 @@ async def ip_address_list(ops_test: OpsTest, app: Application):
     # Reduce the update_status frequency until the cluster is deployed
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(status="active")
-    # time.sleep(100)
     status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
     ip_address_list = re.findall(ip_regex, status_message)

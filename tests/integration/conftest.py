@@ -17,6 +17,9 @@ from ops.model import ActiveStatus, Application
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
+# Mype can't recognize the name as a string type, so we should skip the type check.
+ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
+
 
 @fixture(scope="module")
 def metadata():
@@ -50,16 +53,14 @@ async def app(ops_test: OpsTest, app_name: str):
     # Check that both ingress and hello-kubecon are active
     model_app = ops_test.model.applications[app_name]
     app_status = model_app.units[0].workload_status
-    assert app_status == ActiveStatus.name  # type: ignore[has-type]
+    assert app_status == ACTIVE_STATUS_NAME
     model_hello = ops_test.model.applications[hello_kubecon_app_name]
     hello_status = model_hello.units[0].workload_status
-    assert hello_status == ActiveStatus.name  # type: ignore[has-type]
+    assert hello_status == ACTIVE_STATUS_NAME
 
     # Add required relations
     await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(
-        timeout=10 * 60, status=ActiveStatus.name  # type: ignore[has-type]
-    )
+    await ops_test.model.wait_for_idle(timeout=10 * 60, status=ACTIVE_STATUS_NAME)
     yield application
 
 
@@ -72,6 +73,7 @@ async def ip_address_list(ops_test: OpsTest, app: Application):
     # Reduce the update_status frequency until the cluster is deployed
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(status="active")
+    # Mypy does not recognize the units attribute of the app, so we need to skip the type check.
     status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
     ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
     ip_address_list = re.findall(ip_regex, status_message)
@@ -105,7 +107,7 @@ async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
     """Enable owasp-modsecurity-crs."""
     async with ops_test.fast_forward():
         await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-        active = ActiveStatus.name  # type: ignore[has-type]
+        active = ACTIVE_STATUS_NAME
         await ops_test.model.wait_for_idle(status=active, timeout=60)
     yield f"{app_url}/?search=../../passwords"
 
@@ -117,7 +119,7 @@ async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec
     ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
     async with ops_test.fast_forward():
         await ops_test.juju("config", app_name, ignore_rule_cfg)
-        active = ActiveStatus.name  # type: ignore[has-type]
+        active = ACTIVE_STATUS_NAME
         await ops_test.model.wait_for_idle(status=active, timeout=60)
     yield app_url_modsec
 

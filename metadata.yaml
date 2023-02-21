@@ -14,3 +14,6 @@ assumes:
 provides:
   ingress:
     interface: ingress
+
+  nginx-route:
+    interface: nginx-route

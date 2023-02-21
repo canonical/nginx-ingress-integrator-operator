@@ -47,6 +47,14 @@ class AnyCharm(AnyCharmBase):
         """
         self.ingress.update_config(ingress_config)
 
+    def update_nginx_route(self, nginx_route_config):
+        """Update Ingress config.
+
+        Args:
+            nginx_route_config: New Ingress configuration to be applied.
+        """
+        self.nginx_route.update_config(nginx_route_config)
+
     def _has_required_fields(self, rel: Dict) -> bool:
         """Check for required fields in relation
 

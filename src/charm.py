@@ -18,6 +18,9 @@ from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
     IngressCharmEvents,
     IngressProvides,
 )
+from charms.nginx_ingress_integrator.v0.nginx_route import (  # type: ignore[import]
+    NginxRouteProvider,
+)
 from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus
@@ -402,10 +405,21 @@ class NginxIngressCharm(CharmBase):
         self.framework.observe(self.on.ingress_available, self._on_config_changed)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
+        self._nginx_route_handler = NginxRouteProvider(charm=self)
+        self.framework.observe(
+            self._nginx_route_handler.on.nginx_route_available, self._on_config_changed
+        )
+        self.framework.observe(
+            self._nginx_route_handler.on.nginx_route_broken, self._on_ingress_broken
+        )
+
     @property
     def _all_config_or_relations(self) -> Any:
         """Get all configuration and relation data."""
-        all_relations = self.model.relations["ingress"] or [None]  # type: ignore[list-item]
+        all_relations = self.model.relations["ingress"][:]
+        all_relations.extend(self.model.relations["nginx-route"])
+        if not all_relations:
+            all_relations = [None]  # type: ignore[list-item]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
@@ -415,7 +429,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _multiple_relations(self) -> bool:
         """Return a boolean indicating if we're related to multiple applications."""
-        return len(self.model.relations["ingress"]) > 1
+        return len(self.model.relations["ingress"] + self.model.relations["nginx-route"]) > 1
 
     @property
     def _namespace(self) -> Any:

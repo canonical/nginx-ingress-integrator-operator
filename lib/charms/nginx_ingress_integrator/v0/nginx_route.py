@@ -294,8 +294,8 @@ class NginxRouteProvider(Object):
         self.on.nginx_route_broken.emit(event.relation)
 
 
-# this is here only to maintain a reference to the instance of NginxRouteProvider created by
-# the provide_nginx_route function. This is required for ops framework event handling.
+# This is here only to maintain a reference to the instance of NginxRouteProvider created by
+# the provide_nginx_route function. This is required for ops framework event handling to work.
 __provider = None
 
 

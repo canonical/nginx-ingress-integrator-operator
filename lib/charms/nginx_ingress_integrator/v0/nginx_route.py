@@ -55,6 +55,7 @@ changed event to be properly handled.
 """
 import logging
 import typing
+import weakref
 
 from ops.charm import CharmBase, CharmEvents, RelationBrokenEvent, RelationChangedEvent
 from ops.framework import EventBase, EventSource, Object
@@ -296,7 +297,8 @@ class NginxRouteProvider(Object):
 
 # This is here only to maintain a reference to the instance of NginxRouteProvider created by
 # the provide_nginx_route function. This is required for ops framework event handling to work.
-__provider = None
+# The provider instance will have the same lifetime as the charm that creates it.
+__provider_references = weakref.WeakKeyDictionary()
 
 
 def provide_nginx_route(
@@ -316,11 +318,14 @@ def provide_nginx_route(
         nginx_route_relation_name: Specifies the relation name of the relation handled by this
             provider class. The relation must have the nginx-route interface.
     """
-    global __provider
-    if __provider is not None:
-        raise RuntimeError("provide_nginx_route function was invoked twice")
-    __provider = NginxRouteProvider(
-        charm=charm, nginx_route_relation_name=nginx_route_relation_name
-    )
-    charm.framework.observe(__provider.on.nginx_route_available, on_nginx_route_available)
-    charm.framework.observe(__provider.on.nginx_route_broken, on_nginx_route_broken)
+    if __provider_references.get(charm, {}).get(nginx_route_relation_name) is not None:
+        raise RuntimeError(
+            "provide_nginx_route was invoked twice with the same nginx-route relation name"
+        )
+    provider = NginxRouteProvider(charm=charm, nginx_route_relation_name=nginx_route_relation_name)
+    if charm in __provider_references:
+        __provider_references[charm][nginx_route_relation_name] = provider
+    else:
+        __provider_references[charm] = {nginx_route_relation_name: provider}
+    charm.framework.observe(provider.on.nginx_route_available, on_nginx_route_available)
+    charm.framework.observe(provider.on.nginx_route_broken, on_nginx_route_broken)

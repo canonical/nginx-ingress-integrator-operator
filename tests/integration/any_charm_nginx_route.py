@@ -12,7 +12,7 @@ import subprocess
 from typing import Dict
 
 from any_charm_base import AnyCharmBase  # type: ignore[import]
-from nginx_route import NginxRouteRequires  # type: ignore[import]
+from nginx_route import require_nginx_route  # type: ignore[import]
 
 
 class AnyCharm(AnyCharmBase):
@@ -26,7 +26,7 @@ class AnyCharm(AnyCharmBase):
             kwargs: Variable list of positional keyword arguments passed to the parent constructor.
         """
         super().__init__(*args, **kwargs)
-        self._nginx_route = NginxRouteRequires(self, config=self.nginx_route_config())
+        require_nginx_route(self, config=self.nginx_route_config())
 
     @staticmethod
     def nginx_route_config() -> Dict:

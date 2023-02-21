@@ -19,7 +19,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
     IngressProvides,
 )
 from charms.nginx_ingress_integrator.v0.nginx_route import (  # type: ignore[import]
-    NginxRouteProvider,
+    provide_nginx_route,
 )
 from ops.charm import CharmBase
 from ops.main import main
@@ -405,12 +405,10 @@ class NginxIngressCharm(CharmBase):
         self.framework.observe(self.on.ingress_available, self._on_config_changed)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
-        self._nginx_route_handler = NginxRouteProvider(charm=self)
-        self.framework.observe(
-            self._nginx_route_handler.on.nginx_route_available, self._on_config_changed
-        )
-        self.framework.observe(
-            self._nginx_route_handler.on.nginx_route_broken, self._on_ingress_broken
+        provide_nginx_route(
+            charm=self,
+            on_nginx_route_available=self._on_config_changed,
+            on_nginx_route_broken=self._on_ingress_broken,
         )
 
     @property

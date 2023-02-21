@@ -35,7 +35,7 @@ As an example, add the following to `src/charm.py`:
 from charms.nginx_ingress_integrator.v0.nginx_route import NginxRouteRequirer
 
 # In your charm's `__init__` method.
-self.nginx_route = IngressRequires(self, {
+require_nginx_route(self, {
         "service-hostname": self.config["external_hostname"],
         "service-name": self.app.name,
         "service-port": 80,
@@ -69,6 +69,8 @@ LIBAPI = 0
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
 LIBPATCH = 0
+
+__all__ = ["require_nginx_route", "provide_nginx_route"]
 
 logger = logging.getLogger(__name__)
 
@@ -182,6 +184,26 @@ class NginxRouteRequirer(Object):
                 relation_app_data[relation_field] = str(relation_data_value)
 
 
+def require_nginx_route(
+    charm: CharmBase,
+    config: typing.Dict[str, typing.Union[str, int, bool]],
+    nginx_route_relation_name: str = "nginx-route",
+):
+    """Set up nginx-route relation handlers on the requirer side.
+
+    This function must be invoked in the charm class constructor.
+
+    Args:
+        charm: The charm that requires the nginx-route relation.
+        config: Contains all the configuration options for nginx-route.
+        nginx_route_relation_name: Specifies the relation name of the relation handled by this
+            requirer class. The relation must have the nginx-route interface.
+    """
+    NginxRouteRequirer(
+        charm=charm, config=config, nginx_route_relation_name=nginx_route_relation_name
+    )
+
+
 class NginxRouteProvider(Object):
     """Class containing the functionality for the 'provides' side of the 'nginx-route' relation.
 
@@ -199,7 +221,7 @@ class NginxRouteProvider(Object):
         charm: CharmBase,
         nginx_route_relation_name: str = "nginx-route",
     ):
-        """Init function for the IngressProvides class.
+        """Init function for the NginxRouterProvides class.
 
         Args:
             charm: The charm that provides the nginx-route relation.
@@ -270,3 +292,35 @@ class NginxRouteProvider(Object):
 
         # Create an event that our charm can use to remove the Kubernetes Nginx ingress resources.
         self.on.nginx_route_broken.emit(event.relation)
+
+
+# this is here only to maintain a reference to the instance of NginxRouteProvider created by
+# the provide_nginx_route function. This is required for ops framework event handling.
+__provider = None
+
+
+def provide_nginx_route(
+    charm: CharmBase,
+    on_nginx_route_available: typing.Callable,
+    on_nginx_route_broken: typing.Callable,
+    nginx_route_relation_name: str = "nginx-route",
+):
+    """Set up nginx-route relation handlers on the provider side.
+
+    This function must be invoked in the charm class constructor.
+
+    Args:
+        charm: The charm that requires the nginx-route relation.
+        on_nginx_route_available: Callback function for the nginx-route-available event.
+        on_nginx_route_broken: Callback function for the nginx-route-broken event.
+        nginx_route_relation_name: Specifies the relation name of the relation handled by this
+            provider class. The relation must have the nginx-route interface.
+    """
+    global __provider
+    if __provider is not None:
+        raise RuntimeError("provide_nginx_route function was invoked twice")
+    __provider = NginxRouteProvider(
+        charm=charm, nginx_route_relation_name=nginx_route_relation_name
+    )
+    charm.framework.observe(__provider.on.nginx_route_available, on_nginx_route_available)
+    charm.framework.observe(__provider.on.nginx_route_broken, on_nginx_route_broken)

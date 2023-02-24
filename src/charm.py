@@ -25,9 +25,8 @@ from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
-# Juju defines the value of this label.
-# It has the same value as the label "app.kubernetes.io/name"
-# set in the service account associated with the application.
+# We set this value to be unique for this deployed juju application
+# so we can use it to identify resources created by this charm
 CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 REPORT_INTERVAL_COUNT = 100
 

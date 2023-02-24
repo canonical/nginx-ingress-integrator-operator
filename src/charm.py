@@ -20,15 +20,14 @@ from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
 )
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
-# Juju defines the value of this label.
-# It has the same value as the label "app.kubernetes.io/name"
-# set in the service account associated with the application.
-CREATED_BY_LABEL = "app.juju.is/created-by="
+# We set this value to be unique for this deployed juju application
+# so we can use it to identify resources created by this charm
+CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 REPORT_INTERVAL_COUNT = 100
 
 
@@ -280,12 +279,18 @@ class _ConfigOrRelation:
         """Return the whitelist-source-range config option."""
         return self._get_config("whitelist-source-range")
 
-    def _get_k8s_service(self) -> Any:
-        """Get a K8s service definition."""
+    def _get_k8s_service(self, label: str) -> kubernetes.client.V1Service:
+        """Get a K8s service definition.
+
+        Args:
+            label: Custom label assigned to every service.
+        """
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=kubernetes.client.V1ObjectMeta(name=self._k8s_service_name),
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=self._k8s_service_name, labels={CREATED_BY_LABEL: label}
+            ),
             spec=kubernetes.client.V1ServiceSpec(
                 selector={"app.kubernetes.io/name": self._service_name},
                 ports=[
@@ -298,8 +303,12 @@ class _ConfigOrRelation:
             ),
         )
 
-    def _get_k8s_ingress(self) -> Any:
-        """Get a K8s ingress definition."""
+    def _get_k8s_ingress(self, label: str) -> kubernetes.client.V1Ingress:
+        """Get a K8s ingress definition.
+
+        Args:
+            label: Custom label assigned to every ingress.
+        """
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
                 path=path,
@@ -373,8 +382,7 @@ class _ConfigOrRelation:
             api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=self._ingress_name,
-                annotations=annotations,
+                name=self._ingress_name, annotations=annotations, labels={CREATED_BY_LABEL: label}
             ),
             spec=spec,
         )
@@ -488,9 +496,6 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
-    def _get_created_label(self) -> str:
-        return f"{CREATED_BY_LABEL}{self.app.name}"
-
     def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
 
@@ -500,7 +505,7 @@ class NginxIngressCharm(CharmBase):
         """
         api = self._core_v1_api()
         all_services = api.list_namespaced_service(  # type: ignore[attr-defined]
-            namespace=self._namespace, label_selector=self._get_created_label()
+            namespace=self._namespace, label_selector=f"{CREATED_BY_LABEL}={self.app.name}"
         )
         all_svc_names = tuple(item.metadata.name for item in all_services.items)
         unused_svc_names = tuple(
@@ -537,7 +542,7 @@ class NginxIngressCharm(CharmBase):
     def _define_service(self, conf_or_rel: _ConfigOrRelation) -> None:
         """Create or update a service in kubernetes."""
         api = self._core_v1_api()
-        body = conf_or_rel._get_k8s_service()
+        body = conf_or_rel._get_k8s_service(self.app.name)
         services = api.list_namespaced_service(  # type: ignore[attr-defined]
             namespace=self._namespace
         )
@@ -618,7 +623,7 @@ class NginxIngressCharm(CharmBase):
         """
         api = self._networking_v1_api()
         all_ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
-            namespace=self._namespace, label_selector=self._get_created_label()
+            namespace=self._namespace, label_selector=f"{CREATED_BY_LABEL}={self.app.name}"
         )
         all_svc_hostnames = tuple(ingress.spec.rules[0].host for ingress in all_ingresses.items)
         unused_svc_hostnames = tuple(
@@ -655,7 +660,9 @@ class NginxIngressCharm(CharmBase):
         # Filter out any cases in which we don't have data set (e.g.: missing relation data)
         config_or_relations = filter(self._has_required_fields, config_or_relations)
 
-        ingresses = [conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations]
+        ingresses = [
+            conf_or_rel._get_k8s_ingress(self.app.name) for conf_or_rel in config_or_relations
+        ]
 
         ingresses = self._process_ingresses(ingresses)
 
@@ -665,7 +672,7 @@ class NginxIngressCharm(CharmBase):
             conf_or_rel = _ConfigOrRelation(
                 self.model, self.config, excluded_relation, self._multiple_relations
             )
-            excluded_ingress = conf_or_rel._get_k8s_ingress()
+            excluded_ingress = conf_or_rel._get_k8s_ingress(self.app.name)
 
             # The Kubernetes Ingress Resources we're creating only has 1 rule per hostname.
             used_hostnames = [ingress.spec.rules[0].host for ingress in ingresses]
@@ -734,7 +741,9 @@ class NginxIngressCharm(CharmBase):
         for hostname, paths in ingress_paths.items():
             # Use the metadata from the first rule.
             initial_ingress = hostname_ingress[hostname]
-            add_ingress = self._create_k8s_ingress_obj(hostname, initial_ingress, paths)
+            add_ingress = self._create_k8s_ingress_obj(
+                hostname, initial_ingress, paths, self.app.name
+            )
             ingress_objs.append(add_ingress)
 
         return ingress_objs
@@ -744,7 +753,9 @@ class NginxIngressCharm(CharmBase):
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
         return f"{ingress_name}-ingress"
 
-    def _create_k8s_ingress_obj(self, svc_hostname: str, initial_ingress: Any, paths: Any) -> Any:
+    def _create_k8s_ingress_obj(
+        self, svc_hostname: str, initial_ingress: Any, paths: Any, label: str
+    ) -> Any:
         """Create a Kubernetes Ingress Resources with the given data."""
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
@@ -769,6 +780,7 @@ class NginxIngressCharm(CharmBase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=ingress_name,
                 annotations=initial_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: label},
             ),
             spec=new_spec,
         )
@@ -838,6 +850,7 @@ class NginxIngressCharm(CharmBase):
                 self._define_services()
                 self._define_ingresses()
                 msgs = []
+                self.unit.status = WaitingStatus("Waiting for ingress IP availability")
                 ingress_ips = self._report_ingress_ips()
                 if ingress_ips:
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")

@@ -10,7 +10,7 @@ import kubernetes.client  # type: ignore[import]
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charm import NginxIngressCharm
+from charm import CREATED_BY_LABEL, NginxIngressCharm
 
 
 class TestCharm(unittest.TestCase):
@@ -211,7 +211,7 @@ class TestCharm(unittest.TestCase):
             },
         ]
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(result_dict["spec"]["rules"][0]["http"]["paths"], expected)
 
     def test_max_body_size(self):
@@ -287,7 +287,7 @@ class TestCharm(unittest.TestCase):
             }
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -304,7 +304,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"owasp-modsecurity-custom-rules": custom_rule})
         self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
         self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, custom_rule)
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
             "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
@@ -331,7 +331,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"owasp-modsecurity-custom-rules": custom_rule})
         self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
         self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, custom_rule)
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
             "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
@@ -618,7 +618,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls-new")
 
         mock_def_svc.assert_called_once()
-        base_ingress = conf_or_rel._get_k8s_ingress()
+        base_ingress = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
 
         tls_lish = kubernetes.client.V1IngressTLS(
             hosts=["lish.internal"],
@@ -630,6 +630,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="lish-internal-ingress",
                 annotations=base_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 tls=[tls_lish],
@@ -677,7 +678,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"whitelist-source-range": "10.0.0.0/24,172.10.0.1"})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._whitelist_source_range, "10.0.0.0/24,172.10.0.1")
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(
             result_dict["metadata"]["annotations"][
                 "nginx.ingress.kubernetes.io/whitelist-source-range"
@@ -695,7 +696,7 @@ class TestCharm(unittest.TestCase):
             }
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -704,7 +705,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
         self.harness.update_config({"rewrite-enabled": False})
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -719,7 +720,7 @@ class TestCharm(unittest.TestCase):
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
     @patch("charm.NginxIngressCharm._on_config_changed")
@@ -834,6 +835,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -860,7 +862,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test additional hostnames
         self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
         expected = kubernetes.client.V1Ingress(
@@ -873,6 +875,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -936,7 +939,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         self.harness.update_config({"additional-hostnames": ""})
         # Test multiple paths
         expected = kubernetes.client.V1Ingress(
@@ -949,6 +952,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -987,7 +991,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"path-routes": "/admin,/portal"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         self.harness.update_config({"path-routes": "/"})
         # Test with TLS.
         expected = kubernetes.client.V1Ingress(
@@ -999,6 +1003,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -1031,7 +1036,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test ingress-class, max_body_size, retry_http_errors and
         # session-cookie-max-age config options.
         self.harness.update_config(
@@ -1062,6 +1067,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/session-cookie-samesite": "Lax",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -1087,10 +1093,10 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test limit-whitelist on its own makes no change.
         self.harness.update_config({"limit-whitelist": "10.0.0.0/16"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # And if we set limit-rps we get both. Unset other options to minimize output.
         self.harness.update_config(
             {
@@ -1113,6 +1119,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -1138,7 +1145,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""
@@ -1147,7 +1154,9 @@ class TestCharm(unittest.TestCase):
         expected = kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=kubernetes.client.V1ObjectMeta(name="gunicorn-service"),
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-service", labels={CREATED_BY_LABEL: self.harness.charm.app.name}
+            ),
             spec=kubernetes.client.V1ServiceSpec(
                 selector={"app.kubernetes.io/name": "gunicorn"},
                 ports=[
@@ -1160,7 +1169,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        self.assertEqual(conf_or_rel._get_k8s_service(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_service(label=self.harness.charm.app.name), expected)
 
 
 INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1IngressClass(
@@ -1244,7 +1253,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are no ingress classes, there's nothing to choose from."""
         api = _make_mock_api_list_ingress_class(ZERO_INGRESS_CLASS_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)
 
@@ -1252,7 +1261,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there's one default ingress class, choose that."""
         api = _make_mock_api_list_ingress_class(ONE_INGRESS_CLASS_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, "public")
 
@@ -1260,7 +1269,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are two ingress classes, one default, choose that."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, "public")
 
@@ -1268,7 +1277,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are two ingress classes, both default, choose neither."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)
 
@@ -1409,7 +1418,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_service = mock_api.return_value.create_namespaced_service
         mock_create_service.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_service(),
+            body=conf_or_rels[0]._get_k8s_service(label=self.harness.charm.app.name),
         )
 
         # Reset the create service mock, and add a second relation. Expect the first service to
@@ -1431,11 +1440,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_patch_service.assert_called_once_with(
             name=conf_or_rels[0]._k8s_service_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_service(),
+            body=conf_or_rels[0]._get_k8s_service(self.harness.charm.app.name),
         )
         mock_create_service.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_service(),
+            body=conf_or_rels[1]._get_k8s_service(self.harness.charm.app.name),
         )
 
         # Remove the first relation and assert that only the first service is removed.
@@ -1496,12 +1505,12 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
-
         # Since we only have one relation, the merged ingress rule should be the same as before
         # the merge.
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Reset the create ingress mock, and add a second relation.
@@ -1524,8 +1533,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_ingress.assert_not_called()
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        expected_body = conf_or_rels[0]._get_k8s_ingress()
-        second_body = conf_or_rels[1]._get_k8s_ingress()
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
+        second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
 
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
@@ -1561,10 +1570,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        mock_delete_ingress.assert_called_once()
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
@@ -1612,9 +1618,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # the merge.
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Reset the create ingress mock, and add a second relation with a different
@@ -1635,15 +1642,17 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # change, and that a new K8s Ingress Resource will be created for the new relation,
         # since it has a different service-hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Remove the first relation and assert that only the first ingress is removed.
@@ -1661,10 +1670,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
             self.harness.charm._namespace,
         )
         mock_create_ingress.assert_not_called()
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Remove the second relation.
@@ -1800,9 +1810,9 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # It should create 2 different Ingress Resources, since we have an additional hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
-        first_body = conf_or_rels[0]._get_k8s_ingress()
+        first_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         first_body.spec.rules = [first_body.spec.rules[0]]
-        second_body = conf_or_rels[0]._get_k8s_ingress()
+        second_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         second_body.metadata.name = "lish-in-ternal-ingress"
         second_body.spec.rules = [second_body.spec.rules[1]]
         second_body.spec.tls[0].hosts = ["lish.in.ternal"]
@@ -1838,7 +1848,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress.assert_not_called()
 
-        second_rel_body = conf_or_rels[1]._get_k8s_ingress()
+        second_rel_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         second_body.spec.rules[0].http.paths.extend(second_rel_body.spec.rules[0].http.paths)
         calls = [
             mock.call(
@@ -1870,10 +1880,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
             self.harness.charm._namespace,
         )
         mock_create_ingress.assert_not_called()
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
@@ -2003,7 +2014,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
-        second_body = conf_or_rels[1]._get_k8s_ingress()
-        expected_body = conf_or_rels[0]._get_k8s_ingress()
+        second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)

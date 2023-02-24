@@ -92,7 +92,7 @@ async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_ingresses(ops_test: OpsTest):
+async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-hostname is changed and when is back to previous value
@@ -101,13 +101,10 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
     kubernetes.config.load_kube_config()
     api_networking = kubernetes.client.NetworkingV1Api()
     assert isinstance(ops_test.model, Model)
-    model_name = ops_test.model.name
-    created_by_label = f"{CREATED_BY_LABEL}ingress"
+    model_name = ops_test.model_name
 
     def compare_svc_hostnames(expected: List[str]) -> bool:
-        all_ingresses = api_networking.list_namespaced_ingress(
-            namespace=model_name, label_selector=created_by_label
-        )
+        all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
         return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
 
     assert compare_svc_hostnames(["any"])
@@ -120,7 +117,7 @@ async def test_delete_unused_ingresses(ops_test: OpsTest):
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_services(ops_test: OpsTest):
+async def test_delete_unused_services(ops_test: OpsTest, app_name):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-name is changed and when is back to previous value
@@ -129,8 +126,8 @@ async def test_delete_unused_services(ops_test: OpsTest):
     kubernetes.config.load_kube_config()
     api_core = kubernetes.client.CoreV1Api()
     assert isinstance(ops_test.model, Model)
-    model_name = ops_test.model.name
-    created_by_label = f"{CREATED_BY_LABEL}ingress"
+    model_name = ops_test.model_name
+    created_by_label = f"{CREATED_BY_LABEL}={INGRESS_APP_NAME}"
 
     def compare_svc_names(expected: List[str]) -> bool:
         all_services = api_core.list_namespaced_service(
@@ -156,7 +153,7 @@ async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wa
     rpc_return = await run_action(
         ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
     )
-    assert rpc_return["return-code"] == 0 and json.loads(rpc_return["return"]) == NEW_PORT
+    assert rpc_return["Code"] == "0" and json.loads(rpc_return["return"]) == NEW_PORT
     await run_action(
         ANY_APP_NAME,
         "rpc",
@@ -209,7 +206,7 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
     assert isinstance(ops_test.model, Model)
-    model_name = ops_test.model.name
+    model_name = ops_test.model_name
 
     def get_ingress_annotation():
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations

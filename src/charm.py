@@ -28,7 +28,7 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # Juju defines the value of this label.
 # It has the same value as the label "app.kubernetes.io/name"
 # set in the service account associated with the application.
-CREATED_BY_LABEL = "created-by"
+CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 REPORT_INTERVAL_COUNT = 100
 
 

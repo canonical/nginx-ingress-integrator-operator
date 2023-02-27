@@ -189,6 +189,12 @@ class _ConfigOrRelation:
         )
 
     @property
+    def _proxy_read_timeout(self) -> str:
+        """Return the proxy-read-timeout to use for k8s ingress."""
+        proxy_read_timeout = self._get_config_or_relation_data("proxy-read-timeout", 60)
+        return f"{proxy_read_timeout}"
+
+    @property
     def _rewrite_enabled(self) -> bool:
         """Return whether rewriting should be enabled from config or relation."""
         value = self._get_config_or_relation_data("rewrite-enabled", True)
@@ -337,6 +343,7 @@ class _ConfigOrRelation:
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
+        annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = self._proxy_read_timeout
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:

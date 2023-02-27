@@ -67,6 +67,10 @@ options:
       Comma separated list of the routes under the hostname that you wish to map to the relation.
       Example: "/admin,/portal" will map example.test/admin and example.test/portal only.
     type: string
+  proxy-read-timeout:
+    default: 60
+    description: Defines a timeout in seconds for reading a response from the proxied server.
+    type: int
   retry-errors:
     default: ""
     description: |

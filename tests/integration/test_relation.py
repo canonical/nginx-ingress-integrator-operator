@@ -114,8 +114,7 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
             except AssertionError:
                 if time.time() - time_start > timeout:
                     raise
-                else:
-                    time.sleep(1)
+                time.sleep(1)
 
     assert_svc_hostnames(["any"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")

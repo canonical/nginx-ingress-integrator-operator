@@ -338,9 +338,9 @@ class IngressBaseProvides(Object):
 
             # Create an event that our charm can use to decide it's okay to
             # configure the ingress.
-            self.charm.on.ingress_available.emit()  # type: ignore[attr-defined]
+            self.charm.on.ingress_available.emit()
         elif relation_name == INGRESS_PROXY_RELATION_NAME:
-            self.charm.on.ingress_proxy_available.emit()  # type: ignore[attr-defined]
+            self.charm.on.ingress_proxy_available.emit()
 
 
 class IngressProvides(IngressBaseProvides):

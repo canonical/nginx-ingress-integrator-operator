@@ -10,7 +10,7 @@ import copy
 import json
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import kubernetes  # type: ignore[import]
 import pytest
@@ -104,25 +104,27 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
     assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
 
-    def assert_svc_hostnames(expected: List[str], timeout=300):
+    def assert_svc_hostnames(expected: Tuple[str, ...], timeout=300):
         time_start = time.time()
         while True:
             all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
             try:
-                assert expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+                assert expected == tuple(
+                    ingress.spec.rules[0].host for ingress in all_ingresses.items
+                )
                 break
             except AssertionError:
                 if time.time() - time_start > timeout:
                     raise
                 time.sleep(1)
 
-    assert_svc_hostnames(["any"])
+    assert_svc_hostnames(("any",))
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
     await ops_test.model.wait_for_idle(status="active")
-    assert_svc_hostnames(["new-name"])
+    assert_svc_hostnames(("new-name",))
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
     await ops_test.model.wait_for_idle(status="active")
-    assert_svc_hostnames(["any"])
+    assert_svc_hostnames(("any",))
 
 
 @pytest.mark.usefixtures("build_and_deploy")

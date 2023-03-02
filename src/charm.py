@@ -9,7 +9,7 @@
 import logging
 import re
 import time
-from typing import Any, Generator, List
+from typing import Any, Dict, Generator, List, Optional, Union
 
 import kubernetes.client  # type: ignore[import]
 from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
@@ -18,9 +18,9 @@ from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
     IngressCharmEvents,
     IngressProvides,
 )
-from ops.charm import CharmBase
+from ops.charm import CharmBase, HookEvent
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -51,8 +51,12 @@ class ConflictingRoutesError(Exception):
 class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
-    def __init__(  # type: ignore[no-untyped-def]
-        self, model, config, relation, multiple_relations
+    def __init__(
+        self,
+        model: Model,
+        config: Union[ConfigData, Dict],
+        relation: Optional[Relation],
+        multiple_relations: bool,
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
@@ -84,6 +88,7 @@ class _ConfigOrRelation:
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
+                assert self.relation.app is not None  # nosec
                 if field in RELATION_INTERFACES_MAPPINGS:
                     new_field = RELATION_INTERFACES_MAPPINGS[field]
                     try:
@@ -187,6 +192,12 @@ class _ConfigOrRelation:
         return self._get_config_or_relation_data("owasp-modsecurity-custom-rules", "").replace(
             "\\n", "\n"
         )
+
+    @property
+    def _proxy_read_timeout(self) -> str:
+        """Return the proxy-read-timeout to use for k8s ingress."""
+        proxy_read_timeout = self._get_config_or_relation_data("proxy-read-timeout", 60)
+        return f"{proxy_read_timeout}"
 
     @property
     def _rewrite_enabled(self) -> bool:
@@ -337,6 +348,7 @@ class _ConfigOrRelation:
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
+        annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = self._proxy_read_timeout
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
@@ -638,7 +650,7 @@ class NginxIngressCharm(CharmBase):
         for unused_src_hostname in unused_svc_hostnames:
             self._remove_ingress(self._ingress_name(unused_src_hostname))
 
-    def _define_ingresses(self, excluded_relation=None) -> None:  # type: ignore[no-untyped-def]
+    def _define_ingresses(self, excluded_relation: Optional[Relation] = None) -> None:
         """(Re)Creates the Ingress Resources in Kubernetes from multiple ingress relations.
 
         Creates the Kubernetes Ingress Resource if it does not exist, or updates it if it does.
@@ -839,7 +851,7 @@ class NginxIngressCharm(CharmBase):
             svc_hostnames.extend(additional_hostname)
         self._delete_unused_ingresses(svc_hostnames)
 
-    def _on_config_changed(self, _) -> None:  # type: ignore[no-untyped-def]
+    def _on_config_changed(self, _: HookEvent) -> None:
         """Handle the config changed event."""
         msg = ""
         # We only want to do anything here if we're the leader to avoid

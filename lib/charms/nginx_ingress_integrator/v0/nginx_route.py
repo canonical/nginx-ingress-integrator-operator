@@ -31,15 +31,15 @@ See [the config section](https://charmhub.io/nginx-ingress-integrator/configure)
 of each, along with the required type.
 
 As an example, add the following to `src/charm.py`:
-```
+```python
 from charms.nginx_ingress_integrator.v0.nginx_route import NginxRouteRequirer
 
 # In your charm's `__init__` method.
-require_nginx_route(self, {
-        "service-hostname": self.config["external_hostname"],
-        "service-name": self.app.name,
-        "service-port": 80,
-    }
+require_nginx_route(
+    charm=self,
+    service_hostname=self.config["external_hostname"],
+    service_name=self.app.name,
+    service_port=80
 )
 
 ```

@@ -34,12 +34,12 @@ def gen_src_overwrite(
         encoding="utf8"
     )
     nginx_route_config = {
-        "service-hostname": service_hostname,
-        "service-name": service_name,
-        "service-port": service_port,
+        "service_hostname": service_hostname,
+        "service_name": service_name,
+        "service_port": service_port,
     }
     if additional_hostnames:
-        nginx_route_config["additional-hostnames"] = additional_hostnames
+        nginx_route_config["additional_hostnames"] = additional_hostnames
     any_charm_src_overwrite = {
         "any_charm.py": any_charm_script,
         "nginx_route.py": nginx_route_lib,

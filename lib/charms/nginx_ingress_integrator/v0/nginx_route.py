@@ -121,7 +121,7 @@ class NginxRouteCharmEvents(CharmEvents):
     nginx_route_broken = EventSource(NginxRouteBrokenEvent)
 
 
-class NginxRouteRequirer(Object):
+class _NginxRouteRequirer(Object):
     """This class defines the functionality for the 'requires' side of the 'nginx-route' relation.
 
     Hook events observed:
@@ -154,28 +154,10 @@ class NginxRouteRequirer(Object):
         self._config.update(config)
         self._config_reconciliation(None)
 
-    def _check_config_dict_errors(self) -> None:
-        """Check our config dict for errors."""
-        config_keys = self._config.keys()
-        unknown = config_keys - set(i["name"] for i in NGINX_ROUTE_RELATION_FIELDS)
-        required_keys = set(i["name"] for i in NGINX_ROUTE_RELATION_FIELDS if not i["optional"])
-        missing = required_keys - config_keys
-        if unknown:
-            raise KeyError(
-                "nginx-route relation error, unknown key(s) in config dictionary found: %s",
-                ", ".join(unknown),
-            )
-        if missing:
-            raise KeyError(
-                "nginx-route relation error, missing required key(s) in config dictionary: %s",
-                ", ".join(sorted(missing)),
-            )
-
-    def _config_reconciliation(self, _event):
+    def _config_reconciliation(self, _event=None):
         """Update the nginx-route relation data to be exactly as defined by config."""
         if not self._charm.model.unit.is_leader():
             return
-        self._check_config_dict_errors()
         for relation in self._charm.model.relations[self._nginx_route_relation_name]:
             relation_app_data = relation.data[self._charm.app]
             delete_keys = set(r for r in relation_app_data if r not in self._config)
@@ -186,8 +168,24 @@ class NginxRouteRequirer(Object):
 
 
 def require_nginx_route(
+    *,
     charm: CharmBase,
-    config: typing.Dict[str, typing.Union[str, int, bool]],
+    service_hostname: str,
+    service_name: str,
+    service_port: int,
+    additional_hostnames: typing.Optional[str] = None,
+    limit_rps: typing.Optional[int] = None,
+    limit_whitelist: typing.Optional[str] = None,
+    max_body_size: typing.Optional[int] = None,
+    owasp_modsecurity_crs: typing.Optional[str] = None,
+    owasp_modsecurity_custom_rules: typing.Optional[str] = None,
+    path_routes: typing.Optional[str] = None,
+    retry_errors: typing.Optional[str] = None,
+    rewrite_target: typing.Optional[str] = None,
+    rewrite_enabled: typing.Optional[bool] = None,
+    service_namespace: typing.Optional[str] = None,
+    session_cookie_max_age: typing.Optional[int] = None,
+    tls_secret_name: typing.Optional[str] = None,
     nginx_route_relation_name: str = "nginx-route",
 ):
     """Set up nginx-route relation handlers on the requirer side.
@@ -196,16 +194,49 @@ def require_nginx_route(
 
     Args:
         charm: The charm that requires the nginx-route relation.
-        config: Contains all the configuration options for nginx-route.
         nginx_route_relation_name: Specifies the relation name of the relation handled by this
             requirer class. The relation must have the nginx-route interface.
     """
-    NginxRouteRequirer(
+    config = {}
+    if service_hostname is not None:
+        config["service-hostname"] = service_hostname
+    if service_name is not None:
+        config["service-name"] = service_name
+    if service_port is not None:
+        config["service-port"] = service_port
+    if additional_hostnames is not None:
+        config["additional-hostnames"] = additional_hostnames
+    if limit_rps is not None:
+        config["limit-rps"] = limit_rps
+    if limit_whitelist is not None:
+        config["limit-whitelist"] = limit_whitelist
+    if max_body_size is not None:
+        config["max-body-size"] = max_body_size
+    if owasp_modsecurity_crs is not None:
+        config["owasp-modsecurity-crs"] = owasp_modsecurity_crs
+    if owasp_modsecurity_custom_rules is not None:
+        config["owasp-modsecurity-custom-rules"] = owasp_modsecurity_custom_rules
+    if path_routes is not None:
+        config["path-routes"] = path_routes
+    if retry_errors is not None:
+        config["retry-errors"] = retry_errors
+    if rewrite_target is not None:
+        config["rewrite-target"] = rewrite_target
+    if rewrite_enabled is not None:
+        config["rewrite-enabled"] = rewrite_enabled
+    if service_namespace is not None:
+        config["service-namespace"] = service_namespace
+    if session_cookie_max_age is not None:
+        config["session-cookie-max-age"] = session_cookie_max_age
+    if tls_secret_name is not None:
+        config["tls-secret-name"] = tls_secret_name
+
+    _NginxRouteRequirer(
         charm=charm, config=config, nginx_route_relation_name=nginx_route_relation_name
     )
 
 
-class NginxRouteProvider(Object):
+class _NginxRouteProvider(Object):
     """Class containing the functionality for the 'provides' side of the 'nginx-route' relation.
 
     Attrs:
@@ -322,7 +353,9 @@ def provide_nginx_route(
         raise RuntimeError(
             "provide_nginx_route was invoked twice with the same nginx-route relation name"
         )
-    provider = NginxRouteProvider(charm=charm, nginx_route_relation_name=nginx_route_relation_name)
+    provider = _NginxRouteProvider(
+        charm=charm, nginx_route_relation_name=nginx_route_relation_name
+    )
     if charm in __provider_references:
         __provider_references[charm][nginx_route_relation_name] = provider
     else:

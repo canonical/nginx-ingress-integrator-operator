@@ -121,6 +121,7 @@ We can also take a look at the configured ingress resource as follows (with samp
 $ microk8s kubectl describe ingress -n ingress-test
 Name:             my-charm-ingress
 Labels:           app.juju.is/created-by=nginx-ingress-integrator
+                  nginx-ingress-integrator.charm.juju.is/managed-by=nginx-ingress-integrator
 Namespace:        ingress-test
 Address:          127.0.0.1
 Ingress Class:    public

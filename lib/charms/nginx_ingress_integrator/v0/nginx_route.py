@@ -69,30 +69,11 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 0
+LIBPATCH = 1
 
 __all__ = ["require_nginx_route", "provide_nginx_route"]
 
 logger = logging.getLogger(__name__)
-
-NGINX_ROUTE_RELATION_FIELDS = [
-    {"name": "service-hostname", "type": str, "optional": False},
-    {"name": "service-name", "type": str, "optional": False},
-    {"name": "service-port", "type": int, "optional": False},
-    {"name": "additional-hostnames", "type": str, "optional": True},
-    {"name": "limit-rps", "type": int, "optional": True},
-    {"name": "limit-whitelist", "type": str, "optional": True},
-    {"name": "max-body-size", "type": int, "optional": True},
-    {"name": "owasp-modsecurity-crs", "type": str, "optional": True},
-    {"name": "owasp-modsecurity-custom-rules", "type": str, "optional": True},
-    {"name": "path-routes", "type": str, "optional": True},
-    {"name": "retry-errors", "type": str, "optional": True},
-    {"name": "rewrite-target", "type": str, "optional": True},
-    {"name": "rewrite-enabled", "type": bool, "optional": True},
-    {"name": "service-namespace", "type": str, "optional": True},
-    {"name": "session-cookie-max-age", "type": int, "optional": True},
-    {"name": "tls-secret-name", "type": str, "optional": True},
-]
 
 
 class NginxRouteAvailableEvent(EventBase):
@@ -150,11 +131,13 @@ class _NginxRouteRequirer(Object):
             self._config_reconciliation,
         )
         # Set default values.
-        self._config = {"service-namespace": self._charm.model.name}
+        self._config: typing.Dict[str, typing.Union[str, int, bool]] = {
+            "service-namespace": self._charm.model.name
+        }
         self._config.update(config)
         self._config_reconciliation(None)
 
-    def _config_reconciliation(self, _event=None):
+    def _config_reconciliation(self, _event: typing.Any = None) -> None:
         """Update the nginx-route relation data to be exactly as defined by config."""
         if not self._charm.model.unit.is_leader():
             return
@@ -167,7 +150,7 @@ class _NginxRouteRequirer(Object):
                 relation_app_data[relation_field] = str(relation_data_value)
 
 
-def require_nginx_route(
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches
     *,
     charm: CharmBase,
     service_hostname: str,
@@ -187,7 +170,7 @@ def require_nginx_route(
     session_cookie_max_age: typing.Optional[int] = None,
     tls_secret_name: typing.Optional[str] = None,
     nginx_route_relation_name: str = "nginx-route",
-):
+) -> None:
     """Set up nginx-route relation handlers on the requirer side.
 
     This function must be invoked in the charm class constructor.
@@ -231,7 +214,7 @@ def require_nginx_route(
             the relation handled by this requirer class. The relation
             must have the nginx-route interface.
     """
-    config = {}
+    config: typing.Dict[str, typing.Union[str, int, bool]] = {}
     if service_hostname is not None:
         config["service-hostname"] = service_hostname
     if service_name is not None:
@@ -318,20 +301,23 @@ class _NginxRouteProvider(Object):
             return
 
         relation_name = event.relation.name
+        remote_app = event.app
+        if remote_app is None:
+            raise RuntimeError("_on_relation_changed was triggered by a broken relation.")
 
-        if not event.relation.data[event.app]:
+        if not event.relation.data[remote_app]:
             logger.info(
                 "%s hasn't finished configuring, waiting until relation is changed again.",
                 relation_name,
             )
             return
 
-        required_relation_fields = set(
-            f["name"] for f in NGINX_ROUTE_RELATION_FIELDS if not f["optional"]
+        required_fields = {"service-hostname", "service-port", "service-name"}
+        missing_fields = sorted(
+            field
+            for field in required_fields
+            if event.relation.data[remote_app].get(field) is None
         )
-
-        missing_fields = required_relation_fields - required_relation_fields
-
         if missing_fields:
             logger.warning(
                 "Missing required data fields for %s relation: %s",
@@ -363,7 +349,7 @@ class _NginxRouteProvider(Object):
 # This is here only to maintain a reference to the instance of NginxRouteProvider created by
 # the provide_nginx_route function. This is required for ops framework event handling to work.
 # The provider instance will have the same lifetime as the charm that creates it.
-__provider_references = weakref.WeakKeyDictionary()
+__provider_references: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 def provide_nginx_route(
@@ -371,7 +357,7 @@ def provide_nginx_route(
     on_nginx_route_available: typing.Callable,
     on_nginx_route_broken: typing.Callable,
     nginx_route_relation_name: str = "nginx-route",
-):
+) -> None:
     """Set up nginx-route relation handlers on the provider side.
 
     This function must be invoked in the charm class constructor.

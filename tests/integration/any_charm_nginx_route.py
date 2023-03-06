@@ -26,10 +26,7 @@ class AnyCharm(AnyCharmBase):
             kwargs: Variable list of positional keyword arguments passed to the parent constructor.
         """
         super().__init__(*args, **kwargs)
-        require_nginx_route(
-            charm=self,
-            **self.nginx_route_config()
-        )
+        require_nginx_route(charm=self, **self.nginx_route_config())
 
     @staticmethod
     def nginx_route_config() -> Dict:

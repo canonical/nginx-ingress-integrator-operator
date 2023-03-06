@@ -396,13 +396,13 @@ class NginxIngressCharm(CharmBase):
             args: Variable list of positional arguments passed to the parent constructor.
         """
         super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.config_changed, self._on_config_changed_with_warning)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
-        self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_available, self._on_config_changed_with_warning)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
         provide_nginx_route(
@@ -410,6 +410,30 @@ class NginxIngressCharm(CharmBase):
             on_nginx_route_available=self._on_config_changed,
             on_nginx_route_broken=self._on_ingress_broken,
         )
+
+    def _on_config_changed_with_warning(self, event: Any) -> None:
+        """Handle the ingress relation available event.
+
+        The same functionality as _on_config_changed, but will add warning message if there are
+        applications connected via ingress relation.
+
+        Args:
+            event: not used.
+        """
+        self._on_config_changed(event)
+        status = self.unit.status
+        connected_apps = set()
+        for relation in self.model.relations["ingress"]:
+            remote_app = relation.app
+            if remote_app is not None:
+                connected_apps.add(remote_app.name)
+        if connected_apps:
+            connected_app_names = ", ".join(sorted(connected_apps))
+            warning = (
+                f"app [{connected_app_names}] connected via deprecated ingress relation, "
+                f"please update to nginx-route relation; {status.message}"
+            )
+            self.unit.status = status.from_name(status.name, warning)
 
     @property
     def _all_config_or_relations(self) -> Any:

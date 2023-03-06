@@ -746,9 +746,10 @@ class TestCharm(unittest.TestCase):
             )
             self.assertEqual(sorted(logger.output), [msg])
             # Confirm blocked status.
-            self.assertEqual(
-                self.harness.charm.unit.status,
-                BlockedStatus("Missing fields for ingress: service-hostname, service-port"),
+            status = self.harness.charm.unit.status
+            self.assertEqual(status.name, "blocked")
+            self.assertIn(
+                "Missing fields for ingress: service-hostname, service-port", status.message
             )
 
         # Now test with complete relation data.
@@ -1927,27 +1928,30 @@ class TestCharmMultipleRelations(unittest.TestCase):
         }
         rel_id = self._add_ingress_relation("funicorn", rel_data)
 
-        expected_status = BlockedStatus(
+        expected_status_message = (
             "Conflicting annotations from relations. Run juju debug-log for details. "
             "Set manually via juju config."
         )
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
         # Override the rewrite target through the config option. It should fix the problem.
         self.harness.update_config({"retry-errors": "error,timeout"})
 
         # We still have the issue with the duplicate route.
-        expected_status = BlockedStatus(
+        expected_status_message = (
             "Duplicate route found; cannot add ingress. Run juju debug-log for details."
         )
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
         # Update the relation data to have a different route.
         rel_data["path-routes"] = "/funicorn"
         self.harness.update_relation_data(rel_id, "funicorn", rel_data)
 
-        expected_status = ActiveStatus("Service IP(s): 10.0.1.12")  # type: ignore[assignment]
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        expected_status_message = "Service IP(s): 10.0.1.12"
+        self.assertEqual("active", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)

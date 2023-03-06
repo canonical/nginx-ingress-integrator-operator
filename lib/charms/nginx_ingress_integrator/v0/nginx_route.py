@@ -2,30 +2,29 @@
 # Licensed under the Apache2.0, see LICENCE file in charm source for details.
 """Library for the nginx-route relation.
 
-This library contains the Requirer and Provider classes for handling
+This library contains the require and provide functions for handling
 the nginx-route interface.
 
-Import `NginxRouteRequirer` in your charm, with two required options:
-- "self" (the charm itself)
-- config
+Import `require_nginx_route` in your charm, with four required keyword arguments:
+- charm: (the charm itself)
+- service_hostname
+- service_name
+- service_port
 
-`config` accepts the following keys:
-- additional-hostnames
-- limit-rps
-- limit-whitelist
-- max-body-size
-- owasp-modsecurity-crs
-- owasp-modsecurity-custom-rules
-- path-routes
-- retry-errors
-- rewrite-enabled
-- rewrite-target
-- service-hostname (required)
-- service-name (required)
-- service-namespace
-- service-port (required)
-- session-cookie-max-age
-- tls-secret-name
+Other optional arguments include:
+- additional_hostnames
+- limit_rps
+- limit_whitelist
+- max_body_size
+- owasp_modsecurity_crs
+- owasp_modsecurity_custom_rules
+- path_routes
+- retry_errors
+- rewrite_target
+- rewrite_enabled
+- service_namespace
+- session_cookie_max_age
+- tls_secret_name
 
 See [the config section](https://charmhub.io/nginx-ingress-integrator/configure) for descriptions
 of each, along with the required type.
@@ -49,7 +48,7 @@ requires:
   nginx-route:
     interface: nginx-route
 ```
-You _must_ register the NginxRouteRequirer class as part of the `__init__` method
+You _must_ require nginx route as part of the `__init__` method
 rather than, for instance, a config-changed event handler, for the relation
 changed event to be properly handled.
 """
@@ -76,21 +75,21 @@ __all__ = ["require_nginx_route", "provide_nginx_route"]
 logger = logging.getLogger(__name__)
 
 
-class NginxRouteAvailableEvent(EventBase):
+class _NginxRouteAvailableEvent(EventBase):
     """NginxRouteAvailableEvent custom event.
 
     This event indicates the nginx-route provider is available.
     """
 
 
-class NginxRouteBrokenEvent(RelationBrokenEvent):
+class _NginxRouteBrokenEvent(RelationBrokenEvent):
     """NginxRouteBrokenEvent custom event.
 
     This event indicates the nginx-route provider is broken.
     """
 
 
-class NginxRouteCharmEvents(CharmEvents):
+class _NginxRouteCharmEvents(CharmEvents):
     """Custom charm events.
 
     Attrs:
@@ -98,8 +97,8 @@ class NginxRouteCharmEvents(CharmEvents):
         nginx_route_broken: Event to indicate that Nginx route relation is broken.
     """
 
-    nginx_route_available = EventSource(NginxRouteAvailableEvent)
-    nginx_route_broken = EventSource(NginxRouteBrokenEvent)
+    nginx_route_available = EventSource(_NginxRouteAvailableEvent)
+    nginx_route_broken = EventSource(_NginxRouteBrokenEvent)
 
 
 class _NginxRouteRequirer(Object):
@@ -263,7 +262,7 @@ class _NginxRouteProvider(Object):
         - relation-changed
     """
 
-    on = NginxRouteCharmEvents()
+    on = _NginxRouteCharmEvents()
 
     def __init__(
         self,

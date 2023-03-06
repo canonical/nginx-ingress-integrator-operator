@@ -166,3 +166,27 @@ async def test_update_additional_hosts(ops_test: OpsTest, run_action):
 
     await ops_test.model.wait_for_idle(status="active")
     assert "additional-hostnames" not in await get_relation_data()
+
+
+@pytest.mark.usefixtures("build_and_deploy")
+async def test_missing_field(ops_test: OpsTest, run_action):
+    """
+    arrange: given charm has been built and deployed,
+    act: update the nginx-route relation data with service-name missing.
+    assert: Nginx ingress integrator charm should enter blocked status.
+    """
+
+    assert ops_test.model
+    await ops_test.model.applications[ANY_APP_NAME].set_config(
+        {"src-overwrite": gen_src_overwrite()}
+    )
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="delete_nginx_route_relation_data",
+        kwargs=json.dumps({"field": "service-name"}),
+    )
+    await ops_test.model.wait_for_idle()
+    unit = ops_test.model.applications[INGRESS_APP_NAME].units[0]
+    assert unit.workload_status == "blocked"
+    assert unit.workload_status_message == "Missing fields for nginx-route: service-name"

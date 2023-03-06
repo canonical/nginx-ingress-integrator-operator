@@ -38,6 +38,15 @@ class AnyCharm(AnyCharmBase):
         src_path = pathlib.Path(os.path.abspath(os.path.split(__file__)[0]))
         return json.loads((src_path / "nginx_route_config.json").read_text(encoding="utf-8"))
 
+    def delete_nginx_route_relation_data(self, field: str) -> None:
+        """Delete one data filed from the nginx-route relation data.
+
+        Args:
+            field: the name of the field to be deleted.
+        """
+        relation = self.model.get_relation("nginx-route")
+        del relation.data[self.app][field]
+
     @staticmethod
     def start_server(port: int = 8080):
         """Start an HTTP server daemon.

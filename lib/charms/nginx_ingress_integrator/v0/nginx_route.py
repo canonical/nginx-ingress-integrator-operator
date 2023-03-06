@@ -194,8 +194,42 @@ def require_nginx_route(
 
     Args:
         charm: The charm that requires the nginx-route relation.
-        nginx_route_relation_name: Specifies the relation name of the relation handled by this
-            requirer class. The relation must have the nginx-route interface.
+        service_hostname: configure Nginx ingress integrator
+            service-hostname option via relation.
+        service_name: configure Nginx ingress integrator service-name
+            option via relation.
+        service_port: configure Nginx ingress integrator service-port
+            option via relation.
+        additional_hostnames: configure Nginx ingress integrator
+            additional-hostnames option via relation, optional.
+        limit_rps: configure Nginx ingress integrator limit-rps
+            option via relation, optional.
+        limit_whitelist: configure Nginx ingress integrator
+            limit-whitelist option via relation, optional.
+        max_body_size: configure Nginx ingress integrator
+            max-body-size option via relation, optional.
+        owasp_modsecurity_crs: configure Nginx ingress integrator
+            owasp-modsecurity-crs  option via relation, optional.
+        owasp_modsecurity_custom_rules: configure Nginx ingress
+            integrator owasp-modsecurity-custom-rules option via
+            relation, optional.
+        path_routes: configure Nginx ingress integrator path-routes
+            option via relation, optional.
+        retry_errors: configure Nginx ingress integrator retry-errors
+            option via relation, optional.
+        rewrite_target: configure Nginx ingress integrator
+            rewrite-target option via relation, optional.
+        rewrite_enabled: configure Nginx ingress integrator
+            rewrite-enabled option via relation, optional.
+        service_namespace: configure Nginx ingress integrator
+            service-namespace option via relation, optional.
+        session_cookie_max_age: configure Nginx ingress integrator
+            session-cookie-max-age option via relation, optional.
+        tls_secret_name: configure Nginx ingress integrator
+            tls-secret-name option via relation, optional.
+        nginx_route_relation_name: Specifies the relation name of
+            the relation handled by this requirer class. The relation
+            must have the nginx-route interface.
     """
     config = {}
     if service_hostname is not None:

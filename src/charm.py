@@ -456,8 +456,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _all_config_or_relations(self) -> Any:
         """Get all configuration and relation data."""
-        all_relations = self.model.relations["ingress"][:]
-        all_relations.extend(self.model.relations["nginx-route"])
+        all_relations = self.model.relations["ingress"] + self.model.relations["nginx-route"]
         if not all_relations:
             all_relations = [None]  # type: ignore[list-item]
         multiple_rels = self._multiple_relations

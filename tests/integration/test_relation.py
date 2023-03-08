@@ -12,7 +12,7 @@ import time
 from pathlib import Path
 from typing import List, Tuple
 
-import kubernetes  # type: ignore[import]
+import kubernetes
 import pytest
 import pytest_asyncio
 import requests

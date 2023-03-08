@@ -11,16 +11,14 @@ import re
 import time
 from typing import Any, Dict, Generator, List, Optional, Union
 
-import kubernetes.client  # type: ignore[import]
-from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
+import kubernetes.client
+from charms.nginx_ingress_integrator.v0.ingress import (
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
     IngressCharmEvents,
     IngressProvides,
 )
-from charms.nginx_ingress_integrator.v0.nginx_route import (  # type: ignore[import]
-    provide_nginx_route,
-)
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
@@ -442,11 +440,11 @@ class NginxIngressCharm(CharmBase):
         """
         self._on_config_changed(event)
         status = self.unit.status
-        connected_apps = set()
-        for relation in self.model.relations["ingress"]:
-            remote_app = relation.app
-            if remote_app is not None:
-                connected_apps.add(remote_app.name)
+        connected_apps = {
+            relation.app.name
+            for relation in self.model.relations["ingress"]
+            if relation.app is not None
+        }
         if connected_apps:
             connected_app_names = ", ".join(sorted(connected_apps))
             warning = (
@@ -471,7 +469,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _multiple_relations(self) -> bool:
         """Return a boolean indicating if we're related to multiple applications."""
-        return len(self.model.relations["ingress"] + self.model.relations["nginx-route"]) > 1
+        return len(self.model.relations["ingress"]) + len(self.model.relations["nginx-route"]) > 1
 
     @property
     def _namespace(self) -> Any:

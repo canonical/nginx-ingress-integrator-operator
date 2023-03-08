@@ -5,8 +5,8 @@ import unittest
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
-import kubernetes  # type: ignore[import]
-import kubernetes.client  # type: ignore[import]
+import kubernetes
+import kubernetes.client
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 

@@ -1,6 +1,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+# This Python script is designed to be loaded into any-charm. Some lint checks do not apply
 # pylint: disable=import-error,consider-using-with,duplicate-code
 
 """This code snippet is used to be loaded into any-charm which is used for integration tests."""
@@ -11,8 +12,8 @@ import signal
 import subprocess
 from typing import Dict
 
-from any_charm_base import AnyCharmBase  # type: ignore[import]
-from nginx_route import require_nginx_route  # type: ignore[import]
+from any_charm_base import AnyCharmBase
+from nginx_route import require_nginx_route
 
 
 class AnyCharm(AnyCharmBase):

@@ -131,9 +131,9 @@ class _NginxRouteRequirer(Object):
         )
         # Set default values.
         self._config: typing.Dict[str, typing.Union[str, int, bool]] = {
-            "service-namespace": self._charm.model.name
+            "service-namespace": self._charm.model.name,
+            **config,
         }
-        self._config.update(config)
         self._config_reconciliation(None)
 
     def _config_reconciliation(self, _event: typing.Any = None) -> None:
@@ -142,7 +142,11 @@ class _NginxRouteRequirer(Object):
             return
         for relation in self._charm.model.relations[self._nginx_route_relation_name]:
             relation_app_data = relation.data[self._charm.app]
-            delete_keys = set(r for r in relation_app_data if r not in self._config)
+            delete_keys = {
+                relation_field
+                for relation_field in relation_app_data
+                if relation_field not in self._config
+            }
             for delete_key in delete_keys:
                 del relation_app_data[delete_key]
             for relation_field, relation_data_value in self._config.items():

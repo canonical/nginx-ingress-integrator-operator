@@ -149,8 +149,7 @@ class _NginxRouteRequirer(Object):
             }
             for delete_key in delete_keys:
                 del relation_app_data[delete_key]
-            for relation_field, relation_data_value in self._config.items():
-                relation_app_data[relation_field] = str(relation_data_value)
+            relation_app_data.update({k: str(v) for k, v in self._config.items()})
 
 
 def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches

@@ -56,9 +56,9 @@ import logging
 import typing
 import weakref
 
-from ops.charm import CharmBase, CharmEvents, RelationBrokenEvent, RelationChangedEvent
-from ops.framework import EventBase, EventSource, Object
-from ops.model import BlockedStatus
+import ops.charm
+import ops.framework
+import ops.model
 
 # The unique Charmhub library identifier, never change it
 LIBID = "c13d5d639bcd09f8c4f5b195264ed53d"
@@ -75,21 +75,21 @@ __all__ = ["require_nginx_route", "provide_nginx_route"]
 logger = logging.getLogger(__name__)
 
 
-class _NginxRouteAvailableEvent(EventBase):
+class _NginxRouteAvailableEvent(ops.framework.EventBase):
     """NginxRouteAvailableEvent custom event.
 
     This event indicates the nginx-route provider is available.
     """
 
 
-class _NginxRouteBrokenEvent(RelationBrokenEvent):
+class _NginxRouteBrokenEvent(ops.charm.RelationBrokenEvent):
     """NginxRouteBrokenEvent custom event.
 
     This event indicates the nginx-route provider is broken.
     """
 
 
-class _NginxRouteCharmEvents(CharmEvents):
+class _NginxRouteCharmEvents(ops.charm.CharmEvents):
     """Custom charm events.
 
     Attrs:
@@ -97,11 +97,11 @@ class _NginxRouteCharmEvents(CharmEvents):
         nginx_route_broken: Event to indicate that Nginx route relation is broken.
     """
 
-    nginx_route_available = EventSource(_NginxRouteAvailableEvent)
-    nginx_route_broken = EventSource(_NginxRouteBrokenEvent)
+    nginx_route_available = ops.framework.EventSource(_NginxRouteAvailableEvent)
+    nginx_route_broken = ops.framework.EventSource(_NginxRouteBrokenEvent)
 
 
-class _NginxRouteRequirer(Object):
+class _NginxRouteRequirer(ops.framework.Object):
     """This class defines the functionality for the 'requires' side of the 'nginx-route' relation.
 
     Hook events observed:
@@ -110,7 +110,7 @@ class _NginxRouteRequirer(Object):
 
     def __init__(
         self,
-        charm: CharmBase,
+        charm: ops.charm.CharmBase,
         config: typing.Dict[str, typing.Union[str, int, bool]],
         nginx_route_relation_name: str = "nginx-route",
     ):
@@ -123,7 +123,7 @@ class _NginxRouteRequirer(Object):
                 requirer class. The relation must have the nginx-route interface.
         """
         super().__init__(charm, nginx_route_relation_name)
-        self._charm: CharmBase = charm
+        self._charm = charm
         self._nginx_route_relation_name = nginx_route_relation_name
         self._charm.framework.observe(
             self._charm.on[self._nginx_route_relation_name].relation_changed,
@@ -154,7 +154,7 @@ class _NginxRouteRequirer(Object):
 
 def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches
     *,
-    charm: CharmBase,
+    charm: ops.charm.CharmBase,
     service_hostname: str,
     service_name: str,
     service_port: int,
@@ -255,7 +255,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches
     )
 
 
-class _NginxRouteProvider(Object):
+class _NginxRouteProvider(ops.framework.Object):
     """Class containing the functionality for the 'provides' side of the 'nginx-route' relation.
 
     Attrs:
@@ -269,7 +269,7 @@ class _NginxRouteProvider(Object):
 
     def __init__(
         self,
-        charm: CharmBase,
+        charm: ops.charm.CharmBase,
         nginx_route_relation_name: str = "nginx-route",
     ):
         """Init function for the NginxRouterProvides class.
@@ -290,7 +290,7 @@ class _NginxRouteProvider(Object):
             self._charm.on[nginx_route_relation_name].relation_broken, self._on_relation_broken
         )
 
-    def _on_relation_changed(self, event: RelationChangedEvent) -> None:
+    def _on_relation_changed(self, event: ops.charm.RelationChangedEvent) -> None:
         """Handle a change to the nginx-route relation.
 
         Confirm we have the fields we expect to receive.
@@ -309,7 +309,7 @@ class _NginxRouteProvider(Object):
 
         if not event.relation.data[remote_app]:
             logger.info(
-                "%s hasn't finished configuring, waiting until relation is changed again.",
+                "%s hasn't finished configuring, waiting until the relation data is populated.",
                 relation_name,
             )
             return
@@ -326,7 +326,7 @@ class _NginxRouteProvider(Object):
                 relation_name,
                 ", ".join(missing_fields),
             )
-            self._charm.model.unit.status = BlockedStatus(
+            self._charm.model.unit.status = ops.model.BlockedStatus(
                 f"Missing fields for {relation_name}: {', '.join(missing_fields)}"
             )
             return
@@ -335,7 +335,7 @@ class _NginxRouteProvider(Object):
         # configure the Kubernetes Nginx ingress resources.
         self.on.nginx_route_available.emit()
 
-    def _on_relation_broken(self, event: RelationBrokenEvent) -> None:
+    def _on_relation_broken(self, event: ops.charm.RelationBrokenEvent) -> None:
         """Handle a relation-broken event in the nginx-route relation.
 
         Args:
@@ -355,7 +355,7 @@ __provider_references: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
 
 
 def provide_nginx_route(
-    charm: CharmBase,
+    charm: ops.charm.CharmBase,
     on_nginx_route_available: typing.Callable,
     on_nginx_route_broken: typing.Callable,
     nginx_route_relation_name: str = "nginx-route",

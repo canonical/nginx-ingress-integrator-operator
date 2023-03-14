@@ -36,7 +36,7 @@ class AnyCharm(AnyCharmBase):
         Returns:
             The nginx-route config to be used
         """
-        src_path = pathlib.Path(os.path.abspath(os.path.split(__file__)[0]))
+        src_path = pathlib.Path(__file__)
         return json.loads((src_path / "nginx_route_config.json").read_text(encoding="utf-8"))
 
     def delete_nginx_route_relation_data(self, field: str) -> None:

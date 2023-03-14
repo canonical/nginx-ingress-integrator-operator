@@ -1,8 +1,6 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=redefined-outer-name,unused-argument,duplicate-code
-
 """Integration test relation file."""
 
 import asyncio
@@ -55,40 +53,26 @@ def requests_get(url: str, host_header: str, retry_timeout: int = 120) -> reques
         response = requests.get(url, headers={"Host": host_header}, timeout=5)
         if response.status_code == 200 or time.time() - time_start > retry_timeout:
             return response
+        time.sleep(1)
 
 
 @pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(ops_test: OpsTest, run_action):
+async def build_and_deploy(model: Model, deploy_any_charm, run_action, build_and_deploy_ingress):
     """build and deploy nginx-ingress-integrator charm.
 
     Also deploy and relate an any-charm application for test purposes.
 
     Returns: None.
     """
-
-    assert isinstance(ops_test.model, Model)
-
-    async def build_and_deploy_ingress():
-        charm = await ops_test.build_charm(".")
-        assert isinstance(ops_test.model, Model)
-        return await ops_test.model.deploy(
-            str(charm), application_name="ingress", series="focal", trust=True
-        )
-
     await asyncio.gather(
-        ops_test.model.deploy(
-            "any-charm",
-            application_name="any",
-            channel="beta",
-            config={"src-overwrite": gen_src_overwrite()},
-        ),
+        deploy_any_charm(gen_src_overwrite()),
         build_and_deploy_ingress(),
     )
-    await ops_test.model.wait_for_idle()
+    await model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:nginx-route"
-    await ops_test.model.add_relation(f"{ANY_APP_NAME}:nginx-route", relation_name)
-    await ops_test.model.wait_for_idle()
+    await model.add_relation(f"{ANY_APP_NAME}:nginx-route", relation_name)
+    await model.wait_for_idle()
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -96,7 +80,8 @@ async def test_ingress_connectivity():
     """
     arrange: given charm has been built and deployed.
     act: access ingress IP address with correct host name in HTTP headers.
-    assert: HTTP request should be forwarded to the application.
+    assert: HTTP request should be forwarded to the application, while a HTTP request without the
+        correct Host header should return with a response of 404 NOT FOUND.
     """
     response = requests_get("http://127.0.0.1/ok", host_header="any")
 

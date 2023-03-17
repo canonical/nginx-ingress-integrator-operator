@@ -34,7 +34,7 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@pytest_asyncio.fixture(scope="module", name="fixture")
+@pytest_asyncio.fixture(scope="module", name="model")
 async def model_fixture(ops_test: OpsTest) -> Model:
     """The current test model."""
     assert ops_test.model

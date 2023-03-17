@@ -35,7 +35,7 @@ def app_name(metadata):
 
 
 @pytest_asyncio.fixture(scope="module", name="fixture")
-def model_fixture(ops_test: OpsTest) -> Model:
+async def model_fixture(ops_test: OpsTest) -> Model:
     """The current test model."""
     assert ops_test.model
     return ops_test.model

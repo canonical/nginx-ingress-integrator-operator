@@ -13,10 +13,10 @@ import pytest
 import pytest_asyncio
 import requests
 from juju.model import Model
-from pytest_operator.plugin import OpsTest
 
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"
+NEW_HOSTNAME = "any.other"
 
 
 def gen_src_overwrite(
@@ -93,33 +93,48 @@ async def test_ingress_connectivity():
     )
 
 
-@pytest.mark.usefixtures("build_and_deploy")
-async def test_update_service_hostname(ops_test: OpsTest):
+@pytest_asyncio.fixture(name="set_service_hostname")
+async def set_service_hostname_fixture(model: Model):
+    """A fixture to set service-hostname to NEW_HOSTNAME in the any-charm nginx-route relation."""
+    await model.applications[ANY_APP_NAME].set_config(
+        {"src-overwrite": gen_src_overwrite(service_hostname=NEW_HOSTNAME)}
+    )
+    await model.wait_for_idle(status="active")
+    yield
+    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
+    await model.wait_for_idle(status="active")
+
+
+@pytest.mark.usefixtures("build_and_deploy", "set_service_hostname")
+async def test_update_service_hostname():
     """
     arrange: given charm has been built and deployed.
     act: update the service-hostname option in any-charm.
     assert: HTTP request with the service-hostname value as the host header should be forwarded
         to the application correctly.
     """
-    new_hostname = "any.other"
-    assert ops_test.model
-    await ops_test.model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite(service_hostname=new_hostname)}
-    )
-    await ops_test.model.wait_for_idle(status="active")
-
-    response = requests_get("http://127.0.0.1/ok", host_header=new_hostname)
+    response = requests_get("http://127.0.0.1/ok", host_header=NEW_HOSTNAME)
     assert response.text == "ok"
     assert response.status_code == 200
 
-    await ops_test.model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite()}
+
+@pytest_asyncio.fixture(name="set_additional_hosts")
+async def set_additional_hosts_fixture(model: Model, run_action):
+    """A fixture to set additional-hosts to NEW_HOSTNAME in the any-charm nginx-route relation."""
+    await model.applications[ANY_APP_NAME].set_config(
+        {"src-overwrite": gen_src_overwrite(additional_hostnames=NEW_HOSTNAME)}
     )
-    await ops_test.model.wait_for_idle(status="active")
+    await model.wait_for_idle(status="active")
+    yield
+    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
+    await model.wait_for_idle(status="active")
+    action_result = await run_action(ANY_APP_NAME, "get-relation-data")
+    relation_data = json.loads(action_result["relation-data"])[0]
+    assert "additional-hostnames" not in relation_data["application_data"]["any"]
 
 
-@pytest.mark.usefixtures("build_and_deploy")
-async def test_update_additional_hosts(ops_test: OpsTest, run_action):
+@pytest.mark.usefixtures("build_and_deploy", "set_additional_hosts")
+async def test_update_additional_hosts(run_action):
     """
     arrange: given charm has been built and deployed,
     act: update the additional-hostnames option in the nginx-route relation using any-charm.
@@ -127,51 +142,29 @@ async def test_update_additional_hosts(ops_test: OpsTest, run_action):
         forwarded to the application correctly. And the additional-hostnames should exist
         in the nginx-route relation data.
     """
-
-    async def get_relation_data():
-        action_result = await run_action(ANY_APP_NAME, "get-relation-data")
-        relation_data = json.loads(action_result["relation-data"])[0]
-        return relation_data["application_data"]["any"]
-
-    new_hostname = "any.new"
-    assert ops_test.model
-    await ops_test.model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite(additional_hostnames=new_hostname)}
-    )
-
-    await ops_test.model.wait_for_idle(status="active")
-    response = requests_get("http://127.0.0.1/ok", host_header=new_hostname)
+    response = requests_get("http://127.0.0.1/ok", host_header=NEW_HOSTNAME)
     assert response.text == "ok"
     assert response.status_code == 200
-    assert "additional-hostnames" in await get_relation_data()
-
-    await ops_test.model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite()}
-    )
-
-    await ops_test.model.wait_for_idle(status="active")
-    assert "additional-hostnames" not in await get_relation_data()
+    action_result = await run_action(ANY_APP_NAME, "get-relation-data")
+    relation_data = json.loads(action_result["relation-data"])[0]
+    assert "additional-hostnames" in relation_data["application_data"]["any"]
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_missing_field(ops_test: OpsTest, run_action):
+async def test_missing_field(model: Model, run_action):
     """
     arrange: given charm has been built and deployed,
     act: update the nginx-route relation data with service-name missing.
     assert: Nginx ingress integrator charm should enter blocked status.
     """
-
-    assert ops_test.model
-    await ops_test.model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite()}
-    )
+    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
     await run_action(
         ANY_APP_NAME,
         "rpc",
         method="delete_nginx_route_relation_data",
         kwargs=json.dumps({"field": "service-name"}),
     )
-    await ops_test.model.wait_for_idle()
-    unit = ops_test.model.applications[INGRESS_APP_NAME].units[0]
+    await model.wait_for_idle()
+    unit = model.applications[INGRESS_APP_NAME].units[0]
     assert unit.workload_status == "blocked"
     assert unit.workload_status_message == "Missing fields for nginx-route: service-name"

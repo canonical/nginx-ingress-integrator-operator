@@ -10,7 +10,8 @@ maintainers:
 issues: https://github.com/canonical/nginx-ingress-integrator-operator/issues
 assumes:
   - k8s-api
-
 provides:
   ingress:
     interface: ingress
+  nginx-route:
+    interface: nginx-route

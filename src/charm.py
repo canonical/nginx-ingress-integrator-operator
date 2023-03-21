@@ -11,13 +11,14 @@ import re
 import time
 from typing import Any, Dict, Generator, List, Optional, Union
 
-import kubernetes.client  # type: ignore[import]
-from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
+import kubernetes.client
+from charms.nginx_ingress_integrator.v0.ingress import (
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
     IngressCharmEvents,
     IngressProvides,
 )
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
@@ -413,19 +414,51 @@ class NginxIngressCharm(CharmBase):
             args: Variable list of positional arguments passed to the parent constructor.
         """
         super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.config_changed, self._on_config_changed_with_warning)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
-        self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_available, self._on_config_changed_with_warning)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
+
+        provide_nginx_route(
+            charm=self,
+            on_nginx_route_available=self._on_config_changed,
+            on_nginx_route_broken=self._on_ingress_broken,
+        )
+
+    def _on_config_changed_with_warning(self, event: Any) -> None:
+        """Handle the ingress relation available event.
+
+        The same functionality as _on_config_changed, but will add warning message if there are
+        applications connected via ingress relation.
+
+        Args:
+            event: not used.
+        """
+        self._on_config_changed(event)
+        status = self.unit.status
+        connected_apps = {
+            relation.app.name
+            for relation in self.model.relations["ingress"]
+            if relation.app is not None
+        }
+        if connected_apps:
+            connected_app_names = ", ".join(sorted(connected_apps))
+            warning = (
+                f"app [{connected_app_names}] connected via deprecated ingress relation, "
+                f"please update to nginx-route relation; {status.message}"
+            )
+            self.unit.status = status.from_name(status.name, warning)
 
     @property
     def _all_config_or_relations(self) -> Any:
         """Get all configuration and relation data."""
-        all_relations = self.model.relations["ingress"] or [None]  # type: ignore[list-item]
+        all_relations = self.model.relations["ingress"] + self.model.relations["nginx-route"]
+        if not all_relations:
+            all_relations = [None]  # type: ignore[list-item]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
@@ -435,7 +468,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _multiple_relations(self) -> bool:
         """Return a boolean indicating if we're related to multiple applications."""
-        return len(self.model.relations["ingress"]) > 1
+        return len(self.model.relations["ingress"]) + len(self.model.relations["nginx-route"]) > 1
 
     @property
     def _namespace(self) -> Any:

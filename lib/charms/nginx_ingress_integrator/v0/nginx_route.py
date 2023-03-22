@@ -61,7 +61,7 @@ import ops.framework
 import ops.model
 
 # The unique Charmhub library identifier, never change it
-LIBID = "c13d5d639bcd09f8c4f5b195264ed53d"
+LIBID = "3c212b6ed3cf43dfbf9f2e322e634beb"
 
 # Increment this major API version when introducing breaking changes
 LIBAPI = 0

@@ -1976,6 +1976,47 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.assertEqual("active", self.harness.charm.unit.status.name)
         self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingresses_for_invalid_hostname(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_report_ips,
+        mock_ingress_ips,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete an ingress
+        assert: this test will check the Blocked case for invalid hostnames
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "Foo.in.ternal",
+            "service-port": "80",
+        }
+        self._add_ingress_relation("gunicorn", rel_data)
+
+        expected_status_message = (
+            "Invalid ingress hostname. The hostname must consist of lower case "
+            "alphanumeric characters, '-' or '.'."
+        )
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
+
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")

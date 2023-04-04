@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=protected-access,too-few-public-methods
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 """Nginx-ingress-integrator charm file."""
 
@@ -545,8 +545,15 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
-    def _invalid_hostname_check(self, hostname) -> str:
-        return re.match('[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*', hostname)
+    def _invalid_hostname_check(self, hostname: str) -> Optional[re.Match[str]]:
+        """Check if the hostname is valid according to RFC 1123.
+
+        Args:
+            hostname: Ingress hostname
+        """
+        return re.match(
+            "[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*", hostname
+        )
 
     def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
@@ -937,7 +944,8 @@ class NginxIngressCharm(CharmBase):
                 return
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(
-                    "Invalid ingress hostname. The hostname must consist of lower case alphanumeric characters, '-' or '.'."
+                    "Invalid ingress hostname. The hostname must consist of lower case "
+                    "alphanumeric characters, '-' or '.'."
                 )
                 return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
@@ -986,7 +994,8 @@ class NginxIngressCharm(CharmBase):
                 return
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(
-                    "Invalid ingress hostname. The hostname must consist of lower case alphanumeric characters, '-' or '.'."
+                    "Invalid ingress hostname. The hostname must consist of lower case "
+                    "alphanumeric characters, '-' or '.'."
                 )
                 return
 

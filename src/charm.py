@@ -545,7 +545,7 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
-    def _invalid_hostname_check(self, hostname: str) -> Optional[re.Match[str]]:
+    def _invalid_hostname_check(self, hostname: str) -> Optional[re.Match]:
         """Check if the hostname is valid according to RFC 1123.
 
         Args:

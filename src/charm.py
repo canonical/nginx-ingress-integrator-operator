@@ -49,6 +49,10 @@ class ConflictingRoutesError(Exception):
     """Custom error that indicates conflicting routes."""
 
 
+class InvalidHostnameError(Exception):
+    """Custom error that indicates invalid hostnames."""
+
+
 class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
@@ -541,6 +545,9 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
+    def _invalid_hostname_check(self, hostname) -> str:
+        return re.match('[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*', hostname)
+
     def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
 
@@ -743,6 +750,9 @@ class NginxIngressCharm(CharmBase):
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
             for rule in ingress.spec.rules:
+                if not self._invalid_hostname_check(rule.host):
+                    raise InvalidHostnameError()
+
                 if rule.host not in ingress_paths:
                     # The same paths array is used for any additional-hostnames given, so we need
                     # to make our own copy.
@@ -925,6 +935,11 @@ class NginxIngressCharm(CharmBase):
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
                 return
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(
+                    "Invalid ingress hostname. The hostname must consist of lower case alphanumeric characters, '-' or '.'."
+                )
+                return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
 
@@ -967,6 +982,11 @@ class NginxIngressCharm(CharmBase):
             except ConflictingRoutesError:
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
+                )
+                return
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(
+                    "Invalid ingress hostname. The hostname must consist of lower case alphanumeric characters, '-' or '.'."
                 )
                 return
 

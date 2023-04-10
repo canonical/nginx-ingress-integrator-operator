@@ -54,7 +54,6 @@ async def app(ops_test: OpsTest, app_name: str):
         hello_kubecon_app_name,
         "--revision",
         18,
-        "--trust",
         check=True,
     )
 

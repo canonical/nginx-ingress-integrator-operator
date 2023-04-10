@@ -7,10 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import kubernetes
 import kubernetes.client
+import pytest
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charm import CREATED_BY_LABEL, NginxIngressCharm
+from charm import CREATED_BY_LABEL, INVALID_HOSTNAME_MSG, NginxIngressCharm
+from helpers import invalid_hostname_check
 
 
 class TestCharm(unittest.TestCase):
@@ -2010,10 +2012,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         }
         self._add_ingress_relation("gunicorn", rel_data)
 
-        expected_status_message = (
-            "Invalid ingress hostname. The hostname must consist of lower case "
-            "alphanumeric characters, '-' or '.'."
-        )
+        expected_status_message = INVALID_HOSTNAME_MSG
         self.assertEqual("blocked", self.harness.charm.unit.status.name)
         self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
@@ -2075,3 +2074,17 @@ class TestCharmMultipleRelations(unittest.TestCase):
         expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)
+
+
+class TestHelpers:
+    @pytest.mark.parametrize(
+        "hostname, expected",
+        [
+            ("foo-internal", True),
+            ("foo.internal1", True),
+            ("Foo.internal", False),
+            ("foo$internal", False),
+        ],
+    )
+    def test_invalid_hostname_check(self, hostname, expected):
+        assert invalid_hostname_check(hostname) == expected

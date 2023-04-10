@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=protected-access,too-few-public-methods,too-many-lines
+# pylint: disable=protected-access,too-few-public-methods
 
 """Nginx-ingress-integrator charm file."""
 
@@ -23,6 +23,8 @@ from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
+from helpers import invalid_hostname_check
+
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
@@ -30,6 +32,10 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # so we can use it to identify resources created by this charm
 CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 REPORT_INTERVAL_COUNT = 100
+INVALID_HOSTNAME_MSG = (
+    "Invalid ingress hostname. The hostname must consist of lower case "
+    "alphanumeric characters, '-' or '.'."
+)
 
 
 def _report_interval_count() -> int:
@@ -545,16 +551,6 @@ class NginxIngressCharm(CharmBase):
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
 
-    def _invalid_hostname_check(self, hostname: str) -> Optional[re.Match]:
-        """Check if the hostname is valid according to RFC 1123.
-
-        Args:
-            hostname: Ingress hostname
-        """
-        return re.match(
-            "[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*", hostname
-        )
-
     def _delete_unused_services(self, current_svc_names: List[str]) -> None:
         """Delete services and ingresses that are no longer used.
 
@@ -757,7 +753,7 @@ class NginxIngressCharm(CharmBase):
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
             for rule in ingress.spec.rules:
-                if not self._invalid_hostname_check(rule.host):
+                if not invalid_hostname_check(rule.host):
                     raise InvalidHostnameError()
 
                 if rule.host not in ingress_paths:
@@ -943,10 +939,7 @@ class NginxIngressCharm(CharmBase):
                 )
                 return
             except InvalidHostnameError:
-                self.unit.status = BlockedStatus(
-                    "Invalid ingress hostname. The hostname must consist of lower case "
-                    "alphanumeric characters, '-' or '.'."
-                )
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
@@ -993,10 +986,7 @@ class NginxIngressCharm(CharmBase):
                 )
                 return
             except InvalidHostnameError:
-                self.unit.status = BlockedStatus(
-                    "Invalid ingress hostname. The hostname must consist of lower case "
-                    "alphanumeric characters, '-' or '.'."
-                )
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
 
         self.unit.status = ActiveStatus()

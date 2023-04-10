@@ -49,7 +49,14 @@ async def app(ops_test: OpsTest, app_name: str):
     """
     # Deploy relations first to speed up overall execution
     hello_kubecon_app_name = "hello-kubecon"
-    await ops_test.model.deploy(hello_kubecon_app_name)
+    await ops_test.juju(
+        "deploy",
+        hello_kubecon_app_name,
+        "--revision",
+        18,
+        "--trust",
+        check=True,
+    )
 
     # Build and deploy ingress
     charm = await ops_test.build_charm(".")

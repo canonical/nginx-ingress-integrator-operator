@@ -26,7 +26,8 @@ maintainers:
   - launchpad.net/~canonical-is-devops
 assumes:
   - k8s-api
-
 provides:
   ingress:
     interface: ingress
+  nginx-route:
+    interface: nginx-route

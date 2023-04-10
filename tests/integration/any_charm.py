@@ -10,8 +10,8 @@ import signal
 import subprocess
 from typing import Dict
 
-from any_charm_base import AnyCharmBase  # type: ignore[import]
-from ingress import IngressRequires  # type: ignore[import]
+from any_charm_base import AnyCharmBase
+from ingress import IngressRequires
 
 INGRESS_CONFIG_ENVVAR = "ANYCHARM_INGRESS_CONFIG"
 SVC_HOSTNAME = "service-hostname"
@@ -46,6 +46,14 @@ class AnyCharm(AnyCharmBase):
             ingress_config: New Ingress configuration to be applied.
         """
         self.ingress.update_config(ingress_config)
+
+    def update_nginx_route(self, nginx_route_config):
+        """Update Ingress config.
+
+        Args:
+            nginx_route_config: New Ingress configuration to be applied.
+        """
+        self.nginx_route.update_config(nginx_route_config)
 
     def _has_required_fields(self, rel: Dict) -> bool:
         """Check for required fields in relation

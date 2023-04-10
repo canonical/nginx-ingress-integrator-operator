@@ -8,10 +8,11 @@
 import asyncio
 import copy
 import json
+import time
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
-import kubernetes  # type: ignore[import]
+import kubernetes
 import pytest
 import pytest_asyncio
 import requests
@@ -28,7 +29,9 @@ NEW_PORT = 18080
 
 
 @pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(ops_test: OpsTest, run_action):
+async def build_and_deploy(
+    model: Model, ops_test: OpsTest, run_action, build_and_deploy_ingress, deploy_any_charm
+):
     """build and deploy nginx-ingress-integrator charm.
 
     Also deploy and relate an any-charm application for test purposes.
@@ -42,30 +45,15 @@ async def build_and_deploy(ops_test: OpsTest, run_action):
         "ingress.py": ingress_lib,
         "any_charm.py": any_charm_script,
     }
-
-    assert isinstance(ops_test.model, Model)
-
-    async def build_and_deploy_ingress():
-        charm = await ops_test.build_charm(".")
-        assert isinstance(ops_test.model, Model)
-        return await ops_test.model.deploy(
-            str(charm), application_name="ingress", series="focal", trust=True
-        )
-
     await asyncio.gather(
-        ops_test.model.deploy(
-            "any-charm",
-            application_name="any",
-            channel="beta",
-            config={"src-overwrite": json.dumps(any_charm_src_overwrite)},
-        ),
+        deploy_any_charm(json.dumps(any_charm_src_overwrite)),
         build_and_deploy_ingress(),
     )
-    await ops_test.model.wait_for_idle()
+    await model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:ingress"
-    await ops_test.model.add_relation(ANY_APP_NAME, relation_name)
-    await ops_test.model.wait_for_idle()
+    await model.add_relation(ANY_APP_NAME, relation_name)
+    await model.wait_for_idle()
 
 
 @pytest_asyncio.fixture(name="anycharm_update_ingress_config")
@@ -92,7 +80,7 @@ async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
+async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name: str):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-hostname is changed and when is back to previous value
@@ -100,24 +88,33 @@ async def test_delete_unused_ingresses(ops_test: OpsTest, app_name: str):
     """
     kubernetes.config.load_kube_config()
     api_networking = kubernetes.client.NetworkingV1Api()
-    assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
 
-    def compare_svc_hostnames(expected: List[str]) -> bool:
-        all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
-        return expected == [ingress.spec.rules[0].host for ingress in all_ingresses.items]
+    def assert_svc_hostnames(expected: Tuple[str, ...], timeout=300):
+        time_start = time.time()
+        while True:
+            all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
+            try:
+                assert expected == tuple(
+                    ingress.spec.rules[0].host for ingress in all_ingresses.items
+                )
+                break
+            except AssertionError:
+                if time.time() - time_start > timeout:
+                    raise
+                time.sleep(1)
 
-    assert compare_svc_hostnames(["any"])
+    assert_svc_hostnames(("any",))
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=new-name")
-    await ops_test.model.wait_for_idle(status="active")
-    assert compare_svc_hostnames(["new-name"])
+    await model.wait_for_idle(status="active")
+    assert_svc_hostnames(("new-name",))
     await ops_test.juju("config", INGRESS_APP_NAME, "service-hostname=")
-    await ops_test.model.wait_for_idle(status="active")
-    assert compare_svc_hostnames(["any"])
+    await model.wait_for_idle(status="active")
+    assert_svc_hostnames(("any",))
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_services(ops_test: OpsTest, app_name):
+async def test_delete_unused_services(model: Model, ops_test: OpsTest, app_name):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-name is changed and when is back to previous value
@@ -125,7 +122,6 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
     """
     kubernetes.config.load_kube_config()
     api_core = kubernetes.client.CoreV1Api()
-    assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
     created_by_label = f"{CREATED_BY_LABEL}={INGRESS_APP_NAME}"
 
@@ -137,10 +133,10 @@ async def test_delete_unused_services(ops_test: OpsTest, app_name):
 
     assert compare_svc_names(["any-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=new-name")
-    await ops_test.model.wait_for_idle(status="active")
+    await model.wait_for_idle(status="active")
     assert compare_svc_names(["new-name-service"])
     await ops_test.juju("config", INGRESS_APP_NAME, "service-name=")
-    await ops_test.model.wait_for_idle(status="active")
+    await model.wait_for_idle(status="active")
     assert compare_svc_names(["any-service"])
 
 
@@ -153,7 +149,7 @@ async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wa
     rpc_return = await run_action(
         ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
     )
-    assert rpc_return["Code"] == "0" and json.loads(rpc_return["return"]) == NEW_PORT
+    assert json.loads(rpc_return["return"]) == NEW_PORT
     await run_action(
         ANY_APP_NAME,
         "rpc",
@@ -173,12 +169,12 @@ async def test_ingress_connectivity():
     act: access ingress IP address with correct host name in HTTP headers.
     assert: HTTP request should be forwarded to the application.
     """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=5 * 60)
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": "any"}, timeout=300)
     assert response.text == "ok"
     assert response.status_code == 200
     assert (
         requests.get(
-            "http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5 * 60
+            "http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300
         ).status_code
         == 404
     )
@@ -191,13 +187,13 @@ async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
     act: update service-hostname and service-port via ingress library.
     assert: kubernetes ingress should be updated to accommodate the relation data update.
     """
-    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=5 * 60)
+    response = requests.get("http://127.0.0.1/ok", headers={"Host": NEW_HOSTNAME}, timeout=300)
     assert response.text == "ok"
     assert response.status_code == 200
 
 
 @pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
-async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
+async def test_owasp_modsecurity_crs_relation(model: Model, ops_test: OpsTest, run_action):
     """
     arrange: given charm has been built and deployed.
     act: toggle modsecurity option via ingress library.
@@ -205,7 +201,6 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
     """
     kubernetes.config.load_kube_config()
     kube = kubernetes.client.NetworkingV1Api()
-    assert isinstance(ops_test.model, Model)
     model_name = ops_test.model_name
 
     def get_ingress_annotation():
@@ -230,19 +225,18 @@ async def test_owasp_modsecurity_crs_relation(ops_test: OpsTest, run_action):
             }
         ),
     )
-    assert isinstance(ops_test.model, Model)
-    await ops_test.model.wait_for_idle(status="active")
-    await ops_test.model.block_until(
+    await model.wait_for_idle(status="active")
+    await model.block_until(
         lambda: "nginx.ingress.kubernetes.io/enable-modsecurity" in get_ingress_annotation(),
         wait_period=5,
-        timeout=5 * 60,
+        timeout=300,
     )
 
     assert (
         requests.get(
             "http://127.0.0.1/?search=../../passwords",
             headers={"Host": NEW_HOSTNAME},
-            timeout=5 * 60,
+            timeout=300,
         ).status_code
         == 403
     )

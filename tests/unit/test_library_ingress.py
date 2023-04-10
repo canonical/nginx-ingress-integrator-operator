@@ -6,7 +6,7 @@ import unittest
 from typing import Dict
 
 import yaml
-from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
+from charms.nginx_ingress_integrator.v0.ingress import (
     OPTIONAL_INGRESS_RELATION_FIELDS,
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,

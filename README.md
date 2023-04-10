@@ -1,3 +1,8 @@
+[![CharmHub Badge](https://charmhub.io/nginx-ingress-integrator/badge.svg)](https://charmhub.io/nginx-ingress-integrator)
+[![Release to Edge](https://github.com/canonical/nginx-ingress-integrator-operator/actions/workflows/test_and_publish_charm.yaml/badge.svg)](https://github.com/canonical/nginx-ingress-integrator-operator/actions/workflows/test_and_publish_charm.yaml)
+[![Promote charm](https://github.com/canonical/nginx-ingress-integrator-operator/actions/workflows/promote_charm.yaml/badge.svg)](https://github.com/canonical/nginx-ingress-integrator-operator/actions/workflows/promote_charm.yaml)
+[![Discourse Status](https://img.shields.io/discourse/status?server=https%3A%2F%2Fdiscourse.charmhub.io&style=flat&label=CharmHub%20Discourse)](https://discourse.charmhub.io)
+
 A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) deploying and managing external access to HTTP/HTTPS services in a
 Kubernetes cluster via an Nginx Ingress resource. This requires the Kubernetes
 cluster in question to have an [Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it.

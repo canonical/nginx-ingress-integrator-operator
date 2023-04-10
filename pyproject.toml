@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 [tool.bandit]
-exclude_dirs = ["/venv/", "tests/integration/any_charm.py"]
+exclude_dirs = ["/venv/", "tests/integration/any_charm.py", "tests/integration/any_charm_nginx_route.py"]
 [tool.bandit.assert_used]
 skips = ["*/*test.py", "*/test_*.py"]
 
@@ -15,6 +15,7 @@ fail_under = 93
 show_missing = true
 
 [tool.mypy]
+ignore_missing_imports = true
 check_untyped_defs = true
 disallow_untyped_defs = true
 

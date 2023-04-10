@@ -10,9 +10,10 @@ import subprocess  # nosec B404
 from pathlib import Path
 from typing import List
 
-import kubernetes  # type: ignore[import]
+import kubernetes
 import pytest_asyncio
 import yaml
+from juju.model import Model
 from ops.model import ActiveStatus, Application
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
@@ -31,6 +32,13 @@ def metadata():
 def app_name(metadata):
     """Provide app name from the metadata."""
     yield metadata["name"]
+
+
+@pytest_asyncio.fixture(scope="module", name="model")
+async def model_fixture(ops_test: OpsTest) -> Model:
+    """The current test model."""
+    assert ops_test.model
+    return ops_test.model
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -186,3 +194,34 @@ async def wait_ingress_annotation(ops_test: OpsTest, get_ingress_annotation):
         )
 
     return _wait_ingress_annotation
+
+
+@pytest_asyncio.fixture(scope="module")
+async def build_and_deploy_ingress(model: Model, ops_test: OpsTest):
+    """Create an async function to build the nginx ingress integrator charm then deploy it."""
+
+    async def _build_and_deploy_ingress():
+        charm = await ops_test.build_charm(".")
+        return await model.deploy(
+            str(charm), application_name="ingress", series="focal", trust=True
+        )
+
+    return _build_and_deploy_ingress
+
+
+@pytest_asyncio.fixture(scope="module")
+async def deploy_any_charm(model: Model):
+    """Create an async function to deploy any-charm.
+
+    The function accepts a string as the initial src-overwrite configuration.
+    """
+
+    async def _deploy_any_charm(src_overwrite):
+        await model.deploy(
+            "any-charm",
+            application_name="any",
+            channel="beta",
+            config={"src-overwrite": src_overwrite},
+        )
+
+    return _deploy_any_charm

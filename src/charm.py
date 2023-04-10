@@ -9,18 +9,19 @@
 import logging
 import re
 import time
-from typing import Any, Generator, List
+from typing import Any, Dict, Generator, List, Optional, Union
 
-import kubernetes.client  # type: ignore[import]
-from charms.nginx_ingress_integrator.v0.ingress import (  # type: ignore[import]
+import kubernetes.client
+from charms.nginx_ingress_integrator.v0.ingress import (
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
     IngressCharmEvents,
     IngressProvides,
 )
-from ops.charm import CharmBase
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
+from ops.charm import CharmBase, HookEvent
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -51,8 +52,12 @@ class ConflictingRoutesError(Exception):
 class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
-    def __init__(  # type: ignore[no-untyped-def]
-        self, model, config, relation, multiple_relations
+    def __init__(
+        self,
+        model: Model,
+        config: Union[ConfigData, Dict],
+        relation: Optional[Relation],
+        multiple_relations: bool,
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
@@ -84,6 +89,7 @@ class _ConfigOrRelation:
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
+                assert self.relation.app is not None  # nosec
                 if field in RELATION_INTERFACES_MAPPINGS:
                     new_field = RELATION_INTERFACES_MAPPINGS[field]
                     try:
@@ -408,19 +414,51 @@ class NginxIngressCharm(CharmBase):
             args: Variable list of positional arguments passed to the parent constructor.
         """
         super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.config_changed, self._on_config_changed_with_warning)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
-        self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_available, self._on_config_changed_with_warning)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
+
+        provide_nginx_route(
+            charm=self,
+            on_nginx_route_available=self._on_config_changed,
+            on_nginx_route_broken=self._on_ingress_broken,
+        )
+
+    def _on_config_changed_with_warning(self, event: Any) -> None:
+        """Handle the ingress relation available event.
+
+        The same functionality as _on_config_changed, but will add warning message if there are
+        applications connected via ingress relation.
+
+        Args:
+            event: not used.
+        """
+        self._on_config_changed(event)
+        status = self.unit.status
+        connected_apps = {
+            relation.app.name
+            for relation in self.model.relations["ingress"]
+            if relation.app is not None
+        }
+        if connected_apps:
+            connected_app_names = ", ".join(sorted(connected_apps))
+            warning = (
+                f"app [{connected_app_names}] connected via deprecated ingress relation, "
+                f"please update to nginx-route relation; {status.message}"
+            )
+            self.unit.status = status.from_name(status.name, warning)
 
     @property
     def _all_config_or_relations(self) -> Any:
         """Get all configuration and relation data."""
-        all_relations = self.model.relations["ingress"] or [None]  # type: ignore[list-item]
+        all_relations = self.model.relations["ingress"] + self.model.relations["nginx-route"]
+        if not all_relations:
+            all_relations = [None]  # type: ignore[list-item]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
@@ -430,7 +468,7 @@ class NginxIngressCharm(CharmBase):
     @property
     def _multiple_relations(self) -> bool:
         """Return a boolean indicating if we're related to multiple applications."""
-        return len(self.model.relations["ingress"]) > 1
+        return len(self.model.relations["ingress"]) + len(self.model.relations["nginx-route"]) > 1
 
     @property
     def _namespace(self) -> Any:
@@ -645,7 +683,7 @@ class NginxIngressCharm(CharmBase):
         for unused_src_hostname in unused_svc_hostnames:
             self._remove_ingress(self._ingress_name(unused_src_hostname))
 
-    def _define_ingresses(self, excluded_relation=None) -> None:  # type: ignore[no-untyped-def]
+    def _define_ingresses(self, excluded_relation: Optional[Relation] = None) -> None:
         """(Re)Creates the Ingress Resources in Kubernetes from multiple ingress relations.
 
         Creates the Kubernetes Ingress Resource if it does not exist, or updates it if it does.
@@ -846,7 +884,7 @@ class NginxIngressCharm(CharmBase):
             svc_hostnames.extend(additional_hostname)
         self._delete_unused_ingresses(svc_hostnames)
 
-    def _on_config_changed(self, _) -> None:  # type: ignore[no-untyped-def]
+    def _on_config_changed(self, _: HookEvent) -> None:
         """Handle the config changed event."""
         msg = ""
         # We only want to do anything here if we're the leader to avoid

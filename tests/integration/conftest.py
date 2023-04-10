@@ -52,6 +52,8 @@ async def app(ops_test: OpsTest, app_name: str):
     await ops_test.juju(
         "deploy",
         hello_kubecon_app_name,
+        "--channel",
+        "stable",
         "--revision",
         18,
         check=True,

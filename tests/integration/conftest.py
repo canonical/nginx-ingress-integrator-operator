@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 # mypy: disable-error-code="union-attr"
-# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with
+# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with,duplicate-code
 
 """General configuration module for integration tests."""
 import json

@@ -5,6 +5,8 @@
 # pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with
 
 """General configuration module for integration tests."""
+import asyncio
+import json
 import re
 import subprocess  # nosec B404
 from pathlib import Path
@@ -39,6 +41,37 @@ async def model_fixture(ops_test: OpsTest) -> Model:
     """The current test model."""
     assert ops_test.model
     return ops_test.model
+
+
+@pytest_asyncio.fixture(scope="module")
+async def app(ops_test: OpsTest, app_name: str):
+    """Build ingress charm used for integration testing.
+
+    Builds the charm and deploys it and a charm that depends on it.
+    """
+    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
+    ingress_lib = Path(path_lib).read_text(encoding="utf8")
+    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
+    any_charm_src_overwrite = {
+        "ingress.py": ingress_lib,
+        "any_charm.py": any_charm_script,
+    }
+    application = await build_and_deploy_ingress()
+    await deploy_any_charm(json.dumps(any_charm_src_overwrite))
+    await ops_test.model.wait_for_idle(timeout=10 * 60)
+
+    # Check that both ingress and hello-kubecon are active
+    model_app = ops_test.model.applications["ingress"]
+    app_status = model_app.units[0].workload_status
+    assert app_status == ACTIVE_STATUS_NAME
+    model_hello = ops_test.model.applications["any"]
+    hello_status = model_hello.units[0].workload_status
+    assert hello_status == ACTIVE_STATUS_NAME
+
+    # Add required relations
+    await ops_test.model.add_relation("any", "ingress")
+    await ops_test.model.wait_for_idle(timeout=10 * 60, status=ACTIVE_STATUS_NAME)
+    yield application
 
 
 @pytest_asyncio.fixture(scope="module")

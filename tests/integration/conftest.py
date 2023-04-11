@@ -42,45 +42,6 @@ async def model_fixture(ops_test: OpsTest) -> Model:
 
 
 @pytest_asyncio.fixture(scope="module")
-async def app(ops_test: OpsTest, app_name: str):
-    """Build ingress charm used for integration testing.
-
-    Builds the charm and deploys it and a charm that depends on it.
-    """
-    # Deploy relations first to speed up overall execution
-    hello_kubecon_app_name = "hello-kubecon"
-    await ops_test.juju(
-        "deploy",
-        hello_kubecon_app_name,
-        "--channel",
-        "stable",
-        "--revision",
-        18,
-        check=True,
-    )
-
-    # Build and deploy ingress
-    charm = await ops_test.build_charm(".")
-    application = await ops_test.model.deploy(
-        charm, application_name=app_name, series="focal", trust=True
-    )
-    await ops_test.model.wait_for_idle(timeout=10 * 60)
-
-    # Check that both ingress and hello-kubecon are active
-    model_app = ops_test.model.applications[app_name]
-    app_status = model_app.units[0].workload_status
-    assert app_status == ACTIVE_STATUS_NAME
-    model_hello = ops_test.model.applications[hello_kubecon_app_name]
-    hello_status = model_hello.units[0].workload_status
-    assert hello_status == ACTIVE_STATUS_NAME
-
-    # Add required relations
-    await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(timeout=10 * 60, status=ACTIVE_STATUS_NAME)
-    yield application
-
-
-@pytest_asyncio.fixture(scope="module")
 async def ip_address_list(ops_test: OpsTest, app: Application):
     """Get unit IP address from workload message.
 

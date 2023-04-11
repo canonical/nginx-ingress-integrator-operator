@@ -2,24 +2,27 @@
 # See LICENSE file for licensing details.
 
 # mypy: disable-error-code="union-attr"
-# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with
+# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with,duplicate-code
 
 """General configuration module for integration tests."""
-import re
-import subprocess  # nosec B404
+import json
 from pathlib import Path
-from typing import List
 
 import kubernetes
 import pytest_asyncio
 import yaml
 from juju.model import Model
-from ops.model import ActiveStatus, Application
+from ops.model import ActiveStatus
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
 # Mype can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
+ANY_APP_NAME = "any"
+INGRESS_APP_NAME = "ingress"
+NEW_HOSTNAME = "any.other"
+NEW_INGRESS = "any-other-ingress"
+NEW_PORT = 18080
 
 
 @fixture(scope="module")
@@ -39,97 +42,6 @@ async def model_fixture(ops_test: OpsTest) -> Model:
     """The current test model."""
     assert ops_test.model
     return ops_test.model
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app(ops_test: OpsTest, app_name: str):
-    """Build ingress charm used for integration testing.
-
-    Builds the charm and deploys it and a charm that depends on it.
-    """
-    # Deploy relations first to speed up overall execution
-    hello_kubecon_app_name = "hello-kubecon"
-    await ops_test.model.deploy(hello_kubecon_app_name)
-
-    # Build and deploy ingress
-    charm = await ops_test.build_charm(".")
-    application = await ops_test.model.deploy(
-        charm, application_name=app_name, series="focal", trust=True
-    )
-    await ops_test.model.wait_for_idle(timeout=10 * 60)
-
-    # Check that both ingress and hello-kubecon are active
-    model_app = ops_test.model.applications[app_name]
-    app_status = model_app.units[0].workload_status
-    assert app_status == ACTIVE_STATUS_NAME
-    model_hello = ops_test.model.applications[hello_kubecon_app_name]
-    hello_status = model_hello.units[0].workload_status
-    assert hello_status == ACTIVE_STATUS_NAME
-
-    # Add required relations
-    await ops_test.model.add_relation(hello_kubecon_app_name, app_name)
-    await ops_test.model.wait_for_idle(timeout=10 * 60, status=ACTIVE_STATUS_NAME)
-    yield application
-
-
-@pytest_asyncio.fixture(scope="module")
-async def ip_address_list(ops_test: OpsTest, app: Application):
-    """Get unit IP address from workload message.
-
-    Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
-    """
-    # Reduce the update_status frequency until the cluster is deployed
-    async with ops_test.fast_forward():
-        await ops_test.model.wait_for_idle(status="active")
-    # Mypy does not recognize the units attribute of the app, so we need to skip the type check.
-    status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
-    ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
-    ip_address_list = re.findall(ip_regex, status_message)
-    assert ip_address_list, f"could not find IP address in status message: {status_message}"
-    yield ip_address_list
-
-
-@pytest_asyncio.fixture(scope="module")
-async def service_ip(ip_address_list: List):
-    """Last match is the service IP."""
-    yield ip_address_list[-1]
-
-
-@pytest_asyncio.fixture(scope="module")
-async def ingress_ip(ip_address_list: List):
-    """First match is the ingress IP."""
-    yield ip_address_list[0]
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url(ingress_ip: str):
-    """Add to /etc/hosts."""
-    host_line = f"{ingress_ip} hello-kubecon"
-    proc_echo = subprocess.Popen(["echo", host_line], stdout=subprocess.PIPE)  # nosec
-    subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=proc_echo.stdout)  # nosec
-    yield "http://hello-kubecon"
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
-    """Enable owasp-modsecurity-crs."""
-    async with ops_test.fast_forward():
-        await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-        active = ACTIVE_STATUS_NAME
-        await ops_test.model.wait_for_idle(status=active, timeout=60)
-    yield f"{app_url}/?search=../../passwords"
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec: str):
-    """Add ModSecurity Custom Rule."""
-    ignore_rule = 'SecRule REQUEST_URI "/" "id:1,phase:2,nolog,allow,ctl:ruleEngine=Off"\\n'
-    ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
-    async with ops_test.fast_forward():
-        await ops_test.juju("config", app_name, ignore_rule_cfg)
-        active = ACTIVE_STATUS_NAME
-        await ops_test.model.wait_for_idle(status=active, timeout=60)
-    yield app_url_modsec
 
 
 @fixture(scope="module")
@@ -225,3 +137,49 @@ async def deploy_any_charm(model: Model):
         )
 
     return _deploy_any_charm
+
+
+@pytest_asyncio.fixture(scope="module")
+async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, deploy_any_charm):
+    """build and deploy nginx-ingress-integrator charm.
+
+    Also deploy and relate an any-charm application for test purposes.
+
+    Returns: None.
+    """
+    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
+    ingress_lib = Path(path_lib).read_text(encoding="utf8")
+    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
+    any_charm_src_overwrite = {
+        "ingress.py": ingress_lib,
+        "any_charm.py": any_charm_script,
+    }
+    await deploy_any_charm(json.dumps(any_charm_src_overwrite))
+    await build_and_deploy_ingress()
+    await model.wait_for_idle()
+    await run_action(ANY_APP_NAME, "rpc", method="start_server")
+    relation_name = f"{INGRESS_APP_NAME}:ingress"
+    await model.add_relation(ANY_APP_NAME, relation_name)
+    await model.wait_for_idle(status=ACTIVE_STATUS_NAME)
+
+
+@pytest_asyncio.fixture(scope="module")
+async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
+    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
+
+    Returns: None.
+    """
+    rpc_return = await run_action(
+        ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
+    )
+    assert json.loads(rpc_return["return"]) == NEW_PORT
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps(
+            {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
+        ),
+    )
+    await ops_test.model.wait_for_idle(status="active")
+    await wait_for_ingress(NEW_INGRESS)

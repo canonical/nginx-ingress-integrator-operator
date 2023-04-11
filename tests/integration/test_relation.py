@@ -1,15 +1,13 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=redefined-outer-name,unused-argument
+# pylint: disable=redefined-outer-name,unused-argument,duplicate-code
 
 """Integration test relation file."""
 
-import asyncio
 import copy
 import json
 import time
-from pathlib import Path
 from typing import List, Tuple
 
 import kubernetes
@@ -20,40 +18,13 @@ from juju.model import Model
 from pytest_operator.plugin import OpsTest
 
 from charm import CREATED_BY_LABEL
-
-INGRESS_APP_NAME = "ingress"
-ANY_APP_NAME = "any"
-NEW_HOSTNAME = "any.other"
-NEW_INGRESS = "any-other-ingress"
-NEW_PORT = 18080
-
-
-@pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(
-    model: Model, ops_test: OpsTest, run_action, build_and_deploy_ingress, deploy_any_charm
-):
-    """build and deploy nginx-ingress-integrator charm.
-
-    Also deploy and relate an any-charm application for test purposes.
-
-    Returns: None.
-    """
-    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
-    ingress_lib = Path(path_lib).read_text(encoding="utf8")
-    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
-    any_charm_src_overwrite = {
-        "ingress.py": ingress_lib,
-        "any_charm.py": any_charm_script,
-    }
-    await asyncio.gather(
-        deploy_any_charm(json.dumps(any_charm_src_overwrite)),
-        build_and_deploy_ingress(),
-    )
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME, "rpc", method="start_server")
-    relation_name = f"{INGRESS_APP_NAME}:ingress"
-    await model.add_relation(ANY_APP_NAME, relation_name)
-    await model.wait_for_idle()
+from tests.integration.conftest import (
+    ANY_APP_NAME,
+    INGRESS_APP_NAME,
+    NEW_HOSTNAME,
+    NEW_INGRESS,
+    NEW_PORT,
+)
 
 
 @pytest_asyncio.fixture(name="anycharm_update_ingress_config")
@@ -114,7 +85,7 @@ async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_services(model: Model, ops_test: OpsTest, app_name):
+async def test_delete_unused_services(model: Model, ops_test: OpsTest):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-name is changed and when is back to previous value
@@ -140,28 +111,6 @@ async def test_delete_unused_services(model: Model, ops_test: OpsTest, app_name)
     assert compare_svc_names(["any-service"])
 
 
-@pytest_asyncio.fixture(scope="module")
-async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wait_for_ingress):
-    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
-
-    Returns: None.
-    """
-    rpc_return = await run_action(
-        ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
-    )
-    assert json.loads(rpc_return["return"]) == NEW_PORT
-    await run_action(
-        ANY_APP_NAME,
-        "rpc",
-        method="update_ingress",
-        kwargs=json.dumps(
-            {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
-        ),
-    )
-    await ops_test.model.wait_for_idle(status="active")
-    await wait_for_ingress(NEW_INGRESS)
-
-
 @pytest.mark.usefixtures("build_and_deploy")
 async def test_ingress_connectivity():
     """
@@ -181,7 +130,7 @@ async def test_ingress_connectivity():
 
 
 @pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
-async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
+async def test_update_host_and_port_via_relation():
     """
     arrange: given charm has been built and deployed.
     act: update service-hostname and service-port via ingress library.

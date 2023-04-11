@@ -47,66 +47,6 @@ async def model_fixture(ops_test: OpsTest) -> Model:
     return ops_test.model
 
 
-@pytest_asyncio.fixture(scope="module")
-async def ip_address_list(ops_test: OpsTest, app: Application):
-    """Get unit IP address from workload message.
-
-    Example: Ingress IP(s): 127.0.0.1, Service IP(s): 10.152.183.84
-    """
-    # Reduce the update_status frequency until the cluster is deployed
-    async with ops_test.fast_forward():
-        await ops_test.model.wait_for_idle(status="active")
-    # Mypy does not recognize the units attribute of the app, so we need to skip the type check.
-    status_message = app.units[0].workload_status_message  # type: ignore[attr-defined]
-    ip_regex = r"[0-9]+(?:\.[0-9]+){3}"
-    ip_address_list = re.findall(ip_regex, status_message)
-    assert ip_address_list, f"could not find IP address in status message: {status_message}"
-    yield ip_address_list
-
-
-@pytest_asyncio.fixture(scope="module")
-async def service_ip(ip_address_list: List):
-    """Last match is the service IP."""
-    yield ip_address_list[-1]
-
-
-@pytest_asyncio.fixture(scope="module")
-async def ingress_ip(ip_address_list: List):
-    """First match is the ingress IP."""
-    yield ip_address_list[0]
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url(ingress_ip: str):
-    """Add to /etc/hosts."""
-    host_line = f"{ingress_ip} {NEW_HOSTNAME}"
-    proc_echo = subprocess.Popen(["echo", host_line], stdout=subprocess.PIPE)  # nosec
-    subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=proc_echo.stdout)  # nosec
-    yield f"http://{NEW_HOSTNAME}"
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url_modsec(ops_test: OpsTest, app_name: str, app_url: str):
-    """Enable owasp-modsecurity-crs."""
-    async with ops_test.fast_forward():
-        await ops_test.juju("config", app_name, "owasp-modsecurity-crs=true")
-        active = ACTIVE_STATUS_NAME
-        await ops_test.model.wait_for_idle(status=active, timeout=60)
-    yield f"{app_url}/?search=../../passwords"
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app_url_modsec_ignore(ops_test: OpsTest, app_name: str, app_url_modsec: str):
-    """Add ModSecurity Custom Rule."""
-    ignore_rule = 'SecRule REQUEST_URI "/" "id:1,phase:2,nolog,allow,ctl:ruleEngine=Off"\\n'
-    ignore_rule_cfg = f"owasp-modsecurity-custom-rules={ignore_rule}"
-    async with ops_test.fast_forward():
-        await ops_test.juju("config", app_name, ignore_rule_cfg)
-        active = ACTIVE_STATUS_NAME
-        await ops_test.model.wait_for_idle(status=active, timeout=60)
-    yield app_url_modsec
-
-
 @fixture(scope="module")
 def run_action(ops_test: OpsTest):
     """Create a async function to run action and return results."""

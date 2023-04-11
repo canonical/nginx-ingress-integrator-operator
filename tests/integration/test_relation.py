@@ -49,7 +49,7 @@ async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
     await ops_test.model.wait_for_idle(status="active")
 
 
-@pytest.mark.usefixtures("build_and_deploy")
+@pytest.mark.usefixtures("app")
 async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name: str):
     """
     arrange: given charm has been built, deployed and related to a dependent application
@@ -83,7 +83,7 @@ async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name
     assert_svc_hostnames(("any",))
 
 
-@pytest.mark.usefixtures("build_and_deploy")
+@pytest.mark.usefixtures("app")
 async def test_delete_unused_services(model: Model, ops_test: OpsTest):
     """
     arrange: given charm has been built, deployed and related to a dependent application
@@ -132,7 +132,7 @@ async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
     await wait_for_ingress(NEW_INGRESS)
 
 
-@pytest.mark.usefixtures("build_and_deploy")
+@pytest.mark.usefixtures("app")
 async def test_ingress_connectivity():
     """
     arrange: given charm has been built and deployed.
@@ -150,7 +150,7 @@ async def test_ingress_connectivity():
     )
 
 
-@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
     """
     arrange: given charm has been built and deployed.
@@ -162,7 +162,7 @@ async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
     assert response.status_code == 200
 
 
-@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 async def test_owasp_modsecurity_crs_relation(model: Model, ops_test: OpsTest, run_action):
     """
     arrange: given charm has been built and deployed.
@@ -218,7 +218,7 @@ async def test_owasp_modsecurity_crs_relation(model: Model, ops_test: OpsTest, r
     assert ingress_annotations["nginx.ingress.kubernetes.io/modsecurity-snippet"]
 
 
-@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 @pytest.mark.parametrize(
     "anycharm_update_ingress_config",
     [
@@ -242,7 +242,7 @@ async def test_rewrite_target_relation(
     assert ingress_annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/foo"
 
 
-@pytest.mark.usefixtures("build_and_deploy", "setup_new_hostname_and_port")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 async def test_rewrite_target_default(wait_ingress_annotation, get_ingress_annotation):
     """
     arrange: given charm has been built and deployed, rewrite-target option is reset in relation.

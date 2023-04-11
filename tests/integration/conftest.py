@@ -20,6 +20,7 @@ from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
 from tests.integration.test_nginx_route import ANY_APP_NAME, INGRESS_APP_NAME
+from tests.integration.test_relation import NEW_HOSTNAME
 
 # Mype can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
@@ -76,10 +77,10 @@ async def ingress_ip(ip_address_list: List):
 @pytest_asyncio.fixture(scope="module")
 async def app_url(ingress_ip: str):
     """Add to /etc/hosts."""
-    host_line = f"{ingress_ip} hello-kubecon"
+    host_line = f"{ingress_ip} {NEW_HOSTNAME}"
     proc_echo = subprocess.Popen(["echo", host_line], stdout=subprocess.PIPE)  # nosec
     subprocess.run(["sudo", "tee", "-a", "/etc/hosts"], stdin=proc_echo.stdout)  # nosec
-    yield "http://hello-kubecon"
+    yield f"http://{NEW_HOSTNAME}"
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -220,5 +221,5 @@ async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, d
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:ingress"
     await model.add_relation(ANY_APP_NAME, relation_name)
-    await model.wait_for_idle()
+    await model.wait_for_idle(status=ACTIVE_STATUS_NAME)
     yield application

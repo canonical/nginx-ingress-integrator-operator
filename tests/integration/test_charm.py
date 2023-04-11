@@ -21,7 +21,7 @@ async def test_active(app: Application):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
-@pytest.mark.usefixtures("app")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 async def test_owasp_modsecurity_crs(app_url_modsec: str):
     """
     arrange: given charm has been built, deployed, related to a dependent application
@@ -35,7 +35,7 @@ async def test_owasp_modsecurity_crs(app_url_modsec: str):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
-@pytest.mark.usefixtures("app")
+@pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
 async def test_owasp_modsecurity_custom_rules(app_url_modsec_ignore: str):
     """
     arrange: given charm has been built, deployed, related to a dependent application,

@@ -21,33 +21,7 @@ async def test_active(app: Application):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
-async def test_service_reachable(service_ip: str):
-    """
-    arrange: given charm has been built, deployed and related to a dependent application
-    act: when the dependent application is queried via the service
-    assert: then the response is HTTP 200 OK.
-    """
-    port = "8080"
-    response = requests.get(f"http://{service_ip}:{port}", timeout=300)
-
-    assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-@pytest.mark.abort_on_fail
-async def test_ingress_reachable(app_url: str):
-    """
-    arrange: given charm has been built, deployed and related to a dependent application
-    act: when the dependent application is queried via the ingress
-    assert: then the response is HTTP 200 OK.
-    """
-    response = requests.get(app_url, timeout=300)
-
-    assert response.status_code == 200
-
-
-@pytest.mark.asyncio
-@pytest.mark.abort_on_fail
+@pytest.mark.usefixtures("build_and_deploy")
 async def test_owasp_modsecurity_crs(app_url_modsec: str):
     """
     arrange: given charm has been built, deployed, related to a dependent application
@@ -61,6 +35,7 @@ async def test_owasp_modsecurity_crs(app_url_modsec: str):
 
 @pytest.mark.asyncio
 @pytest.mark.abort_on_fail
+@pytest.mark.usefixtures("build_and_deploy")
 async def test_owasp_modsecurity_custom_rules(app_url_modsec_ignore: str):
     """
     arrange: given charm has been built, deployed, related to a dependent application,

@@ -5,11 +5,9 @@
 
 """Integration test relation file."""
 
-import asyncio
 import copy
 import json
 import time
-from pathlib import Path
 from typing import List, Tuple
 
 import kubernetes
@@ -26,34 +24,6 @@ ANY_APP_NAME = "any"
 NEW_HOSTNAME = "any.other"
 NEW_INGRESS = "any-other-ingress"
 NEW_PORT = 18080
-
-
-@pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(
-    model: Model, ops_test: OpsTest, run_action, build_and_deploy_ingress, deploy_any_charm
-):
-    """build and deploy nginx-ingress-integrator charm.
-
-    Also deploy and relate an any-charm application for test purposes.
-
-    Returns: None.
-    """
-    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
-    ingress_lib = Path(path_lib).read_text(encoding="utf8")
-    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
-    any_charm_src_overwrite = {
-        "ingress.py": ingress_lib,
-        "any_charm.py": any_charm_script,
-    }
-    await asyncio.gather(
-        deploy_any_charm(json.dumps(any_charm_src_overwrite)),
-        build_and_deploy_ingress(),
-    )
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME, "rpc", method="start_server")
-    relation_name = f"{INGRESS_APP_NAME}:ingress"
-    await model.add_relation(ANY_APP_NAME, relation_name)
-    await model.wait_for_idle()
 
 
 @pytest_asyncio.fixture(name="anycharm_update_ingress_config")
@@ -114,7 +84,7 @@ async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_delete_unused_services(model: Model, ops_test: OpsTest, app_name):
+async def test_delete_unused_services(model: Model, ops_test: OpsTest):
     """
     arrange: given charm has been built, deployed and related to a dependent application
     act: when the service-name is changed and when is back to previous value
@@ -141,7 +111,7 @@ async def test_delete_unused_services(model: Model, ops_test: OpsTest, app_name)
 
 
 @pytest_asyncio.fixture(scope="module")
-async def setup_new_hostname_and_port(ops_test, build_and_deploy, run_action, wait_for_ingress):
+async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
     """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
 
     Returns: None.

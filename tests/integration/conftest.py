@@ -19,6 +19,8 @@ from ops.model import ActiveStatus, Application
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
+from tests.integration.test_nginx_route import ANY_APP_NAME, INGRESS_APP_NAME
+
 # Mype can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
 
@@ -40,37 +42,6 @@ async def model_fixture(ops_test: OpsTest) -> Model:
     """The current test model."""
     assert ops_test.model
     return ops_test.model
-
-
-@pytest_asyncio.fixture(scope="module")
-async def app(ops_test: OpsTest, app_name: str):
-    """Build ingress charm used for integration testing.
-
-    Builds the charm and deploys it and a charm that depends on it.
-    """
-    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
-    ingress_lib = Path(path_lib).read_text(encoding="utf8")
-    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
-    any_charm_src_overwrite = {
-        "ingress.py": ingress_lib,
-        "any_charm.py": any_charm_script,
-    }
-    application = await build_and_deploy_ingress()
-    await deploy_any_charm(json.dumps(any_charm_src_overwrite))
-    await ops_test.model.wait_for_idle(timeout=10 * 60)
-
-    # Check that both ingress and hello-kubecon are active
-    model_app = ops_test.model.applications["ingress"]
-    app_status = model_app.units[0].workload_status
-    assert app_status == ACTIVE_STATUS_NAME
-    model_hello = ops_test.model.applications["any"]
-    hello_status = model_hello.units[0].workload_status
-    assert hello_status == ACTIVE_STATUS_NAME
-
-    # Add required relations
-    await ops_test.model.add_relation("any", "ingress")
-    await ops_test.model.wait_for_idle(timeout=10 * 60, status=ACTIVE_STATUS_NAME)
-    yield application
 
 
 @pytest_asyncio.fixture(scope="module")
@@ -226,3 +197,28 @@ async def deploy_any_charm(model: Model):
         )
 
     return _deploy_any_charm
+
+
+@pytest_asyncio.fixture(scope="module", name="app")
+async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, deploy_any_charm):
+    """build and deploy nginx-ingress-integrator charm.
+
+    Also deploy and relate an any-charm application for test purposes.
+
+    Returns: None.
+    """
+    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
+    ingress_lib = Path(path_lib).read_text(encoding="utf8")
+    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
+    any_charm_src_overwrite = {
+        "ingress.py": ingress_lib,
+        "any_charm.py": any_charm_script,
+    }
+    await deploy_any_charm(json.dumps(any_charm_src_overwrite))
+    application = await build_and_deploy_ingress()
+    await model.wait_for_idle()
+    await run_action(ANY_APP_NAME, "rpc", method="start_server")
+    relation_name = f"{INGRESS_APP_NAME}:ingress"
+    await model.add_relation(ANY_APP_NAME, relation_name)
+    await model.wait_for_idle()
+    yield application

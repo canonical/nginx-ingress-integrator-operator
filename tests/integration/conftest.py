@@ -5,7 +5,6 @@
 # pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with
 
 """General configuration module for integration tests."""
-import asyncio
 import json
 import re
 import subprocess  # nosec B404

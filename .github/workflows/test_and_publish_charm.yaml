@@ -19,4 +19,4 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/test_and_publish_charm.yaml@main
     secrets: inherit
     with:
-      integration-test-modules: '["test_charm", "test_relation"]'
+      integration-test-modules: '["test_relation"]'

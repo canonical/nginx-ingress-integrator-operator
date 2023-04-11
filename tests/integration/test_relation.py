@@ -18,12 +18,13 @@ from juju.model import Model
 from pytest_operator.plugin import OpsTest
 
 from charm import CREATED_BY_LABEL
-
-INGRESS_APP_NAME = "ingress"
-ANY_APP_NAME = "any"
-NEW_HOSTNAME = "any.other"
-NEW_INGRESS = "any-other-ingress"
-NEW_PORT = 18080
+from tests.integration.conftest import (
+    ANY_APP_NAME,
+    INGRESS_APP_NAME,
+    NEW_HOSTNAME,
+    NEW_INGRESS,
+    NEW_PORT,
+)
 
 
 @pytest_asyncio.fixture(name="anycharm_update_ingress_config")
@@ -110,28 +111,6 @@ async def test_delete_unused_services(model: Model, ops_test: OpsTest):
     assert compare_svc_names(["any-service"])
 
 
-@pytest_asyncio.fixture(scope="module")
-async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
-    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
-
-    Returns: None.
-    """
-    rpc_return = await run_action(
-        ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
-    )
-    assert json.loads(rpc_return["return"]) == NEW_PORT
-    await run_action(
-        ANY_APP_NAME,
-        "rpc",
-        method="update_ingress",
-        kwargs=json.dumps(
-            {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
-        ),
-    )
-    await ops_test.model.wait_for_idle(status="active")
-    await wait_for_ingress(NEW_INGRESS)
-
-
 @pytest.mark.usefixtures("app")
 async def test_ingress_connectivity():
     """
@@ -151,7 +130,7 @@ async def test_ingress_connectivity():
 
 
 @pytest.mark.usefixtures("app", "setup_new_hostname_and_port")
-async def test_update_host_and_port_via_relation(run_action, wait_for_ingress):
+async def test_update_host_and_port_via_relation():
     """
     arrange: given charm has been built and deployed.
     act: update service-hostname and service-port via ingress library.

@@ -19,11 +19,13 @@ from ops.model import ActiveStatus, Application
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
-from tests.integration.test_nginx_route import ANY_APP_NAME, INGRESS_APP_NAME
-from tests.integration.test_relation import NEW_HOSTNAME
-
 # Mype can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
+ANY_APP_NAME = "any"
+INGRESS_APP_NAME = "ingress"
+NEW_HOSTNAME = "any.other"
+NEW_INGRESS = "any-other-ingress"
+NEW_PORT = 18080
 
 
 @fixture(scope="module")
@@ -223,3 +225,25 @@ async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, d
     await model.add_relation(ANY_APP_NAME, relation_name)
     await model.wait_for_idle(status=ACTIVE_STATUS_NAME)
     yield application
+
+
+@pytest_asyncio.fixture(scope="module")
+async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
+    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
+
+    Returns: None.
+    """
+    rpc_return = await run_action(
+        ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
+    )
+    assert json.loads(rpc_return["return"]) == NEW_PORT
+    await run_action(
+        ANY_APP_NAME,
+        "rpc",
+        method="update_ingress",
+        kwargs=json.dumps(
+            {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
+        ),
+    )
+    await ops_test.model.wait_for_idle(status="active")
+    await wait_for_ingress(NEW_INGRESS)

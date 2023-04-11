@@ -6,16 +6,13 @@
 
 """General configuration module for integration tests."""
 import json
-import re
-import subprocess  # nosec B404
 from pathlib import Path
-from typing import List
 
 import kubernetes
 import pytest_asyncio
 import yaml
 from juju.model import Model
-from ops.model import ActiveStatus, Application
+from ops.model import ActiveStatus
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 

@@ -75,7 +75,7 @@ async def build_and_deploy(model: Model, deploy_any_charm, run_action, build_and
     await model.wait_for_idle()
 
 
-@pytest.mark.usefixtures("app")
+@pytest.mark.usefixtures("build_and_deploy")
 async def test_ingress_connectivity():
     """
     arrange: given charm has been built and deployed.
@@ -105,7 +105,7 @@ async def set_service_hostname_fixture(model: Model):
     await model.wait_for_idle(status="active")
 
 
-@pytest.mark.usefixtures("app", "set_service_hostname")
+@pytest.mark.usefixtures("build_and_deploy", "set_service_hostname")
 async def test_update_service_hostname():
     """
     arrange: given charm has been built and deployed.
@@ -133,7 +133,7 @@ async def set_additional_hosts_fixture(model: Model, run_action):
     assert "additional-hostnames" not in relation_data["application_data"]["any"]
 
 
-@pytest.mark.usefixtures("app", "set_additional_hosts")
+@pytest.mark.usefixtures("build_and_deploy", "set_additional_hosts")
 async def test_update_additional_hosts(run_action):
     """
     arrange: given charm has been built and deployed,
@@ -150,7 +150,7 @@ async def test_update_additional_hosts(run_action):
     assert "additional-hostnames" in relation_data["application_data"]["any"]
 
 
-@pytest.mark.usefixtures("app")
+@pytest.mark.usefixtures("build_and_deploy")
 async def test_missing_field(model: Model, run_action):
     """
     arrange: given charm has been built and deployed,

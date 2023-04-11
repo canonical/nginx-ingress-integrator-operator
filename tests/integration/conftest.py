@@ -202,7 +202,7 @@ async def deploy_any_charm(model: Model):
     return _deploy_any_charm
 
 
-@pytest_asyncio.fixture(scope="module", name="app")
+@pytest_asyncio.fixture(scope="module")
 async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, deploy_any_charm):
     """build and deploy nginx-ingress-integrator charm.
 

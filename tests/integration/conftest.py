@@ -155,13 +155,12 @@ async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, d
         "any_charm.py": any_charm_script,
     }
     await deploy_any_charm(json.dumps(any_charm_src_overwrite))
-    application = await build_and_deploy_ingress()
+    await build_and_deploy_ingress()
     await model.wait_for_idle()
     await run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:ingress"
     await model.add_relation(ANY_APP_NAME, relation_name)
     await model.wait_for_idle(status=ACTIVE_STATUS_NAME)
-    yield application
 
 
 @pytest_asyncio.fixture(scope="module")

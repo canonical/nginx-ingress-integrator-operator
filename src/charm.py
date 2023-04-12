@@ -23,6 +23,8 @@ from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
+from helpers import invalid_hostname_check
+
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
@@ -30,6 +32,10 @@ BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
 # so we can use it to identify resources created by this charm
 CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 REPORT_INTERVAL_COUNT = 100
+INVALID_HOSTNAME_MSG = (
+    "Invalid ingress hostname. The hostname must consist of lower case "
+    "alphanumeric characters, '-' or '.'."
+)
 
 
 def _report_interval_count() -> int:
@@ -47,6 +53,10 @@ class ConflictingAnnotationsError(Exception):
 
 class ConflictingRoutesError(Exception):
     """Custom error that indicates conflicting routes."""
+
+
+class InvalidHostnameError(Exception):
+    """Custom error that indicates invalid hostnames."""
 
 
 class _ConfigOrRelation:
@@ -743,6 +753,9 @@ class NginxIngressCharm(CharmBase):
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
             for rule in ingress.spec.rules:
+                if not invalid_hostname_check(rule.host):
+                    raise InvalidHostnameError()
+
                 if rule.host not in ingress_paths:
                     # The same paths array is used for any additional-hostnames given, so we need
                     # to make our own copy.
@@ -925,6 +938,9 @@ class NginxIngressCharm(CharmBase):
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
                 return
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
+                return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
 
@@ -968,6 +984,9 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
+                return
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
 
         self.unit.status = ActiveStatus()

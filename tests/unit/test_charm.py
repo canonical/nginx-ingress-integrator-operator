@@ -7,10 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import kubernetes
 import kubernetes.client
+import pytest
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charm import CREATED_BY_LABEL, NginxIngressCharm
+from charm import CREATED_BY_LABEL, INVALID_HOSTNAME_MSG, NginxIngressCharm
+from helpers import invalid_hostname_check
 
 
 class TestCharm(unittest.TestCase):
@@ -1976,6 +1978,44 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.assertEqual("active", self.harness.charm.unit.status.name)
         self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingresses_for_invalid_hostname(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_report_ips,
+        mock_ingress_ips,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete an ingress
+        assert: this test will check the Blocked case for invalid hostnames
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "Foo.in.ternal",
+            "service-port": "80",
+        }
+        self._add_ingress_relation("gunicorn", rel_data)
+
+        expected_status_message = INVALID_HOSTNAME_MSG
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
+
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
     @patch("charm.NginxIngressCharm._report_ingress_ips")
@@ -2034,3 +2074,17 @@ class TestCharmMultipleRelations(unittest.TestCase):
         expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)
+
+
+class TestHelpers:
+    @pytest.mark.parametrize(
+        "hostname, expected",
+        [
+            ("foo-internal", True),
+            ("foo.internal1", True),
+            ("Foo.internal", False),
+            ("foo$internal", False),
+        ],
+    )
+    def test_invalid_hostname_check(self, hostname, expected):
+        assert invalid_hostname_check(hostname) == expected

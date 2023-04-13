@@ -4,7 +4,7 @@ To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t
 
 | Level | Path     | Navlink                         |
 | ----- | -------- | ------------------------------- |
-| 1 | Tutorials | [Tutorial]() |
+| 1 | Tutorial | [Tutorial]() |
 | 2 | getting-started | [Getting started](/t/nginx-ingress-integrator-docs-tutorial-getting-started/7697)
 | 1 | How To | [How To]() |
 | 2 | add-the-ingress-relation | [Add the Ingress relation to a charm](/t/nginx-ingress-integrator-docs-tutorial-adding-relation-to-a-charm/7434) |

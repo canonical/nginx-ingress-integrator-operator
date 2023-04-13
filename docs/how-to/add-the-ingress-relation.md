@@ -1,4 +1,4 @@
-In this tutorial, we'll walk you through the process of adding a relation to the Nginx Ingress Integrator Operator to a charm.
+# How to add the Ingress relation.
 
 ## Requirements
 
@@ -8,7 +8,7 @@ You will need:
 * [Charmcraft](https://juju.is/docs/sdk/install-charmcraft) installed.
 * A code editor of your choice.
 
-## Create a Charm
+## Create a charm
 
 First of all, let's create a very basic charm to add our relation to.
 ```
@@ -31,7 +31,7 @@ Let's start by updating `metadata.yaml`. We want to update the `display-name` to
 
 We can leave the other files as is for now, but if we want to publish this charm later, we'll want to update them before doing so.
 
-## Deploy the Charm
+## Deploy the charm
 
 Now let's deploy the charm just to confirm everything is working as expected without the relation. To do that, just run this:
 ```
@@ -62,7 +62,7 @@ So we now have a working charm, great! However, what we don't currently have is 
 
 Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't yet have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
 
-## Add the Ingress Relation
+## Add the Ingress relation
 
 First of all, let's grab the [relation library](https://charmhub.io/nginx-ingress-integrator/libraries/ingress). We can do this by running this:
 ```

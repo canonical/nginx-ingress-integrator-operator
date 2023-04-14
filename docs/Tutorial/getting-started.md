@@ -35,7 +35,7 @@ To do so, we need to find the IP address of the ingress controller, which we can
 NAME                                      READY   STATUS    RESTARTS       AGE   IP             NODE        NOMINATED NODE   READINESS GATES
 nginx-ingress-microk8s-controller-c4vp9   1/1     Running   2 (119s ago)   17h   10.1.129.161   finistere   <none>           <none>
 ```
-So now I would edit `/etc/hosts` on my laptop and add `10.1.129.161    hello-kubecon`. I could then open a new browser window and visit `http://hello-kubecon`.
+Adding 10.1.129.161 hello-kubecon to /etc/hosts lets you visit http://hello-kubecon and see the hello-kubecon charm in action!
 
 ## Inspect the ingress configuration
 

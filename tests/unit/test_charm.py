@@ -292,6 +292,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -317,6 +318,7 @@ class TestCharm(unittest.TestCase):
                 "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -345,6 +347,7 @@ class TestCharm(unittest.TestCase):
                 "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -704,6 +707,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -714,6 +718,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -724,6 +729,7 @@ class TestCharm(unittest.TestCase):
 
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -841,6 +847,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -882,6 +889,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -960,6 +968,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -1013,6 +1022,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
@@ -1070,6 +1080,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "10m",
                     "nginx.ingress.kubernetes.io/proxy-next-upstream": (
                         "error timeout http_502 http_503"
@@ -1130,6 +1141,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/limit-rps": "5",
                     "nginx.ingress.kubernetes.io/limit-whitelist": "10.0.0.0/16",
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",

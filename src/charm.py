@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=protected-access,too-few-public-methods
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 """Nginx-ingress-integrator charm file."""
 
@@ -146,6 +146,20 @@ class _ConfigOrRelation:
         """
         additional_hostnames = self._get_config_or_relation_data("additional-hostnames", "")
         yield from filter(None, additional_hostnames.split(","))
+
+    @property
+    def _backend_protocol(self) -> str:
+        """Return the backend-protocol to use for k8s ingress."""
+        backend_protocol_default = "HTTP"
+        backend_protocol = self._get_config_or_relation_data(
+            "backend-protocol", backend_protocol_default
+        )
+        # Disabled to reference the documentation
+        # See https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#backend-protocol # noqa: E501 pylint: disable=line-too-long
+        accepted_values = ["HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI"]
+        if backend_protocol.upper() not in accepted_values:
+            return backend_protocol_default
+        return f"{backend_protocol}".upper()
 
     @property
     def _k8s_service_name(self) -> str:
@@ -360,6 +374,7 @@ class _ConfigOrRelation:
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
         annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = self._proxy_read_timeout
+        annotations["nginx.ingress.kubernetes.io/backend-protocol"] = self._backend_protocol
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:

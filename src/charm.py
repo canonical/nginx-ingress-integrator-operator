@@ -153,13 +153,13 @@ class _ConfigOrRelation:
         backend_protocol_default = "HTTP"
         backend_protocol = self._get_config_or_relation_data(
             "backend-protocol", backend_protocol_default
-        )
+        ).upper()
         # Disabled to reference the documentation
         # See https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#backend-protocol # noqa: E501 pylint: disable=line-too-long
-        accepted_values = ["HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI"]
-        if backend_protocol.upper() not in accepted_values:
+        accepted_values = ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI")
+        if backend_protocol not in accepted_values:
             return backend_protocol_default
-        return f"{backend_protocol}".upper()
+        return backend_protocol
 
     @property
     def _k8s_service_name(self) -> str:

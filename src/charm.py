@@ -23,7 +23,7 @@ from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
-from helpers import invalid_hostname_check
+from helpers import invalid_hostname_check, is_backend_protocol_valid
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -35,6 +35,9 @@ REPORT_INTERVAL_COUNT = 100
 INVALID_HOSTNAME_MSG = (
     "Invalid ingress hostname. The hostname must consist of lower case "
     "alphanumeric characters, '-' or '.'."
+)
+INVALID_BACKEND_PROTOCOL_MSG = (
+    "Invalid backend protocol. Valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
 )
 
 
@@ -54,6 +57,9 @@ class ConflictingAnnotationsError(Exception):
 class ConflictingRoutesError(Exception):
     """Custom error that indicates conflicting routes."""
 
+
+class InvalidBackendProtocolError(Exception):
+    """Custom error that indicates invalid backend protocol."""
 
 class InvalidHostnameError(Exception):
     """Custom error that indicates invalid hostnames."""
@@ -150,16 +156,9 @@ class _ConfigOrRelation:
     @property
     def _backend_protocol(self) -> str:
         """Return the backend-protocol to use for k8s ingress."""
-        backend_protocol_default = "HTTP"
-        backend_protocol = self._get_config_or_relation_data(
-            "backend-protocol", backend_protocol_default
+        return self._get_config_or_relation_data(
+            "backend-protocol", "HTTP"
         ).upper()
-        # Disabled to reference the documentation
-        # See https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/#backend-protocol # noqa: E501 pylint: disable=line-too-long
-        accepted_values = ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI")
-        if backend_protocol not in accepted_values:
-            return backend_protocol_default
-        return backend_protocol
 
     @property
     def _k8s_service_name(self) -> str:
@@ -771,6 +770,10 @@ class NginxIngressCharm(CharmBase):
                 if not invalid_hostname_check(rule.host):
                     raise InvalidHostnameError()
 
+                backend_protocol = ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+                if not is_backend_protocol_valid(backend_protocol):
+                    raise InvalidBackendProtocolError()
+
                 if rule.host not in ingress_paths:
                     # The same paths array is used for any additional-hostnames given, so we need
                     # to make our own copy.
@@ -956,6 +959,9 @@ class NginxIngressCharm(CharmBase):
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
 
@@ -1003,7 +1009,9 @@ class NginxIngressCharm(CharmBase):
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
-
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
         self.unit.status = ActiveStatus()
 
 

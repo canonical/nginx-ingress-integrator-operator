@@ -13,7 +13,7 @@ You'll then also look at changing that ingress via a juju configuration update.
 You will need:
 
 * A laptop or desktop running Ubuntu (or you can use a VM).
-* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. You’ll also want to make sure the ingress add-on is enabled, which you can do by running `microk8s enable ingress`.
+* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. Make sure the ingress add-on is enabled by running `microk8s enable ingress`.
 
 ## Deploy this charm
 
@@ -111,7 +111,7 @@ unit-nginx-ingress-integrator-0:
     enqueued: 2022-12-12 16:42:08 +0000 UTC
     started: 2022-12-12 16:42:11 +0000 UTC
 ```
-This shows a number of things including the name of the [kubernetes service](https://kubernetes.io/docs/concepts/services-networking/service/) for our application (`'service': {'name': 'hello-kubecon-service'`), as well as the port that service is configured with (`8080`). 
+This shows a number of things including the name of the [kubernetes service](https://kubernetes.io/docs/concepts/services-networking/service/) for the application (`'service': {'name': 'hello-kubecon-service'`), as well as the port that service is configured with (`8080`). 
 
 You will also see a number of annotations that have been set for the ingress:
 ```

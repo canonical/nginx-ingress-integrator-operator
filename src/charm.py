@@ -765,14 +765,14 @@ class NginxIngressCharm(CharmBase):
         for ingress in ingresses:
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
+            if not is_backend_protocol_valid(
+                ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+            ):
+                raise InvalidBackendProtocolError()
+
             for rule in ingress.spec.rules:
                 if not invalid_hostname_check(rule.host):
                     raise InvalidHostnameError()
-
-                if not is_backend_protocol_valid(
-                    ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
-                ):
-                    raise InvalidBackendProtocolError()
 
                 if rule.host not in ingress_paths:
                     # The same paths array is used for any additional-hostnames given, so we need

@@ -61,6 +61,7 @@ class ConflictingRoutesError(Exception):
 class InvalidBackendProtocolError(Exception):
     """Custom error that indicates invalid backend protocol."""
 
+
 class InvalidHostnameError(Exception):
     """Custom error that indicates invalid hostnames."""
 
@@ -156,9 +157,7 @@ class _ConfigOrRelation:
     @property
     def _backend_protocol(self) -> str:
         """Return the backend-protocol to use for k8s ingress."""
-        return self._get_config_or_relation_data(
-            "backend-protocol", "HTTP"
-        ).upper()
+        return self._get_config_or_relation_data("backend-protocol", "HTTP").upper()
 
     @property
     def _k8s_service_name(self) -> str:
@@ -770,8 +769,9 @@ class NginxIngressCharm(CharmBase):
                 if not invalid_hostname_check(rule.host):
                     raise InvalidHostnameError()
 
-                backend_protocol = ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
-                if not is_backend_protocol_valid(backend_protocol):
+                if not is_backend_protocol_valid(
+                    ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+                ):
                     raise InvalidBackendProtocolError()
 
                 if rule.host not in ingress_paths:

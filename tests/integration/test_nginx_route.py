@@ -117,6 +117,7 @@ async def test_ingress_connectivity_different_backend(model: Model):
     assert response.text == "ok"
     assert response.status_code == 200
 
+
 @pytest.mark.usefixtures("build_and_deploy")
 async def test_ingress_connectivity_invalid_backend(model: Model):
     """
@@ -140,6 +141,7 @@ async def test_ingress_connectivity_invalid_backend(model: Model):
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
     assert response.status_code == 200
+
 
 @pytest_asyncio.fixture(name="set_service_hostname")
 async def set_service_hostname_fixture(model: Model):

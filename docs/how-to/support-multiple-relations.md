@@ -1,3 +1,5 @@
+# How to support multiple relations
+
 This charm supports multiple relations, allowing you to configure a set of applications within the same model to share the same nginx-ingress-integrator instance. 
 
 However, there are a few things to bear in mind when doing so:

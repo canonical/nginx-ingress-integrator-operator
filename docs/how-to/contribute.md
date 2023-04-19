@@ -1,3 +1,7 @@
+# How to contribute
+
+## Overview
+
 This document explains the processes and practices recommended for contributing enhancements to the Nginx Ingress Integrator operator.
 
 * Generally, before developing enhancements to this charm, you should consider [opening an issue ](https://github.com/canonical/nginx-ingress-integrator-operator/issues)explaining your use case.
@@ -28,6 +32,6 @@ charmcraft pack
 # Ensure you're connected to a juju k8s model, assuming you're on amd64
 juju deploy ./nginx-ingress-integrator_ubuntu-20.04-amd64.charm
 ```
-## Canonical Contributor Agreement
+## Canonical contributor agreement
 
 Canonical welcomes contributions to the Nginx Ingress Integrator Operator. Please check out our [contributor agreement](https://ubuntu.com/legal/contributors) if you’re interested in contributing to the solution.

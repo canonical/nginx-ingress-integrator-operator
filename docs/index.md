@@ -4,12 +4,12 @@ To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t
 
 | Level | Path     | Navlink                         |
 | ----- | -------- | ------------------------------- |
-| 1 | Tutorials | [Tutorials]() |
+| 1 | Tutorial | [Tutorial]() |
 | 2 | getting-started | [Getting started](/t/nginx-ingress-integrator-docs-tutorial-getting-started/7697)
-| 2 | adding-ingress-relation | [Adding the Ingress Relation to a Charm](/t/nginx-ingress-integrator-docs-tutorial-adding-relation-to-a-charm/7434) |
-| 1 | How To | [How To]() |
-| 2 | contributing | [Contributing](/t/nginx-ingress-integrator-docs-contributing-hacking/4512)  |
-| 2 | multiple-relations | [Multiple relations](/t/nginx-ingress-integrator-docs-multiple-relations/5725) |
+| 1 | how-to | [How to]() |
+| 2 | add-the-ingress-relation | [Add the Ingress relation to a charm](/t/nginx-ingress-integrator-docs-tutorial-adding-relation-to-a-charm/7434) |
+| 2 | contribute | [Contribute](/t/nginx-ingress-integrator-docs-contributing-hacking/4512)  |
+| 2 | support-multiple-relations | [Support multiple relations](/t/nginx-ingress-integrator-docs-multiple-relations/5725) |
 | 1 | Reference | [Reference]() |
 | 2 | Actions | [Actions](https://charmhub.io/nginx-ingress-integrator/actions) |
 | 2 | Configurations | [Configurations](https://charmhub.io/nginx-ingress-integrator/configure) |

@@ -11,7 +11,12 @@ import pytest
 from ops.model import ActiveStatus, BlockedStatus
 from ops.testing import Harness
 
-from charm import CREATED_BY_LABEL, INVALID_HOSTNAME_MSG, NginxIngressCharm
+from charm import (
+    CREATED_BY_LABEL,
+    INVALID_BACKEND_PROTOCOL_MSG,
+    INVALID_HOSTNAME_MSG,
+    NginxIngressCharm,
+)
 from helpers import invalid_hostname_check
 
 
@@ -240,6 +245,29 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._max_body_size, "88m")
 
+    def test_backend_protocol(self):
+        """Test for the backend-protocol property."""
+        # First set via config.
+        self.harness.update_config({"backend-protocol": "AJP"})
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._backend_protocol, "AJP")
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
+        relations_data = {
+            "backend-protocol": "HTTP",
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
+        self.assertEqual(conf_or_rel._backend_protocol, "AJP")
+        self.harness.update_config({"backend-protocol": ""})
+        # Now it's the value from the relation.
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._backend_protocol, "HTTP")
+
     def test_namespace(self):
         """Test for the namespace property."""
         # If charm config and relation data is empty, use model name.
@@ -292,6 +320,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -317,6 +346,7 @@ class TestCharm(unittest.TestCase):
                 "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -345,6 +375,7 @@ class TestCharm(unittest.TestCase):
                 "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -704,6 +735,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -714,6 +746,7 @@ class TestCharm(unittest.TestCase):
         result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -724,6 +757,7 @@ class TestCharm(unittest.TestCase):
 
         expected = {
             "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -841,6 +875,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -882,6 +917,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -960,6 +996,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -1013,6 +1050,7 @@ class TestCharm(unittest.TestCase):
                 name=expected_ingress_name,
                 annotations={
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
@@ -1070,6 +1108,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "10m",
                     "nginx.ingress.kubernetes.io/proxy-next-upstream": (
                         "error timeout http_502 http_503"
@@ -1130,6 +1169,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/limit-rps": "5",
                     "nginx.ingress.kubernetes.io/limit-whitelist": "10.0.0.0/16",
                     "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -2013,6 +2053,45 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self._add_ingress_relation("gunicorn", rel_data)
 
         expected_status_message = INVALID_HOSTNAME_MSG
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
+
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingresses_for_invalid_backend_protocol(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_report_ips,
+        mock_ingress_ips,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete an ingress
+        assert: this test will check the Blocked case for invalid backend protocol
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.in.ternal",
+            "service-port": "80",
+            "backend-protocol": "foo",
+        }
+        self._add_ingress_relation("gunicorn", rel_data)
+
+        expected_status_message = INVALID_BACKEND_PROTOCOL_MSG
         self.assertEqual("blocked", self.harness.charm.unit.status.name)
         self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 

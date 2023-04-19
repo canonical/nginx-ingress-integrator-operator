@@ -23,3 +23,13 @@ def invalid_hostname_check(hostname: str) -> bool:
     if result:
         return True
     return False
+
+
+def is_backend_protocol_valid(backend_protocol: str) -> bool:
+    """Check if the backend protocol is valid.
+
+    Args:
+        backend_protocol: Ingress hostname
+    """
+    accepted_values = ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI")
+    return backend_protocol in accepted_values

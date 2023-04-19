@@ -2,7 +2,7 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=protected-access,too-few-public-methods
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 """Nginx-ingress-integrator charm file."""
 
@@ -23,7 +23,7 @@ from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
-from helpers import invalid_hostname_check
+from helpers import invalid_hostname_check, is_backend_protocol_valid
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -35,6 +35,9 @@ REPORT_INTERVAL_COUNT = 100
 INVALID_HOSTNAME_MSG = (
     "Invalid ingress hostname. The hostname must consist of lower case "
     "alphanumeric characters, '-' or '.'."
+)
+INVALID_BACKEND_PROTOCOL_MSG = (
+    "Invalid backend protocol. Valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
 )
 
 
@@ -53,6 +56,10 @@ class ConflictingAnnotationsError(Exception):
 
 class ConflictingRoutesError(Exception):
     """Custom error that indicates conflicting routes."""
+
+
+class InvalidBackendProtocolError(Exception):
+    """Custom error that indicates invalid backend protocol."""
 
 
 class InvalidHostnameError(Exception):
@@ -146,6 +153,11 @@ class _ConfigOrRelation:
         """
         additional_hostnames = self._get_config_or_relation_data("additional-hostnames", "")
         yield from filter(None, additional_hostnames.split(","))
+
+    @property
+    def _backend_protocol(self) -> str:
+        """Return the backend-protocol to use for k8s ingress."""
+        return self._get_config_or_relation_data("backend-protocol", "HTTP").upper()
 
     @property
     def _k8s_service_name(self) -> str:
@@ -360,6 +372,7 @@ class _ConfigOrRelation:
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
         annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = self._proxy_read_timeout
+        annotations["nginx.ingress.kubernetes.io/backend-protocol"] = self._backend_protocol
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
@@ -752,6 +765,11 @@ class NginxIngressCharm(CharmBase):
         for ingress in ingresses:
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
+            if not is_backend_protocol_valid(
+                ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+            ):
+                raise InvalidBackendProtocolError()
+
             for rule in ingress.spec.rules:
                 if not invalid_hostname_check(rule.host):
                     raise InvalidHostnameError()
@@ -941,6 +959,9 @@ class NginxIngressCharm(CharmBase):
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
         self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
 
@@ -988,7 +1009,9 @@ class NginxIngressCharm(CharmBase):
             except InvalidHostnameError:
                 self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
                 return
-
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
         self.unit.status = ActiveStatus()
 
 

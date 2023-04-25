@@ -14,7 +14,7 @@ description: |
 
   As such, the charm makes it easy for charm developers to provide external
   access to their HTTP workloads in Kubernetes by easy integration offered via
-  [the charm's ingress library](https://charmhub.io/nginx-ingress-integrator/libraries/ingress).
+  [the charm's nginx_route library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route).
 
   For DevOps and SRE teams, providing ingress for charms that support a relation
   to this charm will be possible via a simple `juju relate` command.

@@ -7,6 +7,7 @@ To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t
 | 1 | Tutorial | [Tutorial]() |
 | 2 | getting-started | [Getting started](/t/nginx-ingress-integrator-docs-tutorial-getting-started/7697)
 | 1 | how-to | [How to]() |
+| 2 | secure-an-ingress-with-tls | [Secure an Ingress with TLS](https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-how-to-secure-ingress-with-tls/10301) |
 | 2 | add-the-ingress-relation | [Add the Ingress relation to a charm](/t/nginx-ingress-integrator-docs-tutorial-adding-relation-to-a-charm/7434) |
 | 2 | contribute | [Contribute](/t/nginx-ingress-integrator-docs-contributing-hacking/4512)  |
 | 2 | support-multiple-relations | [Support multiple relations](/t/nginx-ingress-integrator-docs-multiple-relations/5725) |

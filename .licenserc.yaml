@@ -8,8 +8,8 @@ header:
   paths:
     - '**'
   paths-ignore:
-    - '.github/**'
     - 'lib/**'
+    - '.github/**'
     - '**/.gitkeep'
     - '**/*.cfg'
     - '**/*.conf'

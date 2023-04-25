@@ -12,25 +12,25 @@ You will need:
 ## Creating the TLS secret
 
 For the sake of simplicity you'll create a self-signed SSL certificate for the tutorial, but feel free to add SSL
-certs of other types. 
-For the creation of the Certificate Authority key you'll execute:
+certificates of other types. 
+For the creation of the Certificate Authority key execute:
 ```
 OpenSSL genrsa -out ca.key 2048
 ```
-And for the creation of the cert itself:
+And for the creation of the certificate itself:
 ```
 openssl req -x509 -new -nodes -days 365 -key ca.key -out ca.crt -subj "/CN=exampledomain.com"
 ```
-With the CA key and cert created, you'll proceed to create the actual Kubernetes secret with:
+With the CA key and cert created, create the actual Kubernetes secret with:
 ```
 microk8s kubectl create secret tls my-tls-secret --key ca.key --cert ca.crt
 ```
-After the secret creation you can check and describe the secret with the following commands:
+After the secret creation you can check the secret by running:
 ```
 microk8s kubectl get secrets/my-tls-secret
 microk8s kubectl describe secrets/my-tls-secret
 ```
-At last, now relate the nginx-ingress-integrator charm with the microk8s TLS secret by the config option:
+At last, relate the nginx-ingress-integrator charm with the microk8s TLS secret by setting the config option:
 ```
 juju config nginx-ingress-integrator tls-secret-name="my-tls-secret"
 ```

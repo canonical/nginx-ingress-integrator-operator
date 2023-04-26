@@ -78,10 +78,11 @@ class _ConfigOrRelation:
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
-        :param model: The charm model.
-        :param config: The charm's configuration.
-        :param relation: One of the charm's relations, if any.
-        :param multiple_relations: If the charm has more than one relation.
+        Args:
+            model: The charm model.
+            config: The charm's configuration.
+            relation: One of the charm's relations, if any.
+            multiple_relations: If the charm has more than one relation.
         """
         super().__init__()
         self.model = model
@@ -90,7 +91,14 @@ class _ConfigOrRelation:
         self.multiple_relations = multiple_relations
 
     def _get_config(self, field: Any) -> Any:
-        """Get data from config."""
+        """Get data from config.
+
+        Args:
+            field: Config field.
+
+        Returns:
+            The field's content.
+        """
         # Config fields with a default of None don't appear in the dict
         config_data = self.config.get(field, None)
         # A value of False is valid in these fields, so check it's not a null-value instead
@@ -102,7 +110,14 @@ class _ConfigOrRelation:
         return None
 
     def _get_relation(self, field: Any) -> Any:
-        """Get data from the relation, if any."""
+        """Get data from the relation, if any.
+
+        Args:
+            field: Relation field.
+
+        Returns:
+            The field's content.
+        """
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
@@ -121,7 +136,15 @@ class _ConfigOrRelation:
         return None
 
     def _get_config_or_relation_data(self, field: Any, fallback: Any) -> Any:
-        """Get data from config or the ingress relation, in that order."""
+        """Get data from config or the ingress relation, in that order.
+
+        Args:
+            field: Config or relation field.
+            fallback: Value to return if the field is not found.
+
+        Returns:
+            The field's content or the fallback value if no field is found.
+        """
         data = self._get_config(field)
         if data is not None:
             return data
@@ -133,7 +156,15 @@ class _ConfigOrRelation:
         return fallback
 
     def _get_relation_data_or_config(self, field: Any, fallback: Any) -> Any:
-        """Get data from the ingress relation or config, in that order."""
+        """Get data from the ingress relation or config, in that order.
+
+        Args:
+            field: Config or relation field.
+            fallback: Value to return if the field is not found.
+
+        Returns:
+            The field's content or the fallback value if no field is found.
+        """
         data = self._get_relation(field)
         if data is not None:
             return data
@@ -318,6 +349,9 @@ class _ConfigOrRelation:
 
         Args:
             label: Custom label assigned to every service.
+
+        Returns:
+            A k8s service definition.
         """
         return kubernetes.client.V1Service(
             api_version="v1",
@@ -342,6 +376,9 @@ class _ConfigOrRelation:
 
         Args:
             label: Custom label assigned to every ingress.
+
+        Returns:
+            A k8s Ingress definition.
         """
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
@@ -425,13 +462,18 @@ class _ConfigOrRelation:
 
 
 class NginxIngressCharm(CharmBase):
-    """Charm the service."""
+    """Charm the service.
+
+    Attrs:
+        _authed: If the charm is authed or not
+        on: Ingress charm events to handle.
+    """
 
     _authed = False
     on = IngressCharmEvents()
 
     def __init__(self, *args) -> None:  # type: ignore[no-untyped-def]
-        """Init function for the class.
+        """Init method for the class.
 
         Args:
             args: Variable list of positional arguments passed to the parent constructor.
@@ -478,7 +520,11 @@ class NginxIngressCharm(CharmBase):
 
     @property
     def _all_config_or_relations(self) -> Any:
-        """Get all configuration and relation data."""
+        """Get all configuration and relation data.
+
+        Returns:
+            All configuration and relation data.
+        """
         all_relations = self.model.relations["ingress"] + self.model.relations["nginx-route"]
         if not all_relations:
             all_relations = [None]  # type: ignore[list-item]
@@ -490,12 +536,20 @@ class NginxIngressCharm(CharmBase):
 
     @property
     def _multiple_relations(self) -> bool:
-        """Return a boolean indicating if we're related to multiple applications."""
+        """Check if we're related to multiple applications.
+
+        Returns:
+            if we're related to multiple applications or not.
+        """
         return len(self.model.relations["ingress"]) + len(self.model.relations["nginx-route"]) > 1
 
     @property
     def _namespace(self) -> Any:
-        """Namespace for this ingress."""
+        """Namespace for this ingress.
+
+        Returns:
+            The namespace for this Ingress.
+        """
         # We're querying the first one here because this will always be the same
         # for all instances. It would be very unusual for a relation to specify
         # this (arguably we should remove this as a relation option), so if set
@@ -503,7 +557,11 @@ class NginxIngressCharm(CharmBase):
         return self._all_config_or_relations[0]._namespace
 
     def _describe_ingresses_action(self, event: Any) -> None:
-        """Handle the 'describe-ingresses' action."""
+        """Handle the 'describe-ingresses' action.
+
+        Args:
+            event: Juju event that fires this handler.
+        """
         api = self._networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         event.set_results({"ingresses": ingresses})
@@ -518,17 +576,29 @@ class NginxIngressCharm(CharmBase):
         self._authed = True
 
     def _core_v1_api(self) -> kubernetes.client.CoreV1Api:
-        """Use the v1 k8s API."""
+        """Use the v1 k8s API.
+
+        Returns:
+            The core v1 API.
+        """
         self.k8s_auth()
         return kubernetes.client.CoreV1Api()
 
     def _networking_v1_api(self) -> kubernetes.client.NetworkingV1Api:
-        """Use the v1 beta1 networking API."""
+        """Use the v1 beta1 networking API.
+
+        Returns:
+            The networking v1 API.
+        """
         self.k8s_auth()
         return kubernetes.client.NetworkingV1Api()
 
     def _report_service_ips(self) -> List[str]:
-        """Report on service IP(s) and return a list of them."""
+        """Report on service IP(s) and return a list of them.
+
+        Returns:
+            A list of service IPs.
+        """
         api = self._core_v1_api()
         services = api.list_namespaced_service(  # type: ignore[attr-defined]
             namespace=self._namespace
@@ -539,7 +609,11 @@ class NginxIngressCharm(CharmBase):
         ]
 
     def _report_ingress_ips(self) -> List[str]:
-        """Report on ingress IP(s) and return a list of them."""
+        """Report on ingress IP(s) and return a list of them.
+
+        Returns:
+            A list of Ingress IPs.
+        """
         api = self._networking_v1_api()
         # Wait up to `interval * count` seconds for ingress IPs.
         count, interval = _report_interval_count(), 1
@@ -559,7 +633,14 @@ class NginxIngressCharm(CharmBase):
         return ips
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation) -> bool:
-        """Check if the given config or relation has the required fields set."""
+        """Check if the given config or relation has the required fields set.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+
+        Returns:
+            If the config or relation class has all required fields or not.
+        """
         # We use the same names in _ConfigOrRelation, but with _ instead of -.
         field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
         return all(getattr(conf_or_rel, f) for f in field_names)
@@ -568,8 +649,7 @@ class NginxIngressCharm(CharmBase):
         """Delete services and ingresses that are no longer used.
 
         Args:
-            current_svc_names: service names set by config or relation data
-            current_svc_hostnames: service hostnames set by config or relation data
+            current_svc_names: service names set by config or relation data.
         """
         api = self._core_v1_api()
         all_services = api.list_namespaced_service(  # type: ignore[attr-defined]
@@ -608,7 +688,11 @@ class NginxIngressCharm(CharmBase):
                 self._define_service(conf_or_rel)
 
     def _define_service(self, conf_or_rel: _ConfigOrRelation) -> None:
-        """Create or update a service in kubernetes."""
+        """Create or update a service in kubernetes.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+        """
         api = self._core_v1_api()
         body = conf_or_rel._get_k8s_service(self.app.name)
         services = api.list_namespaced_service(  # type: ignore[attr-defined]
@@ -637,7 +721,11 @@ class NginxIngressCharm(CharmBase):
             )
 
     def _remove_service(self, conf_or_rel: _ConfigOrRelation) -> None:
-        """Remove the created service in kubernetes."""
+        """Remove the created service in kubernetes.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+        """
         api = self._core_v1_api()
         services = api.list_namespaced_service(  # type: ignore[attr-defined]
             namespace=self._namespace
@@ -654,7 +742,12 @@ class NginxIngressCharm(CharmBase):
             )
 
     def _look_up_and_set_ingress_class(self, api: Any, body: Any) -> None:
-        """Set the configured ingress class, otherwise the cluster's default ingress class."""
+        """Set the configured ingress class, otherwise the cluster's default ingress class.
+
+        Args:
+            api: Kubernetes API to perform operations on.
+            body: Ingress body.
+        """
         ingress_class = self.config["ingress-class"]
         if not ingress_class:
             defaults = [
@@ -713,10 +806,11 @@ class NginxIngressCharm(CharmBase):
         The Ingress-related data is retrieved from the Charm's configuration and from the ingress
         relations.
 
-        :param excluded_relation: The relation for which Ingress rules should not be created.
-            For example, when a relation is broken, Ingress rules for it are no longer
-            necessary, hence, it is to be excluded. Additionally, any Ingress objects that it
-            required and that are no longer needed by other relations will be deleted.
+        Args:
+            excluded_relation: The relation for which Ingress rules should not be created.
+                For example, when a relation is broken, Ingress rules for it are no longer
+                necessary, hence, it is to be excluded. Additionally, any Ingress objects that it
+                required and that are no longer needed by other relations will be deleted.
         """
         config_or_relations = self._all_config_or_relations
         if excluded_relation:
@@ -752,7 +846,20 @@ class NginxIngressCharm(CharmBase):
             self._define_ingress(ingress)
 
     def _process_ingresses(self, ingresses: List) -> List:
-        """Process ingresses, or raise an exception if there are unresolvable conflicts."""
+        """Process ingresses, or raise an exception if there are unresolvable conflicts.
+
+        Args:
+            ingresses: List of ingresses to process.
+
+        Returns:
+            A list of fully processed ingress objects.
+
+        Raises:
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: if an invalid backend protocol is used.
+        """
         # If there are Ingress rules for the same service-hostname, we need to squash those
         # rules together. This will be used to group the rules by their host.
         ingress_paths = {}
@@ -825,14 +932,31 @@ class NginxIngressCharm(CharmBase):
         return ingress_objs
 
     def _ingress_name(self, hostname: str) -> str:
-        """Return the Kubernetes Ingress Resource name based on the given hostname."""
+        """Return the Kubernetes Ingress Resource name based on the given hostname.
+
+        Args:
+            hostname: The base hostname to build the ingress name for.
+
+        Returns:
+            A formatted ingress name.
+        """
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
         return f"{ingress_name}-ingress"
 
     def _create_k8s_ingress_obj(
         self, svc_hostname: str, initial_ingress: Any, paths: Any, label: str
     ) -> Any:
-        """Create a Kubernetes Ingress Resources with the given data."""
+        """Create a Kubernetes Ingress Resources with the given data.
+
+        Args:
+            svc_hostname: Ingress service hostname.
+            initial_ingress: Initial ingress previously built.
+            paths: Ingress paths.
+            label: Ingress label.
+
+        Returns:
+            An Ingress object.
+        """
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
             host=svc_hostname,
@@ -862,7 +986,11 @@ class NginxIngressCharm(CharmBase):
         )
 
     def _define_ingress(self, body: Any) -> None:
-        """Create or update an ingress in kubernetes."""
+        """Create or update an ingress in kubernetes.
+
+        Args:
+            body: Ingress resource body to configure.
+        """
         api = self._networking_v1_api()
         self._look_up_and_set_ingress_class(api, body)
         ingress_name = body.metadata.name
@@ -890,7 +1018,11 @@ class NginxIngressCharm(CharmBase):
             )
 
     def _remove_ingress(self, ingress_name: str) -> None:
-        """Remove ingress resource."""
+        """Remove ingress resource.
+
+        Args:
+            ingress_name: Ingress resource name.
+        """
         api = self._networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if ingress_name in [x.metadata.name for x in ingresses.items]:
@@ -916,7 +1048,14 @@ class NginxIngressCharm(CharmBase):
         self._delete_unused_ingresses(svc_hostnames)
 
     def _on_config_changed(self, _: HookEvent) -> None:
-        """Handle the config changed event."""
+        """Handle the config changed event.
+
+        Raises:
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: if an invalid backend protocol is used.
+        """
         msg = ""
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
@@ -974,7 +1113,18 @@ class NginxIngressCharm(CharmBase):
         return kubernetes.__version__
 
     def _on_ingress_broken(self, event: Any) -> None:
-        """Handle the ingress broken event."""
+        """Handle the ingress broken event.
+
+        Args:
+            event: The event that fires this method.
+
+        Raises:
+            An error if there are insufficient permissions to delete an ingress.
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: an invalid backend protocol.
+        """
         conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation, self._multiple_relations)
         if self.unit.is_leader() and conf_or_rel._ingress_name:
             try:

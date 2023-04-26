@@ -283,6 +283,7 @@ class IngressBaseProvides(Object):
 
         Args:
             charm: The charm that provides the ingress-proxy relation.
+            relation_name: The name of the relation.
         """
         super().__init__(charm, relation_name)
         self.charm = charm
@@ -348,9 +349,6 @@ class IngressBaseProvides(Object):
 class IngressProvides(IngressBaseProvides):
     """Class containing the functionality for the 'provides' side of the 'ingress' relation.
 
-    Attrs:
-        charm: The charm that provides the ingress relation.
-
     Hook events observed:
         - relation-changed
     """
@@ -386,9 +384,6 @@ class IngressProvides(IngressBaseProvides):
 
 class IngressProxyProvides(IngressBaseProvides):
     """Class containing the functionality for the 'provides' side of the 'ingress-proxy' relation.
-
-    Attrs:
-        charm: The charm that provides the ingress-proxy relation.
 
     Hook events observed:
         - relation-changed

@@ -12,6 +12,9 @@ def invalid_hostname_check(hostname: str) -> bool:
 
     Args:
         hostname: Ingress hostname
+
+    Returns:
+        if the hostname is valid or not
     """
     # This regex comes from the error message kubernetes shows when trying to set an
     # invalid hostname.
@@ -30,6 +33,9 @@ def is_backend_protocol_valid(backend_protocol: str) -> bool:
 
     Args:
         backend_protocol: Ingress hostname
+
+    Returns:
+        if the backend protocol is accepted or not
     """
     accepted_values = ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI")
     return backend_protocol in accepted_values

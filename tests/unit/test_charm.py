@@ -21,6 +21,8 @@ from helpers import invalid_hostname_check
 
 
 class TestCharm(unittest.TestCase):
+    """Class for charm testing."""
+
     def setUp(self):
         """Setup the harness object."""
         self.harness = Harness(NginxIngressCharm)
@@ -1285,13 +1287,24 @@ TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1IngressClassList(
 
 
 def _make_mock_api_list_ingress_class(return_value):
+    """Mock a list of Ingress classes.
+
+    Args:
+        return_value: Value to return as part of the Ingress class API mock.
+
+    Returns:
+        Mock API that simulates the list_ingress_class method.
+    """
     mock_api = MagicMock()
     mock_api.list_ingress_class.return_value = return_value
     return mock_api
 
 
 class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
+    """Class for Ingress class testing."""
+
     def setUp(self):
+        """Setup method for the class."""
         self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
@@ -1338,6 +1351,8 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
 
 
 class TestCharmMultipleRelations(unittest.TestCase):
+    """Class for multiple relations testing."""
+
     def setUp(self):
         """Setup the harness object."""
         self.harness = Harness(NginxIngressCharm)
@@ -1345,6 +1360,15 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.begin()
 
     def _add_ingress_relation(self, relator_name, rel_data):
+        """Add an Ingress relation.
+
+        Args:
+            relator_name: Name of the charm to relate with Ingress
+            rel_data: Relation data.
+
+        Returns:
+            The relation id.
+        """
         relation_id = self.harness.add_relation("ingress", relator_name)
         self.harness.add_relation_unit(relation_id, "%s/0" % relator_name)
 
@@ -1767,6 +1791,14 @@ class TestCharmMultipleRelations(unittest.TestCase):
         """
 
         def get_item_lb(id):
+            """Get a mock IP.
+
+            Args:
+                id: Auxiliary argument.
+
+            Returns:
+                localhost mock IP.
+            """
             mock_ip = mock.Mock()
             mock_ip.ip = "127.0.0.1"
             return mock_ip
@@ -2156,6 +2188,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
 
 class TestHelpers:
+    """Class for testing helper methods."""
+
     @pytest.mark.parametrize(
         "hostname, expected",
         [

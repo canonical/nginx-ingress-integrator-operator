@@ -17,7 +17,15 @@ from ops.testing import Harness
 
 
 class NginxIngressConsumerCharm(CharmBase):
+    """Class for consumer charm testing."""
+
     def __init__(self, *args, config_dict=None):
+        """Init method for the class.
+
+        Args:
+            args: Variable list of positional arguments passed to the parent constructor.
+            config_dict: Configuration options for the charm.
+        """
         super().__init__(*args)
         self.ingress = IngressRequires(self, config_dict or {})
 
@@ -37,7 +45,14 @@ class TestCharmInit(unittest.TestCase):
         config_dict: Dict[str, str] = {}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
         self.harness = Harness(CharmWithConfigDict, meta=META)
@@ -58,7 +73,14 @@ class TestCharmInit(unittest.TestCase):
         config_dict = {"service-namespace": service_namespace}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
         # CharmType in Harness should be changed to fix this error
@@ -89,7 +111,14 @@ class TestCharmInit(unittest.TestCase):
         }
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
         self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
@@ -128,7 +157,14 @@ class TestCharmInit(unittest.TestCase):
         }
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
         self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
@@ -142,7 +178,10 @@ class TestCharmInit(unittest.TestCase):
 
 
 class TestCharm(unittest.TestCase):
+    """Class for charm testing."""
+
     def setUp(self):
+        """Setup method for the class."""
         self.harness = Harness(
             NginxIngressConsumerCharm,
             meta=META,

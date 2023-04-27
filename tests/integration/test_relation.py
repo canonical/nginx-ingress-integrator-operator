@@ -53,15 +53,24 @@ async def anycharm_update_ingress_config_fixture(request, ops_test, run_action):
 @pytest.mark.usefixtures("build_and_deploy")
 async def test_delete_unused_ingresses(model: Model, ops_test: OpsTest, app_name: str):
     """
-    arrange: given charm has been built, deployed and related to a dependent application
-    act: when the service-hostname is changed and when is back to previous value
-    assert: then the workload status is active and the unused ingress is deleted
+    arrange: given charm has been built, deployed and related to a dependent application.
+    act: when the service-hostname is changed and when is back to previous value.
+    assert: then the workload status is active and the unused ingress is deleted.
     """
     kubernetes.config.load_kube_config()
     api_networking = kubernetes.client.NetworkingV1Api()
     model_name = ops_test.model_name
 
     def assert_svc_hostnames(expected: Tuple[str, ...], timeout=300):
+        """Assert if the service hostnames match the expected ones.
+
+        Args:
+            expected: Expected service hostnames.
+            timeout: Time limit to retry the request.
+
+        Raises:
+            AssertionError: The assertion will fail if the request fails.
+        """
         time_start = time.time()
         while True:
             all_ingresses = api_networking.list_namespaced_ingress(namespace=model_name)
@@ -97,6 +106,14 @@ async def test_delete_unused_services(model: Model, ops_test: OpsTest):
     created_by_label = f"{CREATED_BY_LABEL}={INGRESS_APP_NAME}"
 
     def compare_svc_names(expected: List[str]) -> bool:
+        """Compare Ingress service names.
+
+        Args:
+            expected: Expected service names.
+
+        Returns:
+            If the existing service names match the expected ones or not.
+        """
         all_services = api_core.list_namespaced_service(
             namespace=model_name, label_selector=created_by_label
         )
@@ -153,6 +170,11 @@ async def test_owasp_modsecurity_crs_relation(model: Model, ops_test: OpsTest, r
     model_name = ops_test.model_name
 
     def get_ingress_annotation():
+        """Get annotations if an specific Ingress.
+
+        Returns:
+            Annotations from an Ingress.
+        """
         return kube.read_namespaced_ingress(NEW_INGRESS, namespace=model_name).metadata.annotations
 
     ingress_annotations = get_ingress_annotation()

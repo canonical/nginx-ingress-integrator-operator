@@ -1,6 +1,5 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
-
 """Integration test relation file."""
 
 import asyncio
@@ -25,7 +24,17 @@ def gen_src_overwrite(
     service_port: int = 8080,
     additional_hostnames: typing.Optional[str] = None,
 ) -> str:
-    """Generate the src-overwrite config value for testing nginx-route relation."""
+    """Generate the src-overwrite config value for testing nginx-route relation.
+
+    Args:
+        service_hostname: Ingress service hostname.
+        service_name: Ingress service name.
+        service_port: Ingress service port
+        additional_hostnames: Ingress additional hostnames
+
+    Returns:
+        written src-overwrite variable.
+    """
     nginx_route_lib_path = "lib/charms/nginx_ingress_integrator/v0/nginx_route.py"
     nginx_route_lib = Path(nginx_route_lib_path).read_text(encoding="utf8")
     any_charm_script = Path("tests/integration/any_charm_nginx_route.py").read_text(
@@ -47,7 +56,16 @@ def gen_src_overwrite(
 
 
 def requests_get(url: str, host_header: str, retry_timeout: int = 120) -> requests.Response:
-    """Requests get, but will retry when the response status code is not 200."""
+    """Requests get, but will retry when the response status code is not 200.
+
+    Args:
+        url: URL to request.
+        host_header: Host header for the request.
+        retry_timeout: time to retry the request if the request fails.
+
+    Returns:
+        An HTTP response for the request.
+    """
     time_start = time.time()
     while True:
         response = requests.get(url, headers={"Host": host_header}, timeout=5)
@@ -58,7 +76,7 @@ def requests_get(url: str, host_header: str, retry_timeout: int = 120) -> reques
 
 @pytest_asyncio.fixture(scope="module")
 async def build_and_deploy(model: Model, deploy_any_charm, run_action, build_and_deploy_ingress):
-    """build and deploy nginx-ingress-integrator charm.
+    """Build and deploy nginx-ingress-integrator charm.
 
     Also deploy and relate an any-charm application for test purposes.
 
@@ -203,7 +221,7 @@ async def test_update_additional_hosts(run_action):
 @pytest.mark.usefixtures("build_and_deploy")
 async def test_missing_field(model: Model, run_action):
     """
-    arrange: given charm has been built and deployed,
+    arrange: given charm has been built and deployed.
     act: update the nginx-route relation data with service-name missing.
     assert: Nginx ingress integrator charm should enter blocked status.
     """

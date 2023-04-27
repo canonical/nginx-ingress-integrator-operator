@@ -153,7 +153,9 @@ class _NginxRouteRequirer(ops.framework.Object):
             relation_app_data.update({k: str(v) for k, v in self._config.items()})
 
 
-def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches
+# C901 is ignored since the method has too many ifs but wouldn't be
+# necessarily good to reduce to smaller methods.
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # noqa: C901
     *,
     charm: ops.charm.CharmBase,
     service_hostname: str,
@@ -303,6 +305,9 @@ class _NginxRouteProvider(ops.framework.Object):
 
         Args:
             event: Event triggering the relation-changed hook for the relation.
+
+        Raises:
+            RuntimeError: if _on_relation changed is triggered by a broken relation.
         """
         # `self.unit` isn't available here, so use `self.model.unit`.
         if not self._charm.model.unit.is_leader():
@@ -376,6 +381,10 @@ def provide_nginx_route(
         on_nginx_route_broken: Callback function for the nginx-route-broken event.
         nginx_route_relation_name: Specifies the relation name of the relation handled by this
             provider class. The relation must have the nginx-route interface.
+
+    Raises:
+        RuntimeError: If provide_nginx_route was invoked twice with
+            the same nginx-route relation name
     """
     if __provider_references.get(charm, {}).get(nginx_route_relation_name) is not None:
         raise RuntimeError(

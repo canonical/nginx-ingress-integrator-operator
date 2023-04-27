@@ -49,6 +49,16 @@ def run_action(ops_test: OpsTest):
     """Create a async function to run action and return results."""
 
     async def _run_action(application_name, action_name, **params):
+        """Run a juju action.
+
+        Args:
+            application_name: Name of the Juju application.
+            action_name: Name of the action to execute.
+            params: Extra parameters for the action.
+
+        Returns:
+            The results of the action.
+        """
         application = ops_test.model.applications[application_name]
         action = await application.units[0].run_action(action_name, **params)
         await action.wait()
@@ -64,6 +74,11 @@ def wait_for_ingress(ops_test: OpsTest):
     kube = kubernetes.client.NetworkingV1Api()
 
     async def _wait_for_ingress(ingress_name):
+        """Wait for the Ingress to be configured.
+
+        Args:
+            ingress_name: Name of the Ingress.
+        """
         await ops_test.model.block_until(
             lambda: ingress_name
             in [
@@ -86,6 +101,14 @@ def get_ingress_annotation(ops_test: OpsTest):
     model_name = ops_test.model_name
 
     def _get_ingress_annotation(ingress_name: str):
+        """Get the annotations from an Ingress.
+
+        Args:
+            ingress_name: Name of the Ingress.
+
+        Returns:
+            the list of annotations from the requested Ingress.
+        """
         return kube.read_namespaced_ingress(
             ingress_name, namespace=model_name
         ).metadata.annotations
@@ -99,6 +122,12 @@ async def wait_ingress_annotation(ops_test: OpsTest, get_ingress_annotation):
     assert ops_test.model
 
     async def _wait_ingress_annotation(ingress_name: str, annotation_name: str):
+        """Wait until the ingress annotations are done.
+
+        Args:
+            ingress_name: Name of the ingress.
+            annotation_name: Name of the ingress' annotation.
+        """
         await ops_test.model.block_until(
             lambda: annotation_name in get_ingress_annotation(ingress_name),
             wait_period=5,
@@ -110,9 +139,19 @@ async def wait_ingress_annotation(ops_test: OpsTest, get_ingress_annotation):
 
 @pytest_asyncio.fixture(scope="module")
 async def build_and_deploy_ingress(model: Model, ops_test: OpsTest):
-    """Create an async function to build the nginx ingress integrator charm then deploy it."""
+    """Create an async function to build the nginx ingress integrator charm then deploy it.
+
+    Args:
+        model: Juju model for the test.
+        ops_test: Operator Framework for the test.
+    """
 
     async def _build_and_deploy_ingress():
+        """Build and deploy the Ingress charm.
+
+        Returns:
+            The fully deployed Ingress charm.
+        """
         charm = await ops_test.build_charm(".")
         return await model.deploy(
             str(charm), application_name="ingress", series="focal", trust=True
@@ -129,6 +168,11 @@ async def deploy_any_charm(model: Model):
     """
 
     async def _deploy_any_charm(src_overwrite):
+        """Deploy the any-charm for testing.
+
+        Args:
+            src_overwrite: files to overwrite for testing purposes.
+        """
         await model.deploy(
             "any-charm",
             application_name="any",
@@ -141,7 +185,7 @@ async def deploy_any_charm(model: Model):
 
 @pytest_asyncio.fixture(scope="module")
 async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, deploy_any_charm):
-    """build and deploy nginx-ingress-integrator charm.
+    """Build and deploy nginx-ingress-integrator charm.
 
     Also deploy and relate an any-charm application for test purposes.
 

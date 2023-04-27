@@ -56,7 +56,7 @@ class AnyCharm(AnyCharmBase):
         self.nginx_route.update_config(nginx_route_config)
 
     def _has_required_fields(self, rel: Dict) -> bool:
-        """Check for required fields in relation
+        """Check for required fields in relation.
 
         Args:
             rel: relation to check
@@ -67,7 +67,7 @@ class AnyCharm(AnyCharmBase):
         return all(key in rel for key in (SVC_HOSTNAME, SVC_NAME, SVC_PORT))
 
     def _has_app_data(self) -> bool:
-        """Check for app in relation data
+        """Check for app in relation data.
 
         Returns:
             Returns true if app data exist
@@ -75,7 +75,7 @@ class AnyCharm(AnyCharmBase):
         return self.app in self.model.relations["ingress"][0].data
 
     def _has_ingress_relation(self) -> bool:
-        """Check for ingress relation
+        """Check for ingress relation.
 
         Returns:
             Returns true if ingress relation exist
@@ -83,7 +83,7 @@ class AnyCharm(AnyCharmBase):
         return "ingress" in self.model.relations and len(self.model.relations["ingress"]) > 0
 
     def ingress_config(self) -> Dict:
-        """Get ingress config from relation or default
+        """Get ingress config from relation or default.
 
         Returns:
             The ingress config to be used

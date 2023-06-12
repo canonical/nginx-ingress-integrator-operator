@@ -15,7 +15,7 @@ For the sake of simplicity you'll create a self-signed SSL certificate for the t
 certificates of other types. 
 For the creation of the Certificate Authority key execute:
 ```
-OpenSSL genrsa -out ca.key 2048
+openssl genrsa -out ca.key 2048
 ```
 And for the creation of the certificate itself:
 ```

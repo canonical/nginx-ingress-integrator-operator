@@ -1,4 +1,11 @@
-To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t/the-future-of-charmed-operators-on-kubernetes/4361), we’ve created this nginx-ingress-integrator charm. To use this charm you'll need to have an Nginx Ingress Controller deployed into your K8s cluster.
+A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) deploying and managing external access to HTTP/HTTPS services in a Kubernetes cluster via an Nginx Ingress resource. This requires the Kubernetes cluster in question to have an [Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it.
+
+This charm simplifies exposing services running inside a Kubernetes cluster to external clients. It offers TLS termination as well as easy configuration of a number of advanced features including rate limiting, restricting access to specific client IP source ranges, and OWASP ModSecurity Core Rule Set (CRS).
+
+As such, the charm makes it easy for charm developers to provide external access to their HTTP workloads in Kubernetes by easy integration offered via [the charm's nginx_route library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route).
+
+For DevOps and SRE teams, providing ingress for charms that support a relation to this charm will be possible via a simple `juju relate` command.
+
 
 # Navigation
 
@@ -20,6 +27,14 @@ To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t
 | 2 | architecture | [Architecture](/t/nginx-ingress-integrator-docs-charm-architecture/7391) |
 | 2 | what-is-ingress | [What is Ingress?](/t/nginx-ingress-integrator-docs-ingress-explanation/7392) | 
 |  | roadmap | [Roadmap](/t/nginx-ingress-integrator-docs-roadmap/7432) |
+
+
+# Redirects
+
+[details=Mapping table]
+| Path | Location |
+| ---- | -------- |
+[/details]
 
 
 # Redirects

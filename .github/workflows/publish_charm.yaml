@@ -12,11 +12,10 @@ on:
   push:
     branches:
       - main
-      - track/**
 
 jobs:
   publish-to-edge:
-    uses: canonical/operator-workflows/.github/workflows/test_and_publish_charm.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit
     with:
-      integration-test-modules: '["test_relation"]'
+      channel: latest/edge

@@ -6,6 +6,11 @@ As such, the charm makes it easy for charm developers to provide external access
 
 For DevOps and SRE teams, providing ingress for charms that support a relation to this charm will be possible via a simple `juju relate` command.
 
+## Contributing to this documentation
+
+Documentation is an important part of this project, and we take the same open-source approach to the documentation as the code. As such, we welcome community contributions, suggestions and constructive feedback on our documentation. Our documentation is hosted on the [Charmhub forum](https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511) to enable easy collaboration. Please use the "Help us improve this documentation" links on each documentation page to either directly change something you see that's wrong, ask a question, or make a suggestion about a potential change via the comments section.
+
+If there's a particular area of documentation that you'd like to see that's missing, please [file a bug](https://github.com/canonical/nginx-ingress-integrator-operator/issues).
 
 # Navigation
 

@@ -12,6 +12,13 @@ Documentation is an important part of this project, and we take the same open-so
 
 If there's a particular area of documentation that you'd like to see that's missing, please [file a bug](https://github.com/canonical/nginx-ingress-integrator-operator/issues).
 
+## In this documentation
+
+| | |
+|--|--|
+|  [Tutorials](https://charmhub.io/nginx-ingress-integrator/docs/getting-started)</br>  Get started - a hands-on introduction to using the Charmed NGINX Integrator operator for new users </br> |  [How-to guides](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) </br> Step-by-step guides covering key operations and common tasks |
+| [Reference](https://charmhub.io/nginx-ingress-integrator/actions) </br> Technical information - specifications, APIs, architecture | [Explanation](https://charmhub.io/nginx-ingress-integrator/docs/architecture) </br> Concepts - discussion and clarification of key topics  |
+
 # Navigation
 
 | Level | Path     | Navlink                         |

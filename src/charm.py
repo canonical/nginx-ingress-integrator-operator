@@ -19,7 +19,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (
     IngressProvides,
 )
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from ops.charm import CharmBase, HookEvent
+from ops.charm import CharmBase, HookEvent, StartEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
@@ -481,6 +481,7 @@ class NginxIngressCharm(CharmBase):
         super().__init__(*args)
         self.framework.observe(self.on.config_changed, self._on_config_changed_with_warning)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
+        self.framework.observe(self.on.start, self._on_start)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
@@ -517,6 +518,15 @@ class NginxIngressCharm(CharmBase):
                 f"please update to nginx-route relation; {status.message}"
             )
             self.unit.status = status.from_name(status.name, warning)
+
+    def _on_start(self, _: StartEvent) -> None:
+        """Handle the start event."""
+        # We need to set ActiveStatus here because this is a workload-less
+        # charm, so there's no pebble-ready event to react to. This means this
+        # is the only event (outside of update-status) that is fired if a pod is
+        # restarted by the k8s cluster. If we don't do anything here the charm
+        # would remain in maintenance status.
+        self.unit.status = ActiveStatus()
 
     @property
     def _all_config_or_relations(self) -> Any:

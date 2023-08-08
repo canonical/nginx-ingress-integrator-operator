@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import kubernetes
 import kubernetes.client
 import pytest
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
 from charm import (
@@ -28,6 +28,16 @@ class TestCharm(unittest.TestCase):
         self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+
+    def test_start(self):
+        """
+        arrange: when the charm is first initialised
+        act: we then run the start hook
+        assert: we change from Maintenance to Active status
+        """
+        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus())
+        self.harness.charm.on.start.emit()
+        self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses")
     @patch("charm.NginxIngressCharm._delete_unused_services")

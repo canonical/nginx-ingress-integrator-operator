@@ -19,7 +19,7 @@ from charms.nginx_ingress_integrator.v0.ingress import (
     IngressProvides,
 )
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from ops.charm import CharmBase, HookEvent
+from ops.charm import CharmBase, HookEvent, StartEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
@@ -519,7 +519,7 @@ class NginxIngressCharm(CharmBase):
             )
             self.unit.status = status.from_name(status.name, warning)
 
-    def _on_start(self, _: Any) -> None:
+    def _on_start(self, _: StartEvent) -> None:
         """Handle the start event."""
         # We need to set ActiveStatus here because this is a workload-less
         # charm, so there's no pebble-ready event to react to. This means this

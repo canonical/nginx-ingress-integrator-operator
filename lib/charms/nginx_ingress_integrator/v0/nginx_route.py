@@ -34,12 +34,12 @@ As an example, add the following to `src/charm.py`:
 ```python
 from charms.nginx_ingress_integrator.v0.nginx_route import NginxRouteRequirer
 
-# In your charm's `__init__` method.
+# In your charm's `__init__` method (assuming your app is listening on port 8080).
 require_nginx_route(
     charm=self,
-    service_hostname=self.config["external_hostname"],
+    service_hostname=self.app.name,
     service_name=self.app.name,
-    service_port=80
+    service_port=8080
 )
 
 ```
@@ -52,6 +52,23 @@ requires:
 You _must_ require nginx route as part of the `__init__` method
 rather than, for instance, a config-changed event handler, for the relation
 changed event to be properly handled.
+
+In the example above we're setting `service_hostname` (which translates to the
+external hostname for the application when related to nginx-ingress-integrator)
+to `self.app.name` here. This ensures by default the charm will be available on
+the name of the deployed juju application, but can be overridden in a
+production deployment by setting `service-hostname` on the
+nginx-ingress-integrator charm. For example:
+```bash
+juju deploy nginx-ingress-integrator
+juju deploy my-charm
+juju relate nginx-ingress-integrator my-charm:nginx-route
+# The service is now reachable on the ingress IP(s) of your k8s cluster at
+# 'http://my-charm'.
+juju config nginx-ingress-integrator service-hostname='my-charm.example.com'
+# The service is now reachable on the ingress IP(s) of your k8s cluster at
+# 'http://my-charm.example.com'.
+```
 """
 import logging
 import typing
@@ -69,7 +86,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 2
+LIBPATCH = 3
 
 __all__ = ["require_nginx_route", "provide_nginx_route"]
 

@@ -520,7 +520,11 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = status.from_name(status.name, warning)
 
     def _on_start(self, event: Any) -> None:
-        """Handle the start event."""
+        """Handle the start event.
+
+        Args:
+            event: not used.
+        """
         # We need to set ActiveStatus here because this is a workload-less
         # charm, so there's no pebble-ready event to react to. This means this
         # is the only event (outside of update-status) that is fired if a pod is

@@ -17,6 +17,8 @@ from charm import (
     INVALID_HOSTNAME_MSG,
     ConflictingAnnotationsError,
     ConflictingRoutesError,
+    InvalidBackendProtocolError,
+    InvalidHostnameError,
     NginxIngressCharm,
 )
 from helpers import invalid_hostname_check
@@ -869,6 +871,20 @@ class TestCharm(unittest.TestCase):
                 "Duplicate route found; cannot add ingress. Run juju debug-log for details."
             ),
         ),
+
+    def test_on_ingress_relation_invalid_hostname(self):
+        """Test invalid hostname error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidHostnameError(),
+            BlockedStatus(INVALID_HOSTNAME_MSG),
+        )
+
+    def test_on_ingress_relation_invalid_backend_protocol(self):
+        """Test invalid backend protocol on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidBackendProtocolError(),
+            BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG),
+        )
 
     @patch("charm.NginxIngressCharm._networking_v1_api")
     @patch("charm.NginxIngressCharm._core_v1_api")

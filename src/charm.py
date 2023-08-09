@@ -573,6 +573,10 @@ class NginxIngressCharm(CharmBase):
         dedup_ingress_relations = []
         for relation in ingress_relations:
             if key(relation) in nginx_route_relation_keys:
+                LOGGER.warning(
+                    "legacy ingress relation from app %s is shadowed by nginx-route relation",
+                    relation.app,
+                )
                 continue
             dedup_ingress_relations.append(relation)
         return nginx_route_relations + dedup_ingress_relations

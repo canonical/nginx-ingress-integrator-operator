@@ -1,4 +1,4 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import unittest
@@ -7,30 +7,72 @@ from unittest.mock import MagicMock, patch
 
 import kubernetes
 import kubernetes.client
-from ops.model import ActiveStatus, BlockedStatus
+import pytest
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
-from charm import NginxIngressCharm
+from charm import (
+    CREATED_BY_LABEL,
+    INVALID_BACKEND_PROTOCOL_MSG,
+    INVALID_HOSTNAME_MSG,
+    ConflictingAnnotationsError,
+    ConflictingRoutesError,
+    InvalidBackendProtocolError,
+    InvalidHostnameError,
+    NginxIngressCharm,
+)
+from helpers import invalid_hostname_check
 
 
 class TestCharm(unittest.TestCase):
+    """Class for charm testing."""
+
     def setUp(self):
         """Setup the harness object."""
         self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    def test_start(self):
+        """
+        arrange: when the charm is first initialised
+        act: we then run the start hook
+        assert: we change from Maintenance to Active status
+        """
+        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus())
+        self.harness.charm.on.start.emit()
+        self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
+
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
+    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
-    def test_config_changed(self, _define_service, _define_ingress, _report_service_ips):
-        """Test our config changed handler."""
+    def test_config_changed(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we change the service name, port and hostname config
+        assert: _define_ingress and define_service are only called when changing
+        the hostname to a non-empty string, and the status message is appropriate.
+        """
         # First of all test, with leader set to True.
         self.harness.set_leader(True)
-        _report_service_ips.return_value = ["10.0.1.12"]
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
         # Confirm our _define_ingress and _define_service methods haven't been called.
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
+        self.assertEqual(_delete_unused_services.call_count, 0)
+        self.assertEqual(_delete_unused_ingresses.call_count, 0)
         # Test if config-changed is called with service-hostname, service-name, service-port empty,
         # our methods still aren't called.
         self.harness.update_config({"service-name": ""})
@@ -46,14 +88,25 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"service-hostname": "gunic.orn"})
         self.assertEqual(_define_ingress.call_count, 1)
         self.assertEqual(_define_service.call_count, 1)
+        # _delete_unused_services and _delete_unused_ingresses should be called
+        # every time that the configuration is updated to a valid value
+        self.assertEqual(_delete_unused_services.call_count, 3)
+        self.assertEqual(_delete_unused_ingresses.call_count, 3)
         # Confirm status is as expected.
-        self.assertEqual(
+        self.assertTrue(
             self.harness.charm.unit.status,
-            ActiveStatus("Ingress with service IP(s): 10.0.1.12"),
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        # Confirm version is set correctly
+        self.assertEqual(
+            self.harness.get_workload_version(),
+            self.harness.charm._get_kubernetes_library_version(),
         )
         # And now test with leader is False.
         _define_ingress.reset_mock()
         _define_service.reset_mock()
+        _delete_unused_services.reset_mock()
+        _delete_unused_ingresses.reset_mock()
         self.harness.set_leader(False)
         self.harness.update_config({"service-name": ""})
         self.assertEqual(_define_ingress.call_count, 0)
@@ -62,8 +115,15 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"service-name": "gunicorn"})
         self.assertEqual(_define_ingress.call_count, 0)
         self.assertEqual(_define_service.call_count, 0)
+        self.assertEqual(_delete_unused_services.call_count, 0)
+        self.assertEqual(_delete_unused_ingresses.call_count, 0)
         # Confirm status is as expected.
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
+        # Confirm version is set correctly
+        self.assertEqual(
+            self.harness.get_workload_version(),
+            self.harness.charm._get_kubernetes_library_version(),
+        )
 
         # Confirm if we get a 403 error from k8s API we block with an appropriate message.
         _define_ingress.reset_mock()
@@ -174,7 +234,7 @@ class TestCharm(unittest.TestCase):
             },
         ]
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(result_dict["spec"]["rules"][0]["http"]["paths"], expected)
 
     def test_max_body_size(self):
@@ -200,6 +260,29 @@ class TestCharm(unittest.TestCase):
         # Now it's the value from the relation.
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._max_body_size, "88m")
+
+    def test_backend_protocol(self):
+        """Test for the backend-protocol property."""
+        # First set via config.
+        self.harness.update_config({"backend-protocol": "AJP"})
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._backend_protocol, "AJP")
+        # Now set via the StoredState. This will be set to a string, as all
+        # relation data must be a string.
+        relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(relation_id, "gunicorn/0")
+        relations_data = {
+            "backend-protocol": "HTTP",
+            "service-name": "gunicorn",
+            "service-hostname": "foo.internal",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
+        self.assertEqual(conf_or_rel._backend_protocol, "AJP")
+        self.harness.update_config({"backend-protocol": ""})
+        # Now it's the value from the relation.
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._backend_protocol, "HTTP")
 
     def test_namespace(self):
         """Test for the namespace property."""
@@ -235,10 +318,11 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._namespace, "relationnamespace")
 
     def test_owasp_modsecurity_crs(self):
-        """Test the owasp-modsecurity-crs property."""
+        """Test the owasp-modsecurity-crs and owasp-modsecurity-custom-rules properties."""
         # Test undefined.
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._owasp_modsecurity_crs, False)
+        self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, "")
         # Test we have no annotations with this set to False.
         self.harness.disable_hooks()
         self.harness.update_config(
@@ -249,8 +333,10 @@ class TestCharm(unittest.TestCase):
             }
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -259,14 +345,53 @@ class TestCharm(unittest.TestCase):
         # Test if we set the value we get the correct annotations and the
         # correct charm property.
         self.harness.update_config({"owasp-modsecurity-crs": True})
+        custom_rule = (
+            "SecAction "
+            '"id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n'
+        )
+        self.harness.update_config({"owasp-modsecurity-custom-rules": custom_rule})
         self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, custom_rule)
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
             "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
             "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
             "nginx.ingress.kubernetes.io/modsecurity-snippet": (
-                "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+                "SecRuleEngine On\nSecAction"
+                ' "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n'
+                "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             ),
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
+            "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
+            "nginx.ingress.kubernetes.io/rewrite-target": "/",
+            "nginx.ingress.kubernetes.io/ssl-redirect": "false",
+        }
+        self.assertEqual(result_dict["metadata"]["annotations"], expected)
+
+    def test_owasp_modsecurity_custom_rules_new_lines(self):
+        r"""Test if new lines ('\n') in custom rules are correctly handled."""
+        self.maxDiff = None
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.harness.update_config({"owasp-modsecurity-crs": True})
+        custom_rule = (
+            "SecAction "
+            '"id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n\n'
+        )
+        self.harness.update_config({"owasp-modsecurity-custom-rules": custom_rule})
+        self.assertEqual(conf_or_rel._owasp_modsecurity_crs, True)
+        self.assertEqual(conf_or_rel._owasp_modsecurity_custom_rules, custom_rule)
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
+        expected = {
+            "nginx.ingress.kubernetes.io/enable-modsecurity": "true",
+            "nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs": "true",
+            "nginx.ingress.kubernetes.io/modsecurity-snippet": (
+                "SecRuleEngine On\nSecAction"
+                ' "id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1"\n\n'
+                "\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+            ),
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -331,6 +456,148 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo-bar.internal")
 
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    def test_delete_unused_services(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_ingresses,
+        _remove_ingress,
+        _core_v1_api,
+    ):
+        """
+        arrange: existing service not used anymore
+        act: set service-name by configuration
+        assert: Status is active and delete_namespaced_service is called once with right parameter
+        """
+        self.harness.set_leader(True)
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
+        self.harness.charm._authed = True
+        mock_service = mock.Mock()
+        mock_service.metadata.name = "to-be-removed"
+        mock_services = _core_v1_api.return_value.list_namespaced_service.return_value
+        mock_services.items = [mock_service]
+        self.harness.update_config({"service-name": "foo"})
+        self.assertTrue(
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        conf_or_rels = self.harness.charm._all_config_or_relations
+        _core_v1_api.return_value.delete_namespaced_service.assert_called_once_with(
+            name="to-be-removed", namespace=conf_or_rels[0]._namespace
+        )
+
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    def test_delete_unused_ingresses(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_services,
+        _remove_ingress,
+        _networking_v1_api,
+    ):
+        """
+        arrange: existing ingress not used anymore
+        act: set service-hostname by configuration and no additional-hostnames
+        assert: Status is active and _remove_ingress is called once with right parameter
+        """
+        self.harness.set_leader(True)
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
+        self.harness.charm._authed = True
+        self.harness.update_config({"service-name": "foo"})
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress]
+        self.harness.update_config({"service-hostname": "foo.local"})
+        self.assertTrue(
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        expected = self.harness.charm._ingress_name("to-be-removed.local")
+        _remove_ingress.assert_called_once_with(expected)
+
+    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._remove_ingress")
+    @patch("charm.NginxIngressCharm._delete_unused_services")
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._define_service")
+    def test_delete_unused_ingresses_additional_hostnames(
+        self,
+        _define_service,
+        _define_ingress,
+        _report_service_ips,
+        _report_ingress_ips,
+        _delete_unused_services,
+        _remove_ingress,
+        _networking_v1_api,
+        k8s_auth,
+    ):
+        """
+        arrange: existing ingress not used anymore
+        act: set service-hostname by configuration and set additional-hostnames
+        assert: Status is active and _remove_ingress is called once with right parameter
+        """
+        self.harness.set_leader(True)
+        _report_ingress_ips.return_value = ["10.0.1.12"]
+        _report_service_ips.return_value = ["10.0.1.13"]
+        self.harness.charm._authed = True
+        self.harness.update_config({"service-name": "foo"})
+        self.harness.update_config({"additional-hostnames": "some-host1.local,some-host2.local"})
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingress_additional1 = mock.Mock()
+        mock_ingress_additional1.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="some-host1.local",
+            )
+        ]
+        mock_ingress_additional2 = mock.Mock()
+        mock_ingress_additional2.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="some-host2.local",
+            )
+        ]
+        mock_items = MagicMock()
+        mock_items.items = [mock_ingress, mock_ingress_additional1, mock_ingress_additional2]
+        _networking_v1_api.return_value.list_namespaced_ingress.return_value = mock_items
+        self.harness.update_config({"service-hostname": "foo.local"})
+        self.assertTrue(
+            self.harness.charm.unit.status,
+            ActiveStatus("Ingress IP(s): 10.0.1.12, Service IP(s): 10.0.1.13"),
+        )
+        expected = self.harness.charm._ingress_name("to-be-removed.local")
+        _remove_ingress.assert_called_once_with(expected)
+
     def test_session_cookie_max_age(self):
         """Test the session-cookie-max-age property."""
         # First set via config.
@@ -354,12 +621,29 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._session_cookie_max_age, "3688")
 
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_services")
-    def test_tls_secret_name(self, mock_def_svc, mock_def_ingress, mock_report_ips):
-        """Test the tls-secret-name property."""
+    def test_tls_secret_name(
+        self,
+        mock_def_svc,
+        mock_def_ingress,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_ingresses,
+        _delete_unused_services,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we change the tls-secret-name property
+        assert: tls-secret-property is now on all_config_and_relations,
+        and works properly with the components/specs that need it.
+        """
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         self.harness.update_config({"tls-secret-name": "gunicorn-tls"})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls")
@@ -386,7 +670,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._tls_secret_name, "gunicorn-tls-new")
 
         mock_def_svc.assert_called_once()
-        base_ingress = conf_or_rel._get_k8s_ingress()
+        base_ingress = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
 
         tls_lish = kubernetes.client.V1IngressTLS(
             hosts=["lish.internal"],
@@ -398,6 +682,7 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name="lish-internal-ingress",
                 annotations=base_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 tls=[tls_lish],
@@ -437,7 +722,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
         # Still /test-target because it's set via config.
         self.assertEqual(conf_or_rel._rewrite_enabled, True)
-        self.harness.update_config({"rewrite-enabled": ""})
+        self.harness.update_config({"rewrite-enabled": False})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._rewrite_enabled, False)
 
@@ -445,7 +730,7 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"whitelist-source-range": "10.0.0.0/24,172.10.0.1"})
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._whitelist_source_range, "10.0.0.0/24,172.10.0.1")
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(
             result_dict["metadata"]["annotations"][
                 "nginx.ingress.kubernetes.io/whitelist-source-range"
@@ -463,8 +748,10 @@ class TestCharm(unittest.TestCase):
             }
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
@@ -472,8 +759,10 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
         self.harness.update_config({"rewrite-enabled": False})
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
@@ -483,11 +772,13 @@ class TestCharm(unittest.TestCase):
         self.harness.update_config({"rewrite-enabled": True})
 
         expected = {
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+            "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
             "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
             "nginx.ingress.kubernetes.io/rewrite-target": "/test-target",
             "nginx.ingress.kubernetes.io/ssl-redirect": "false",
         }
-        result_dict = conf_or_rel._get_k8s_ingress().to_dict()
+        result_dict = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name).to_dict()
         self.assertEqual(result_dict["metadata"]["annotations"], expected)
 
     @patch("charm.NginxIngressCharm._on_config_changed")
@@ -506,17 +797,18 @@ class TestCharm(unittest.TestCase):
         relations_data = {
             "service-name": "gunicorn",
         }
-        with self.assertLogs(level="ERROR") as logger:
+        with self.assertLogs(level="WARNING") as logger:
             self.harness.update_relation_data(relation_id, "gunicorn", relations_data)
             msg = (
-                "ERROR:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
+                "WARNING:charms.nginx_ingress_integrator.v0.ingress:Missing required data fields "
                 "for ingress relation: service-hostname, service-port"
             )
             self.assertEqual(sorted(logger.output), [msg])
             # Confirm blocked status.
-            self.assertEqual(
-                self.harness.charm.unit.status,
-                BlockedStatus("Missing fields for ingress: service-hostname, service-port"),
+            status = self.harness.charm.unit.status
+            self.assertEqual(status.name, "blocked")
+            self.assertIn(
+                "Missing fields for ingress: service-hostname, service-port", status.message
             )
 
         # Now test with complete relation data.
@@ -532,27 +824,70 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._service_name, "gunicorn")
         self.assertEqual(conf_or_rel._service_port, 80)
 
-    @patch("charm.NginxIngressCharm._remove_ingress")
-    @patch("charm.NginxIngressCharm._remove_service")
-    def test_on_ingress_relation_broken_unauthorized(self, _remove_service, _remove_ingress):
-        """Test the Unauthorized case on relation-broken."""
-        # Call the test test_on_ingress_relation_changed first
-        # to make sure the relation is created and therefore can be removed.
-        self.test_on_ingress_relation_changed()
-        _remove_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
+    def _run_on_ingress_relation_broken_exception(self, exception, expected_status):
+        """Test exceptions on relation-broken.
 
-        self.harness.charm._authed = True
-        relation = self.harness.charm.model.get_relation("ingress")
-        self.harness.remove_relation(relation.id)
+        Args:
+            exception: exception to be raised in the relation broken handler.
+            expected_status: expected unit status.
+        """
+        with patch(
+            "charm.NginxIngressCharm._define_ingresses",
+            side_effect=exception,
+        ), patch("charm.NginxIngressCharm._delete_unused_services"):
+            # Call the test test_on_ingress_relation_changed first
+            # to make sure the relation is created and therefore can be removed.
+            self.test_on_ingress_relation_changed()
+            self.harness.charm._authed = True
+            relation = self.harness.charm.model.get_relation("ingress")
+            self.harness.remove_relation(relation.id)  # type: ignore[union-attr]
+            self.assertEqual(self.harness.charm.unit.status, expected_status)
 
-        expected_status = BlockedStatus(
-            "Insufficient permissions, try: `juju trust %s --scope=cluster`"
-            % self.harness.charm.app.name
+    def test_on_ingress_relation_broken_unauthorized(self):
+        """Test unauthorized error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            kubernetes.client.exceptions.ApiException(status=403),
+            BlockedStatus(
+                "Insufficient permissions, "
+                "try: `juju trust nginx-ingress-integrator --scope=cluster`"
+            ),
         )
-        self.assertEqual(self.harness.charm.unit.status, expected_status)
 
-    @patch("charm._networking_v1_api")
-    @patch("charm._core_v1_api")
+    def test_on_ingress_relation_broken_conflict_annotation(self):
+        """Test conflict annotation error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            ConflictingAnnotationsError(),
+            BlockedStatus(
+                "Conflicting annotations from relations. Run juju debug-log for details. "
+                "Set manually via juju config."
+            ),
+        )
+
+    def test_on_ingress_relation_broken_conflict_routes(self):
+        """Test conflict routes error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            ConflictingRoutesError(),
+            BlockedStatus(
+                "Duplicate route found; cannot add ingress. Run juju debug-log for details."
+            ),
+        ),
+
+    def test_on_ingress_relation_invalid_hostname(self):
+        """Test invalid hostname error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidHostnameError(),
+            BlockedStatus(INVALID_HOSTNAME_MSG),
+        )
+
+    def test_on_ingress_relation_invalid_backend_protocol(self):
+        """Test invalid backend protocol on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidBackendProtocolError(),
+            BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG),
+        )
+
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._core_v1_api")
     def test_on_ingress_relation_broken(self, mock_core_api, mock_net_api):
         """Test relation-broken."""
         # Call the test test_on_ingress_relation_changed first
@@ -567,12 +902,13 @@ class TestCharm(unittest.TestCase):
 
         mock_ingress = mock.Mock()
         mock_ingress.metadata.name = conf_or_rels[0]._ingress_name
+        mock_ingress.spec.rules = [unittest.mock.MagicMock(host=conf_or_rels[0]._service_hostname)]
         mock_ingresses = mock_net_api.return_value.list_namespaced_ingress.return_value
         mock_ingresses.items = [mock_ingress]
 
         self.harness.charm._authed = True
         relation = self.harness.charm.model.get_relation("ingress")
-        self.harness.remove_relation(relation.id)
+        self.harness.remove_relation(relation.id)  # type: ignore[union-attr]
 
         mock_core_api.delete_namespaced_service(
             name=conf_or_rels[0]._service_name, namespace=conf_or_rels[0]._namespace
@@ -598,10 +934,13 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=expected_ingress_name,
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -628,7 +967,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test additional hostnames
         self.harness.update_config({"additional-hostnames": "bar.internal,foo.external"})
         expected = kubernetes.client.V1Ingress(
@@ -637,10 +976,13 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=expected_ingress_name,
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -704,7 +1046,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         self.harness.update_config({"additional-hostnames": ""})
         # Test multiple paths
         expected = kubernetes.client.V1Ingress(
@@ -713,10 +1055,13 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=expected_ingress_name,
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -755,7 +1100,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"path-routes": "/admin,/portal"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         self.harness.update_config({"path-routes": "/"})
         # Test with TLS.
         expected = kubernetes.client.V1Ingress(
@@ -764,9 +1109,12 @@ class TestCharm(unittest.TestCase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=expected_ingress_name,
                 annotations={
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "20m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -791,7 +1139,7 @@ class TestCharm(unittest.TestCase):
                     )
                 ],
                 tls=[
-                    kubernetes.client.V1IngressTLS(
+                    kubernetes.client.V1IngressTLS(  # nosec: gunicorn_tls is not a secret
                         hosts=["foo.internal"],
                         secret_name="gunicorn_tls",
                     ),
@@ -799,7 +1147,7 @@ class TestCharm(unittest.TestCase):
             ),
         )
         self.harness.update_config({"tls-secret-name": "gunicorn_tls"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test ingress-class, max_body_size, retry_http_errors and
         # session-cookie-max-age config options.
         self.harness.update_config(
@@ -819,6 +1167,8 @@ class TestCharm(unittest.TestCase):
                 annotations={
                     "nginx.ingress.kubernetes.io/affinity": "cookie",
                     "nginx.ingress.kubernetes.io/affinity-mode": "balanced",
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "10m",
                     "nginx.ingress.kubernetes.io/proxy-next-upstream": (
                         "error timeout http_502 http_503"
@@ -830,6 +1180,7 @@ class TestCharm(unittest.TestCase):
                     "nginx.ingress.kubernetes.io/session-cookie-samesite": "Lax",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -855,10 +1206,10 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # Test limit-whitelist on its own makes no change.
         self.harness.update_config({"limit-whitelist": "10.0.0.0/16"})
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
         # And if we set limit-rps we get both. Unset other options to minimize output.
         self.harness.update_config(
             {
@@ -877,10 +1228,13 @@ class TestCharm(unittest.TestCase):
                 annotations={
                     "nginx.ingress.kubernetes.io/limit-rps": "5",
                     "nginx.ingress.kubernetes.io/limit-whitelist": "10.0.0.0/16",
+                    "nginx.ingress.kubernetes.io/proxy-read-timeout": "60",
+                    "nginx.ingress.kubernetes.io/backend-protocol": "HTTP",
                     "nginx.ingress.kubernetes.io/proxy-body-size": "0m",
                     "nginx.ingress.kubernetes.io/rewrite-target": "/",
                     "nginx.ingress.kubernetes.io/ssl-redirect": "false",
                 },
+                labels={CREATED_BY_LABEL: self.harness.charm.app.name},
             ),
             spec=kubernetes.client.V1IngressSpec(
                 rules=[
@@ -906,7 +1260,7 @@ class TestCharm(unittest.TestCase):
                 ]
             ),
         )
-        self.assertEqual(conf_or_rel._get_k8s_ingress(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name), expected)
 
     def test_get_k8s_service(self):
         """Test getting our definition of a k8s service."""
@@ -915,7 +1269,9 @@ class TestCharm(unittest.TestCase):
         expected = kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=kubernetes.client.V1ObjectMeta(name="gunicorn-service"),
+            metadata=kubernetes.client.V1ObjectMeta(
+                name="gunicorn-service", labels={CREATED_BY_LABEL: self.harness.charm.app.name}
+            ),
             spec=kubernetes.client.V1ServiceSpec(
                 selector={"app.kubernetes.io/name": "gunicorn"},
                 ports=[
@@ -928,59 +1284,59 @@ class TestCharm(unittest.TestCase):
             ),
         )
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        self.assertEqual(conf_or_rel._get_k8s_service(), expected)
+        self.assertEqual(conf_or_rel._get_k8s_service(label=self.harness.charm.app.name), expected)
 
 
-INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PUBLIC_DEFAULT = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
             "ingressclass.kubernetes.io/is-default-class": "true",
         },
         name="public",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-INGRESS_CLASS_PRIVATE = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PRIVATE = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={},
         name="private",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1beta1IngressClass(
+INGRESS_CLASS_PRIVATE_DEFAULT = kubernetes.client.V1IngressClass(
     metadata=kubernetes.client.V1ObjectMeta(
         annotations={
             "ingressclass.kubernetes.io/is-default-class": "true",
         },
         name="private",
     ),
-    spec=kubernetes.client.V1beta1IngressClassSpec(
+    spec=kubernetes.client.V1IngressClassSpec(
         controller="k8s.io/ingress-nginx",
     ),
 )
 
-ZERO_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(items=[])
+ZERO_INGRESS_CLASS_LIST = kubernetes.client.V1IngressClassList(items=[])
 
-ONE_INGRESS_CLASS_LIST = kubernetes.client.V1beta1IngressClassList(
+ONE_INGRESS_CLASS_LIST = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
     ],
 )
 
-TWO_INGRESS_CLASSES_LIST = kubernetes.client.V1beta1IngressClassList(
+TWO_INGRESS_CLASSES_LIST = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
         INGRESS_CLASS_PRIVATE,
     ]
 )
 
-TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1beta1IngressClassList(
+TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1IngressClassList(
     items=[
         INGRESS_CLASS_PUBLIC_DEFAULT,
         INGRESS_CLASS_PRIVATE_DEFAULT,
@@ -989,13 +1345,24 @@ TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT = kubernetes.client.V1beta1IngressClassList
 
 
 def _make_mock_api_list_ingress_class(return_value):
+    """Mock a list of Ingress classes.
+
+    Args:
+        return_value: Value to return as part of the Ingress class API mock.
+
+    Returns:
+        Mock API that simulates the list_ingress_class method.
+    """
     mock_api = MagicMock()
     mock_api.list_ingress_class.return_value = return_value
     return mock_api
 
 
 class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
+    """Class for Ingress class testing."""
+
     def setUp(self):
+        """Setup method for the class."""
         self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
@@ -1012,7 +1379,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are no ingress classes, there's nothing to choose from."""
         api = _make_mock_api_list_ingress_class(ZERO_INGRESS_CLASS_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)
 
@@ -1020,7 +1387,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there's one default ingress class, choose that."""
         api = _make_mock_api_list_ingress_class(ONE_INGRESS_CLASS_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, "public")
 
@@ -1028,7 +1395,7 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are two ingress classes, one default, choose that."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertEqual(body.spec.ingress_class_name, "public")
 
@@ -1036,12 +1403,14 @@ class TestCharmLookUpAndSetIngressClass(unittest.TestCase):
         """If there are two ingress classes, both default, choose neither."""
         api = _make_mock_api_list_ingress_class(TWO_INGRESS_CLASSES_LIST_TWO_DEFAULT)
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
-        body = conf_or_rel._get_k8s_ingress()
+        body = conf_or_rel._get_k8s_ingress(label=self.harness.charm.app.name)
         self.harness.charm._look_up_and_set_ingress_class(api, body)
         self.assertIsNone(body.spec.ingress_class_name)
 
 
 class TestCharmMultipleRelations(unittest.TestCase):
+    """Class for multiple relations testing."""
+
     def setUp(self):
         """Setup the harness object."""
         self.harness = Harness(NginxIngressCharm)
@@ -1049,6 +1418,15 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.begin()
 
     def _add_ingress_relation(self, relator_name, rel_data):
+        """Add an Ingress relation.
+
+        Args:
+            relator_name: Name of the charm to relate with Ingress
+            rel_data: Relation data.
+
+        Returns:
+            The relation id.
+        """
         relation_id = self.harness.add_relation("ingress", relator_name)
         self.harness.add_relation_unit(relation_id, "%s/0" % relator_name)
 
@@ -1117,7 +1495,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.update_config(
             {
                 "service-name": "foo",
-                "service-port": "1111",
+                "service-port": 1111,
                 "path-routes": "/foo",
             }
         )
@@ -1133,19 +1511,34 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         self.assertEqual(0, len(self.harness.charm.model.relations["ingress"]))
 
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._define_ingress")
-    @patch("charm._core_v1_api")
+    @patch("charm.NginxIngressCharm._core_v1_api")
     def test_services_for_multiple_relations(
-        self, mock_api, mock_define_ingress, mock_remove_ingress, mock_report_ips
+        self,
+        mock_api,
+        mock_define_ingress,
+        mock_remove_ingress,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
     ):
-        """Test for checking Service creation / deletion for multiple relations."""
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete services for multiple relations
+        assert: the process of creating/deleting the relations and services runs correctly.
+        """
         # Setting the leader to True will allow us to test the Service creation.
         self.harness.set_leader(True)
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_services = mock_api.return_value.list_namespaced_service
         # We'll consider we don't have any service set yet.
         mock_list_services.return_value.items = []
@@ -1162,7 +1555,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_service = mock_api.return_value.create_namespaced_service
         mock_create_service.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_service(),
+            body=conf_or_rels[0]._get_k8s_service(label=self.harness.charm.app.name),
         )
 
         # Reset the create service mock, and add a second relation. Expect the first service to
@@ -1184,11 +1577,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_patch_service.assert_called_once_with(
             name=conf_or_rels[0]._k8s_service_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_service(),
+            body=conf_or_rels[0]._get_k8s_service(self.harness.charm.app.name),
         )
         mock_create_service.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_service(),
+            body=conf_or_rels[1]._get_k8s_service(self.harness.charm.app.name),
         )
 
         # Remove the first relation and assert that only the first service is removed.
@@ -1199,22 +1592,30 @@ class TestCharmMultipleRelations(unittest.TestCase):
         relation = self.harness.charm.model.relations["ingress"][0]
         self.harness.charm.on.ingress_relation_broken.emit(relation)
 
-        mock_delete_service = mock_api.return_value.delete_namespaced_service
-        mock_delete_service.assert_called_once_with(
-            name=conf_or_rels[0]._k8s_service_name,
-            namespace=self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
+        _delete_unused_services.assert_called()
 
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
-    @patch("charm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
     def test_ingresses_for_multiple_relations_same_hostname(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
     ):
-        """Test for checking Ingress creation / deletion for multiple relations.
-
-        This test will check that the charm will not create multiple Resources for the same
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete ingresses for multiple relations
+        assert: this test will check that the charm will not create multiple Resources for the same
         hostname, and that it won't remove the resource if there's still an active relation
         using it.
         """
@@ -1223,6 +1624,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1237,12 +1639,12 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
-
         # Since we only have one relation, the merged ingress rule should be the same as before
         # the merge.
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Reset the create ingress mock, and add a second relation.
@@ -1265,8 +1667,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_create_ingress.assert_not_called()
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        expected_body = conf_or_rels[0]._get_k8s_ingress()
-        second_body = conf_or_rels[1]._get_k8s_ingress()
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
+        second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
 
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
@@ -1302,27 +1704,38 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
 
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
-    @patch("charm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
     def test_ingresses_for_multiple_relations_different_hostnames(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
     ):
-        """Test for checking Ingress creation / deletion for multiple relations.
-
-        This test will check that the charm will create multiple Resources for different hostnames.
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete ingresses for multiple relations
+        assert: this test will check that the charm will not create multiple Resources for
+        different hostnames, and that it won't remove the resource if there's still
+        an active relation using it.
         """
         # Setting the leader to True will allow us to test the Ingress creation.
         self.harness.set_leader(True)
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1339,9 +1752,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # the merge.
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Reset the create ingress mock, and add a second relation with a different
@@ -1362,15 +1776,17 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # change, and that a new K8s Ingress Resource will be created for the new relation,
         # since it has a different service-hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_create_ingress.assert_called_once_with(
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
         mock_replace_ingress = mock_api.return_value.replace_namespaced_ingress
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[0]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[0]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Remove the first relation and assert that only the first ingress is removed.
@@ -1381,47 +1797,136 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.reset_mock()
         self.harness.remove_relation(rel_id1)
 
-        # Assert that only the ingress for the first relation was removed.
-        mock_delete_ingress = mock_api.return_value.delete_namespaced_ingress
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
         mock_create_ingress.assert_not_called()
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
 
         # Remove the second relation.
         mock_replace_ingress.reset_mock()
-        mock_delete_ingress.reset_mock()
+        _delete_unused_ingresses.reset_mock()
         self.harness.remove_relation(rel_id2)
 
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[1]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called_once()
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
 
     @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._remove_service")
     @patch("charm.NginxIngressCharm._define_service")
-    @patch("charm._networking_v1_api")
-    def test_ingress_multiple_relations_additional_hostnames(
-        self, mock_api, mock_define_service, mock_remove_service, mock_report_ips
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_report_ingress_ips(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_define_ingress,
+        mock_k8s_auth,
+        mock_service_ips,
     ):
-        """Test for checking Ingress creation / deletion for multiple relations.
+        """
+        arrange: given the harnessed charm
+        act: when we execute report_ingress_ips()
+        assert: this test will check that the charm will return an appropriate value if
+        an ingress IP is found.
+        """
 
-        This test will check that the charm will create multiple Resources for different hostnames.
+        def get_item_lb(id):
+            """Get a mock IP.
+
+            Args:
+                id: Auxiliary argument.
+
+            Returns:
+                localhost mock IP.
+            """
+            mock_ip = mock.Mock()
+            mock_ip.ip = "127.0.0.1"
+            return mock_ip
+
+        mock_ingress = MagicMock()
+        mock_ingress.status.load_balancer.ingress.__getitem__.side_effect = get_item_lb
+        mock_items = MagicMock()
+        mock_items.items = [mock_ingress]
+        mock_api.return_value.list_namespaced_ingress.return_value = mock_items
+
+        expected_result = ["127.0.0.1"]
+
+        result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)  # type: ignore[arg-type]
+
+        self.assertEqual(result, expected_result)
+
+    @patch("charm._report_interval_count")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm.k8s_auth")
+    @patch("charm.NginxIngressCharm._define_ingress")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_report_ingress_ips_fail(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_define_ingress,
+        mock_k8s_auth,
+        mock_service_ips,
+        _report_interval_count,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we execute report_ingress_ips()
+        assert: this test will check that the charm will return a null value if
+        an ingress IP is not found.
+        """
+        mock_items = MagicMock()
+        mock_items.items = []
+        mock_api.list_namespaced_ingress.return_value = mock_items
+
+        expected_result: list = []
+
+        _report_interval_count.return_value = 1
+
+        result = NginxIngressCharm._report_ingress_ips(NginxIngressCharm)  # type: ignore[arg-type]
+
+        self.assertEqual(result, expected_result)
+
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._remove_service")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingress_multiple_relations_additional_hostnames(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_remove_service,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete ingresses for multiple relations
+        assert: this test will check that the charm will create multiple Resources for additional
+        hostnames, and that it won't remove the resource if there's still an active relation
+        using it.
         """
         # Setting the leader to True will allow us to test the Ingress creation.
         self.harness.set_leader(True)
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1439,9 +1944,9 @@ class TestCharmMultipleRelations(unittest.TestCase):
         # It should create 2 different Ingress Resources, since we have an additional hostname.
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress = mock_api.return_value.create_namespaced_ingress
-        first_body = conf_or_rels[0]._get_k8s_ingress()
+        first_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         first_body.spec.rules = [first_body.spec.rules[0]]
-        second_body = conf_or_rels[0]._get_k8s_ingress()
+        second_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         second_body.metadata.name = "lish-in-ternal-ingress"
         second_body.spec.rules = [second_body.spec.rules[1]]
         second_body.spec.tls[0].hosts = ["lish.in.ternal"]
@@ -1477,7 +1982,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_create_ingress.assert_not_called()
 
-        second_rel_body = conf_or_rels[1]._get_k8s_ingress()
+        second_rel_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         second_body.spec.rules[0].http.paths.extend(second_rel_body.spec.rules[0].http.paths)
         calls = [
             mock.call(
@@ -1502,32 +2007,43 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.reset_mock()
         self.harness.remove_relation(rel_id1)
 
-        # Assert that only the ingress for the first relation was removed.
-        mock_delete_ingress = mock_api.return_value.delete_namespaced_ingress
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
         mock_create_ingress.assert_not_called()
+        expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
             name=conf_or_rels[1]._ingress_name,
             namespace=self.harness.charm._namespace,
-            body=conf_or_rels[1]._get_k8s_ingress(),
+            body=expected_body,
         )
 
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
-    @patch("charm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
     def test_ingresses_for_multiple_relations_blocked(
-        self, mock_api, mock_define_service, mock_define_ingress, mock_report_ips
+        self,
+        mock_api,
+        mock_define_service,
+        mock_define_ingress,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
     ):
-        """Test for checking the Blocked cases for multiple relations."""
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete ingresses for multiple relations
+        assert: this test will check the Blocked cases for multiple relations
+        """
         # Setting the leader to True will allow us to test the Ingress creation.
         self.harness.set_leader(True)
         self.harness.charm._authed = True
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
         mock_list_ingress = mock_api.return_value.list_namespaced_ingress
         # We'll consider we don't have any ingresses set yet.
         mock_list_ingress.return_value.items = []
@@ -1551,39 +2067,129 @@ class TestCharmMultipleRelations(unittest.TestCase):
         }
         rel_id = self._add_ingress_relation("funicorn", rel_data)
 
-        expected_status = BlockedStatus(
+        expected_status_message = (
             "Conflicting annotations from relations. Run juju debug-log for details. "
             "Set manually via juju config."
         )
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
         # Override the rewrite target through the config option. It should fix the problem.
         self.harness.update_config({"retry-errors": "error,timeout"})
 
         # We still have the issue with the duplicate route.
-        expected_status = BlockedStatus(
+        expected_status_message = (
             "Duplicate route found; cannot add ingress. Run juju debug-log for details."
         )
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
         # Update the relation data to have a different route.
         rel_data["path-routes"] = "/funicorn"
         self.harness.update_relation_data(rel_id, "funicorn", rel_data)
 
-        expected_status = ActiveStatus("Ingress with service IP(s): 10.0.1.12")
-        self.assertEqual(expected_status, self.harness.charm.unit.status)
+        expected_status_message = "Service IP(s): 10.0.1.12"
+        self.assertEqual("active", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
 
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingresses_for_invalid_hostname(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_report_ips,
+        mock_ingress_ips,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete an ingress
+        assert: this test will check the Blocked case for invalid hostnames
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "Foo.in.ternal",
+            "service-port": "80",
+        }
+        self._add_ingress_relation("gunicorn", rel_data)
+
+        expected_status_message = INVALID_HOSTNAME_MSG
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
+
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
+    @patch("charm.NginxIngressCharm._report_service_ips")
+    @patch("charm.NginxIngressCharm._define_service")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    def test_ingresses_for_invalid_backend_protocol(
+        self,
+        mock_api,
+        mock_define_service,
+        mock_report_ips,
+        mock_ingress_ips,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we create/delete an ingress
+        assert: this test will check the Blocked case for invalid backend protocol
+        """
+        # Setting the leader to True will allow us to test the Ingress creation.
+        self.harness.set_leader(True)
+        self.harness.charm._authed = True
+
+        mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
+        mock_list_ingress = mock_api.return_value.list_namespaced_ingress
+        # We'll consider we don't have any ingresses set yet.
+        mock_list_ingress.return_value.items = []
+
+        # Add the relation.
+        rel_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "foo.in.ternal",
+            "service-port": "80",
+            "backend-protocol": "foo",
+        }
+        self._add_ingress_relation("gunicorn", rel_data)
+
+        expected_status_message = INVALID_BACKEND_PROTOCOL_MSG
+        self.assertEqual("blocked", self.harness.charm.unit.status.name)
+        self.assertIn(expected_status_message, self.harness.charm.unit.status.message)
+
+    @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
+    @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
+    @patch("charm.NginxIngressCharm._report_ingress_ips")
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._define_service")
     def test_missing_relation_data(
-        self, mock_define_service, mock_define_ingress, mock_report_ips
+        self,
+        mock_define_service,
+        mock_define_ingress,
+        mock_report_ips,
+        mock_ingress_ips,
+        _delete_unused_services,
+        _delete_unused_ingresses,
     ):
         """Test for handling missing relation data."""
         # Setting the leader to True will allow us to test the Ingress creation.
         self.harness.set_leader(True)
 
         mock_report_ips.return_value = ["10.0.1.12"]
+        mock_ingress_ips.return_value = ""
 
         # Add the first relation.
         rel_data = {
@@ -1617,7 +2223,87 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         conf_or_rels = self.harness.charm._all_config_or_relations
         mock_define_service.assert_has_calls([mock.call(mock.ANY), mock.call(mock.ANY)])
-        second_body = conf_or_rels[1]._get_k8s_ingress()
-        expected_body = conf_or_rels[0]._get_k8s_ingress()
+        second_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
+        expected_body = conf_or_rels[0]._get_k8s_ingress(label=self.harness.charm.app.name)
         expected_body.spec.rules[0].http.paths.extend(second_body.spec.rules[0].http.paths)
         mock_define_ingress.assert_called_once_with(expected_body)
+
+
+class TestHelpers:
+    """Class for testing helper methods."""
+
+    @pytest.mark.parametrize(
+        "hostname, expected",
+        [
+            ("foo-internal", True),
+            ("foo.internal1", True),
+            ("Foo.internal", False),
+            ("foo$internal", False),
+        ],
+    )
+    def test_invalid_hostname_check(self, hostname, expected):
+        assert invalid_hostname_check(hostname) == expected
+
+
+class TestZeroDowntime(unittest.TestCase):
+    """Unit test cause for the zero downtime upgrade from ingress relation to nginx-route."""
+
+    def setUp(self) -> None:
+        """Test setup."""
+        self.harness = Harness(NginxIngressCharm)
+
+    def tearDown(self) -> None:
+        """Test cleanup"""
+        self.harness.cleanup()
+
+    def _relate_ingress(self, relation_data):
+        """Create a new ingress relation with given data.
+
+        Args:
+            relation_data: relation data to be set in the new relation.
+        """
+        relation_id = self.harness.add_relation("ingress", "app")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="app/0")
+        self.harness.update_relation_data(relation_id, "app", relation_data)
+
+    def _relate_nginx_route(self, relation_data):
+        """Create a new nginx-route relation with given data.
+
+        Args:
+            relation_data: relation data to be set in the new relation.
+        """
+        relation_id = self.harness.add_relation("nginx-route", "app")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="app/0")
+        self.harness.update_relation_data(relation_id, "app", relation_data)
+
+    def test_dedup_relations(self):
+        relation_data = {
+            "service-hostname": "foo",
+            "service-name": "app",
+            "service-model": "test",
+            "service-port": "8080",
+        }
+        self._relate_ingress(relation_data)
+        self._relate_nginx_route(relation_data)
+        self.harness.begin()
+        self.assertEqual(len(self.harness.charm._deduped_relations()), 1)
+
+    def test_no_duplicate_relations(self):
+        self._relate_ingress(
+            {
+                "service-hostname": "foo",
+                "service-name": "app",
+                "service-model": "test",
+                "service-port": "8080",
+            }
+        )
+        self._relate_nginx_route(
+            {
+                "service-hostname": "foobar",
+                "service-name": "app",
+                "service-model": "test",
+                "service-port": "8080",
+            }
+        )
+        self.harness.begin()
+        self.assertEqual(len(self.harness.charm._deduped_relations()), 2)

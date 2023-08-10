@@ -1,54 +1,90 @@
 #!/usr/bin/env python3
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
+
+# pylint: disable=protected-access,too-few-public-methods,too-many-lines
+
+"""Nginx-ingress-integrator charm file."""
 
 import logging
 import re
+import time
+import typing
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import kubernetes.client
+import ops
 from charms.nginx_ingress_integrator.v0.ingress import (
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
     IngressCharmEvents,
     IngressProvides,
 )
-from ops.charm import CharmBase
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
+from ops.charm import CharmBase, HookEvent, StartEvent
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
+
+from helpers import invalid_hostname_check, is_backend_protocol_valid
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
+# We set this value to be unique for this deployed juju application
+# so we can use it to identify resources created by this charm
+CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
+REPORT_INTERVAL_COUNT = 100
+INVALID_HOSTNAME_MSG = (
+    "Invalid ingress hostname. The hostname must consist of lower case "
+    "alphanumeric characters, '-' or '.'."
+)
+INVALID_BACKEND_PROTOCOL_MSG = (
+    "Invalid backend protocol. Valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
+)
 
 
-def _core_v1_api():
-    """Use the v1 k8s API."""
-    return kubernetes.client.CoreV1Api()
+def _report_interval_count() -> int:
+    """Set interval count for report ingress.
+
+    Returns:
+         Interval count
+    """
+    return REPORT_INTERVAL_COUNT
 
 
-def _networking_v1_api():
-    """Use the v1 beta1 networking API."""
-    return kubernetes.client.NetworkingV1Api()
+class ConflictingAnnotationsError(Exception):
+    """Custom error that indicates conflicting annotations."""
 
 
-class ConflictingAnnotationsException(Exception):
-    pass
+class ConflictingRoutesError(Exception):
+    """Custom error that indicates conflicting routes."""
 
 
-class ConflictingRoutesException(Exception):
-    pass
+class InvalidBackendProtocolError(Exception):
+    """Custom error that indicates invalid backend protocol."""
 
 
-class _ConfigOrRelation(object):
+class InvalidHostnameError(Exception):
+    """Custom error that indicates invalid hostnames."""
+
+
+class _ConfigOrRelation:
     """Class containing data from the Charm configuration, or from a relation."""
 
-    def __init__(self, model, config, relation, multiple_relations):
-        """Creates a _ConfigOrRelation Object.
+    def __init__(
+        self,
+        model: Model,
+        config: Union[ConfigData, Dict],
+        relation: Optional[Relation],
+        multiple_relations: bool,
+    ) -> None:
+        """Create a _ConfigOrRelation Object.
 
-        :param model: The charm model.
-        :param config: The charm's configuration.
-        :param relation: One of the charm's relations, if any.
-        :param multiple_relations: If the charm has more than one relation.
+        Args:
+            model: The charm model.
+            config: The charm's configuration.
+            relation: One of the charm's relations, if any.
+            multiple_relations: If the charm has more than one relation.
         """
         super().__init__()
         self.model = model
@@ -56,8 +92,15 @@ class _ConfigOrRelation(object):
         self.relation = relation
         self.multiple_relations = multiple_relations
 
-    def _get_config(self, field):
-        """Helper method to get data from config."""
+    def _get_config(self, field: Any) -> Any:
+        """Get data from config.
+
+        Args:
+            field: Config field.
+
+        Returns:
+            The field's content.
+        """
         # Config fields with a default of None don't appear in the dict
         config_data = self.config.get(field, None)
         # A value of False is valid in these fields, so check it's not a null-value instead
@@ -68,11 +111,19 @@ class _ConfigOrRelation(object):
 
         return None
 
-    def _get_relation(self, field):
-        """Helper method to get data from the relation, if any."""
+    def _get_relation(self, field: Any) -> Any:
+        """Get data from the relation, if any.
+
+        Args:
+            field: Relation field.
+
+        Returns:
+            The field's content.
+        """
         if self.relation:
             try:
                 # We want to prioritise relation-interfaces data if we have it.
+                assert self.relation.app is not None  # nosec
                 if field in RELATION_INTERFACES_MAPPINGS:
                     new_field = RELATION_INTERFACES_MAPPINGS[field]
                     try:
@@ -86,8 +137,16 @@ class _ConfigOrRelation(object):
                 return None
         return None
 
-    def _get_config_or_relation_data(self, field, fallback):
-        """Helper method to get data from config or the ingress relation, in that order."""
+    def _get_config_or_relation_data(self, field: Any, fallback: Any) -> Any:
+        """Get data from config or the ingress relation, in that order.
+
+        Args:
+            field: Config or relation field.
+            fallback: Value to return if the field is not found.
+
+        Returns:
+            The field's content or the fallback value if no field is found.
+        """
         data = self._get_config(field)
         if data is not None:
             return data
@@ -98,8 +157,16 @@ class _ConfigOrRelation(object):
 
         return fallback
 
-    def _get_relation_data_or_config(self, field, fallback):
-        """Helper method to get data from the ingress relation or config, in that order."""
+    def _get_relation_data_or_config(self, field: Any, fallback: Any) -> Any:
+        """Get data from the ingress relation or config, in that order.
+
+        Args:
+            field: Config or relation field.
+            fallback: Value to return if the field is not found.
+
+        Returns:
+            The field's content or the fallback value if no field is found.
+        """
         data = self._get_relation(field)
         if data is not None:
             return data
@@ -111,15 +178,30 @@ class _ConfigOrRelation(object):
         return fallback
 
     @property
-    def _k8s_service_name(self):
+    def _additional_hostnames(self) -> Generator[str, None, None]:
+        """Return a list with additional hostnames.
+
+        Returns:
+            The additional hostnames set by configuration already split by comma.
+        """
+        additional_hostnames = self._get_config_or_relation_data("additional-hostnames", "")
+        yield from filter(None, additional_hostnames.split(","))
+
+    @property
+    def _backend_protocol(self) -> str:
+        """Return the backend-protocol to use for k8s ingress."""
+        return self._get_config_or_relation_data("backend-protocol", "HTTP").upper()
+
+    @property
+    def _k8s_service_name(self) -> str:
         """Return a service name for the use creating a k8s service."""
         # Avoid collision with service name created by Juju. Currently
         # Juju creates a K8s service listening on port 65535/TCP so we
         # need to create a separate one.
-        return "{}-service".format(self._service_name)
+        return f"{self._service_name}-service"
 
     @property
-    def _ingress_name(self):
+    def _ingress_name(self) -> str:
         """Return an ingress name for use creating a k8s ingress."""
         # If there are 2 or more services configured to use the same service-hostname, the
         # controller nginx/nginx-ingress requires them to be in the same Kubernetes Ingress object.
@@ -128,10 +210,10 @@ class _ConfigOrRelation(object):
         # based on their requested service-hostname.
         svc_hostname = self._get_config_or_relation_data("service-hostname", "")
         ingress_name = _INGRESS_SUB_REGEX.sub("-", svc_hostname)
-        return "{}-ingress".format(ingress_name)
+        return f"{ingress_name}-ingress"
 
     @property
-    def _limit_rps(self):
+    def _limit_rps(self) -> str:
         """Return limit-rps value from config or relation."""
         limit_rps = self._get_config_or_relation_data("limit-rps", 0)
         if limit_rps:
@@ -140,41 +222,59 @@ class _ConfigOrRelation(object):
         return ""
 
     @property
-    def _limit_whitelist(self):
+    def _limit_whitelist(self) -> str:
         """Return the limit-whitelist value from config or relation."""
         return self._get_config_or_relation_data("limit-whitelist", "")
 
     @property
-    def _max_body_size(self):
+    def _max_body_size(self) -> str:
         """Return the max-body-size to use for k8s ingress."""
         max_body_size = self._get_config_or_relation_data("max-body-size", 0)
-        return "{}m".format(max_body_size)
+        return f"{max_body_size}m"
 
     @property
-    def _owasp_modsecurity_crs(self):
+    def _owasp_modsecurity_crs(self) -> bool:
         """Return a boolean indicating whether OWASP ModSecurity CRS is enabled."""
-        return self._get_config_or_relation_data("owasp-modsecurity-crs", False)
+        value = self._get_config_or_relation_data("owasp-modsecurity-crs", False)
+        return str(value).lower() == "true"
 
     @property
-    def _rewrite_enabled(self):
-        """Return whether rewriting should be enabled from config or relation"""
+    def _owasp_modsecurity_custom_rules(self) -> str:
+        r"""Return the owasp-modsecurity-custom-rules value from config or relation.
+
+        Since when setting the config via CLI or via YAML file, the new line character ('\n')
+        is escaped ('\\n') we need to replace it for a new line character.
+        """
+        return self._get_config_or_relation_data("owasp-modsecurity-custom-rules", "").replace(
+            "\\n", "\n"
+        )
+
+    @property
+    def _proxy_read_timeout(self) -> str:
+        """Return the proxy-read-timeout to use for k8s ingress."""
+        proxy_read_timeout = self._get_config_or_relation_data("proxy-read-timeout", 60)
+        return f"{proxy_read_timeout}"
+
+    @property
+    def _rewrite_enabled(self) -> bool:
+        """Return whether rewriting should be enabled from config or relation."""
         value = self._get_config_or_relation_data("rewrite-enabled", True)
         # config data is typed, relation data is a string
         # Convert to string, then compare to a known value.
         return str(value).lower() == "true"
 
     @property
-    def _rewrite_target(self):
+    def _rewrite_target(self) -> Any:
         """Return the rewrite target from config or relation."""
         return self._get_config_or_relation_data("rewrite-target", "/")
 
     @property
-    def _namespace(self):
+    def _namespace(self) -> Any:
         """Return the namespace to operate on."""
         return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
-    def _retry_errors(self):
+    def _retry_errors(self) -> str:
         """Return the retry-errors setting from config or relation."""
         retry = self._get_config_or_relation_data("retry-errors", "")
         if not retry:
@@ -197,12 +297,12 @@ class _ConfigOrRelation(object):
         return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
 
     @property
-    def _service_hostname(self):
+    def _service_hostname(self) -> Any:
         """Return the hostname for the service we're connecting to."""
         return self._get_config_or_relation_data("service-hostname", "")
 
     @property
-    def _service_name(self):
+    def _service_name(self) -> Any:
         """Return the name of the service we're connecting to."""
         # NOTE: If the charm has multiple relations, use the service name given by the relation
         # in order to avoid service name conflicts.
@@ -211,7 +311,7 @@ class _ConfigOrRelation(object):
         return self._get_config_or_relation_data("service-name", "")
 
     @property
-    def _service_port(self):
+    def _service_port(self) -> int:
         """Return the port for the service we're connecting to."""
         # NOTE: If the charm has multiple relations, use the service port given by the relation.
         if self.multiple_relations:
@@ -219,7 +319,7 @@ class _ConfigOrRelation(object):
         return int(self._get_relation_data_or_config("service-port", 0))
 
     @property
-    def _path_routes(self):
+    def _path_routes(self) -> Any:
         """Return the path routes to use for the k8s ingress."""
         # NOTE: If the charm has multiple relations, use the path routes given by the relation
         # in order to avoid same route conflicts.
@@ -228,7 +328,7 @@ class _ConfigOrRelation(object):
         return self._get_config_or_relation_data("path-routes", "/").split(",")
 
     @property
-    def _session_cookie_max_age(self):
+    def _session_cookie_max_age(self) -> Any:
         """Return the session-cookie-max-age to use for k8s ingress."""
         session_cookie_max_age = self._get_config_or_relation_data("session-cookie-max-age", 0)
         if session_cookie_max_age:
@@ -237,26 +337,35 @@ class _ConfigOrRelation(object):
         return ""
 
     @property
-    def _tls_secret_name(self):
+    def _tls_secret_name(self) -> Any:
         """Return the tls-secret-name to use for k8s ingress (if any)."""
         return self._get_config_or_relation_data("tls-secret-name", "")
 
     @property
-    def _whitelist_source_range(self):
+    def _whitelist_source_range(self) -> Any:
         """Return the whitelist-source-range config option."""
         return self._get_config("whitelist-source-range")
 
-    def _get_k8s_service(self):
-        """Get a K8s service definition."""
+    def _get_k8s_service(self, label: str) -> kubernetes.client.V1Service:
+        """Get a K8s service definition.
+
+        Args:
+            label: Custom label assigned to every service.
+
+        Returns:
+            A k8s service definition.
+        """
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
-            metadata=kubernetes.client.V1ObjectMeta(name=self._k8s_service_name),
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=self._k8s_service_name, labels={CREATED_BY_LABEL: label}
+            ),
             spec=kubernetes.client.V1ServiceSpec(
                 selector={"app.kubernetes.io/name": self._service_name},
                 ports=[
                     kubernetes.client.V1ServicePort(
-                        name="tcp-{}".format(self._service_port),
+                        name=f"tcp-{self._service_port}",
                         port=self._service_port,
                         target_port=self._service_port,
                     )
@@ -264,8 +373,15 @@ class _ConfigOrRelation(object):
             ),
         )
 
-    def _get_k8s_ingress(self):
-        """Get a K8s ingress definition."""
+    def _get_k8s_ingress(self, label: str) -> kubernetes.client.V1Ingress:
+        """Get a K8s ingress definition.
+
+        Args:
+            label: Custom label assigned to every ingress.
+
+        Returns:
+            A k8s Ingress definition.
+        """
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
                 path=path,
@@ -283,13 +399,7 @@ class _ConfigOrRelation(object):
         ]
 
         hostnames = [self._service_hostname]
-        hostnames.extend(
-            [
-                x
-                for x in self._get_config_or_relation_data("additional-hostnames", "").split(",")
-                if x
-            ]
-        )
+        hostnames.extend(self._additional_hostnames)
         ingress_rules = [
             kubernetes.client.V1IngressRule(
                 host=hostname,
@@ -300,6 +410,8 @@ class _ConfigOrRelation(object):
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {"nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size}
+        annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] = self._proxy_read_timeout
+        annotations["nginx.ingress.kubernetes.io/backend-protocol"] = self._backend_protocol
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
             if self._limit_whitelist:
@@ -307,9 +419,11 @@ class _ConfigOrRelation(object):
         if self._owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
             annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
+            sec_rule_engine = f"SecRuleEngine On\n{self._owasp_modsecurity_custom_rules}"
+            nginx_modsec_file = "/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             annotations[
                 "nginx.ingress.kubernetes.io/modsecurity-snippet"
-            ] = "SecRuleEngine On\nInclude /etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
+            ] = f"{sec_rule_engine}\nInclude {nginx_modsec_file}"
         if self._retry_errors:
             annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = self._retry_errors
         if self._rewrite_enabled:
@@ -321,9 +435,9 @@ class _ConfigOrRelation(object):
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-max-age"
             ] = self._session_cookie_max_age
-            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = "{}_AFFINITY".format(
-                self._service_name.upper()
-            )
+            annotations[
+                "nginx.ingress.kubernetes.io/session-cookie-name"
+            ] = f"{self._service_name.upper()}_AFFINITY"
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
@@ -343,34 +457,142 @@ class _ConfigOrRelation(object):
             api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=self._ingress_name,
-                annotations=annotations,
+                name=self._ingress_name, annotations=annotations, labels={CREATED_BY_LABEL: label}
             ),
             spec=spec,
         )
 
 
 class NginxIngressCharm(CharmBase):
-    """Charm the service."""
+    """Charm the service.
+
+    Attrs:
+        _authed: If the charm is authed or not
+        on: Ingress charm events to handle.
+    """
 
     _authed = False
     on = IngressCharmEvents()
 
-    def __init__(self, *args):
+    def __init__(self, *args) -> None:  # type: ignore[no-untyped-def]
+        """Init method for the class.
+
+        Args:
+            args: Variable list of positional arguments passed to the parent constructor.
+        """
         super().__init__(*args)
-        self.framework.observe(self.on.config_changed, self._on_config_changed)
+        self.framework.observe(self.on.config_changed, self._on_config_changed_with_warning)
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
+        self.framework.observe(self.on.start, self._on_start)
 
         # 'ingress' relation handling.
         self.ingress = IngressProvides(self)
         # When the 'ingress' is ready to configure, do so.
-        self.framework.observe(self.on.ingress_available, self._on_config_changed)
+        self.framework.observe(self.on.ingress_available, self._on_config_changed_with_warning)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
+        provide_nginx_route(
+            charm=self,
+            on_nginx_route_available=self._on_config_changed,
+            on_nginx_route_broken=self._on_ingress_broken,
+        )
+
+    def _on_config_changed_with_warning(self, event: Any) -> None:
+        """Handle the ingress relation available event.
+
+        The same functionality as _on_config_changed, but will add warning message if there are
+        applications connected via ingress relation.
+
+        Args:
+            event: not used.
+        """
+        self._on_config_changed(event)
+        status = self.unit.status
+        connected_apps = {
+            relation.app.name
+            for relation in self.model.relations["ingress"]
+            if relation.app is not None
+        }
+        if connected_apps:
+            connected_app_names = ", ".join(sorted(connected_apps))
+            warning = (
+                f"app [{connected_app_names}] connected via deprecated ingress relation, "
+                f"please update to nginx-route relation; {status.message}"
+            )
+            self.unit.status = status.from_name(status.name, warning)
+
+    def _on_start(self, _: StartEvent) -> None:
+        """Handle the start event."""
+        # We need to set ActiveStatus here because this is a workload-less
+        # charm, so there's no pebble-ready event to react to. This means this
+        # is the only event (outside of update-status) that is fired if a pod is
+        # restarted by the k8s cluster. If we don't do anything here the charm
+        # would remain in maintenance status.
+        self.unit.status = ActiveStatus()
+
+    @staticmethod
+    def _gen_relation_dedup_key(relation: Relation) -> typing.Tuple[str, ...]:
+        """Generate a key from the given relation to detect duplicates in _deduped_relations.
+
+        Args:
+            relation: the given relation object.
+
+        Returns: The key as a tuple of strings.
+
+        Raises:
+            RuntimeError: if the remote application is unknown.
+        """
+        app = relation.app
+        if not app:
+            raise RuntimeError(f"can't retrieve remote application from relation {relation}")
+        data = relation.data[app]
+        return (
+            data.get("service-hostname"),
+            data.get("service-name"),
+            data.get("service-model"),
+            data.get("service-port"),
+            app.name,
+        )
+
+    def _deduped_relations(self) -> Tuple[ops.Relation, ...]:
+        """Return a relation list with duplicates removed.
+
+        Relations are considered duplicated if they meet the following criteria:
+        1. Two are connected via the legacy ingress and the nginx-route relation endpoint
+        2. Two share the same 4-tuple (service-hostname, service-name, service-model, service-port)
+        3. Both relations have the same remote application.
+
+        In the case of duplicates, the relation connected via legacy ingress is removed.
+
+        Returns:
+            A relation list with duplicates removed.
+        """
+        nginx_route_relations = self.model.relations["nginx-route"]
+        ingress_relations = self.model.relations["ingress"]
+        nginx_route_relation_keys = set(
+            self._gen_relation_dedup_key(r) for r in nginx_route_relations
+        )
+        dedup_ingress_relations = []
+        for relation in ingress_relations:
+            if self._gen_relation_dedup_key(relation) in nginx_route_relation_keys:
+                LOGGER.warning(
+                    "legacy ingress relation from app %s is shadowed by nginx-route relation",
+                    relation.app,
+                )
+                continue
+            dedup_ingress_relations.append(relation)
+        return tuple(nginx_route_relations + dedup_ingress_relations)
+
     @property
-    def _all_config_or_relations(self):
-        """Get all configuration and relation data."""
-        all_relations = self.model.relations["ingress"] or [None]
+    def _all_config_or_relations(self) -> Any:
+        """Get all configuration and relation data.
+
+        Returns:
+            All configuration and relation data.
+        """
+        all_relations = self._deduped_relations()
+        if not all_relations:
+            all_relations = (None,)  # type: ignore[assignment]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
@@ -378,28 +600,38 @@ class NginxIngressCharm(CharmBase):
         ]
 
     @property
-    def _multiple_relations(self):
-        """Return a boolean indicating if we're related to multiple applications."""
-        return len(self.model.relations["ingress"]) > 1
+    def _multiple_relations(self) -> bool:
+        """Check if we're related to multiple applications.
+
+        Returns:
+            if we're related to multiple applications or not.
+        """
+        return len(self._deduped_relations()) > 1
 
     @property
-    def _namespace(self):
-        """Namespace for this ingress."""
+    def _namespace(self) -> Any:
+        """Namespace for this ingress.
+
+        Returns:
+            The namespace for this Ingress.
+        """
         # We're querying the first one here because this will always be the same
         # for all instances. It would be very unusual for a relation to specify
         # this (arguably we should remove this as a relation option), so if set
         # via config it will be the same for all relations.
         return self._all_config_or_relations[0]._namespace
 
-    def _describe_ingresses_action(self, event):
-        """Handle the 'describe-ingresses' action."""
-        self.k8s_auth()
-        api = _networking_v1_api()
+    def _describe_ingresses_action(self, event: Any) -> None:
+        """Handle the 'describe-ingresses' action.
 
+        Args:
+            event: Juju event that fires this handler.
+        """
+        api = self._networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         event.set_results({"ingresses": ingresses})
 
-    def k8s_auth(self):
+    def k8s_auth(self) -> None:
         """Authenticate to kubernetes."""
         if self._authed:
             return
@@ -408,23 +640,110 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _report_service_ips(self):
-        """Report on service IP(s)."""
+    def _core_v1_api(self) -> kubernetes.client.CoreV1Api:
+        """Use the v1 k8s API.
+
+        Returns:
+            The core v1 API.
+        """
         self.k8s_auth()
-        api = _core_v1_api()
-        services = api.list_namespaced_service(namespace=self._namespace)
+        return kubernetes.client.CoreV1Api()
+
+    def _networking_v1_api(self) -> kubernetes.client.NetworkingV1Api:
+        """Use the v1 beta1 networking API.
+
+        Returns:
+            The networking v1 API.
+        """
+        self.k8s_auth()
+        return kubernetes.client.NetworkingV1Api()
+
+    def _report_service_ips(self) -> List[str]:
+        """Report on service IP(s) and return a list of them.
+
+        Returns:
+            A list of service IPs.
+        """
+        api = self._core_v1_api()
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         all_k8s_service_names = [rel._k8s_service_name for rel in self._all_config_or_relations]
         return [
             x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
         ]
 
-    def _has_required_fields(self, conf_or_rel: _ConfigOrRelation):
-        """Checks if the given config or relation has the required fields set."""
-        # We use the same names in _ConfigOrRelation, but with _ instead of -.
-        field_names = ["_%s" % f.replace("-", "_") for f in REQUIRED_INGRESS_RELATION_FIELDS]
-        return all([getattr(conf_or_rel, f) for f in field_names])
+    def _report_ingress_ips(self) -> List[str]:
+        """Report on ingress IP(s) and return a list of them.
 
-    def _define_services(self):
+        Returns:
+            A list of Ingress IPs.
+        """
+        api = self._networking_v1_api()
+        # Wait up to `interval * count` seconds for ingress IPs.
+        count, interval = _report_interval_count(), 1
+        for _ in range(count):
+            ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
+                namespace=self._namespace
+            )
+            try:
+                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
+            except TypeError:
+                # We have no IPs yet.
+                ips = []
+            if ips:
+                break
+            LOGGER.info("Sleeping for %s seconds to wait for ingress IP", interval)
+            time.sleep(interval)
+        return ips
+
+    def _has_required_fields(self, conf_or_rel: _ConfigOrRelation) -> bool:
+        """Check if the given config or relation has the required fields set.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+
+        Returns:
+            If the config or relation class has all required fields or not.
+        """
+        # We use the same names in _ConfigOrRelation, but with _ instead of -.
+        field_names = [f'_{f.replace("-", "_")}' for f in REQUIRED_INGRESS_RELATION_FIELDS]
+        return all(getattr(conf_or_rel, f) for f in field_names)
+
+    def _delete_unused_services(self, current_svc_names: List[str]) -> None:
+        """Delete services and ingresses that are no longer used.
+
+        Args:
+            current_svc_names: service names set by config or relation data.
+        """
+        api = self._core_v1_api()
+        all_services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace, label_selector=f"{CREATED_BY_LABEL}={self.app.name}"
+        )
+        all_svc_names = tuple(item.metadata.name for item in all_services.items)
+        unused_svc_names = tuple(
+            svc_name
+            for svc_name in all_svc_names
+            if svc_name.replace("-service", "") not in current_svc_names
+        )
+        LOGGER.debug(
+            "Checking for unused services. Configured: %s Found: %s Unused: %s",
+            current_svc_names,
+            all_svc_names,
+            unused_svc_names,
+        )
+        for unused_svc_name in unused_svc_names:
+            api.delete_namespaced_service(  # type: ignore[attr-defined]
+                name=unused_svc_name,
+                namespace=self._namespace,
+            )
+            LOGGER.info(
+                "Service deleted in namespace %s with name %s",
+                self._namespace,
+                unused_svc_name,
+            )
+
+    def _define_services(self) -> None:
         """Create or update the services in Kubernetes from multiple ingress relations."""
         for conf_or_rel in self._all_config_or_relations:
             # By default, the service name is "". If there is no value set, we might be missing
@@ -433,14 +752,19 @@ class NginxIngressCharm(CharmBase):
             if self._has_required_fields(conf_or_rel):
                 self._define_service(conf_or_rel)
 
-    def _define_service(self, conf_or_rel: _ConfigOrRelation):
-        """Create or update a service in kubernetes."""
-        self.k8s_auth()
-        api = _core_v1_api()
-        body = conf_or_rel._get_k8s_service()
-        services = api.list_namespaced_service(namespace=self._namespace)
+    def _define_service(self, conf_or_rel: _ConfigOrRelation) -> None:
+        """Create or update a service in kubernetes.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+        """
+        api = self._core_v1_api()
+        body = conf_or_rel._get_k8s_service(self.app.name)
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
-            api.patch_namespaced_service(
+            api.patch_namespaced_service(  # type: ignore[attr-defined]
                 name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
                 body=body,
@@ -451,7 +775,7 @@ class NginxIngressCharm(CharmBase):
                 conf_or_rel._service_name,
             )
         else:
-            api.create_namespaced_service(
+            api.create_namespaced_service(  # type: ignore[attr-defined]
                 namespace=self._namespace,
                 body=body,
             )
@@ -461,13 +785,18 @@ class NginxIngressCharm(CharmBase):
                 conf_or_rel._service_name,
             )
 
-    def _remove_service(self, conf_or_rel: _ConfigOrRelation):
-        """Remove the created service in kubernetes."""
-        self.k8s_auth()
-        api = _core_v1_api()
-        services = api.list_namespaced_service(namespace=self._namespace)
+    def _remove_service(self, conf_or_rel: _ConfigOrRelation) -> None:
+        """Remove the created service in kubernetes.
+
+        Args:
+            conf_or_rel: Ingress configuration or relation class.
+        """
+        api = self._core_v1_api()
+        services = api.list_namespaced_service(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
         if conf_or_rel._k8s_service_name in [x.metadata.name for x in services.items]:
-            api.delete_namespaced_service(
+            api.delete_namespaced_service(  # type: ignore[attr-defined]
                 name=conf_or_rel._k8s_service_name,
                 namespace=self._namespace,
             )
@@ -477,8 +806,13 @@ class NginxIngressCharm(CharmBase):
                 conf_or_rel._service_name,
             )
 
-    def _look_up_and_set_ingress_class(self, api, body):
-        """Set the configured ingress class, otherwise the cluster's default ingress class."""
+    def _look_up_and_set_ingress_class(self, api: Any, body: Any) -> None:
+        """Set the configured ingress class, otherwise the cluster's default ingress class.
+
+        Args:
+            api: Kubernetes API to perform operations on.
+            body: Ingress body.
+        """
         ingress_class = self.config["ingress-class"]
         if not ingress_class:
             defaults = [
@@ -493,30 +827,55 @@ class NginxIngressCharm(CharmBase):
                 return
 
             if len(defaults) > 1:
+                default_ingress = " ".join(sorted(defaults))
+                msg = "Multiple default ingress classes defined, declining to choose between them."
                 LOGGER.warning(
-                    "Multiple default ingress classes defined, declining to choose between them. "
-                    "They are: {}".format(" ".join(sorted(defaults)))
+                    "%s. They are: %s",
+                    msg,
+                    default_ingress,
                 )
                 return
 
             ingress_class = defaults[0]
-            LOGGER.info(
-                "Using ingress class {} as it is the cluster's default".format(ingress_class)
-            )
+            LOGGER.info("Using ingress class %s as it is the cluster's default", ingress_class)
 
         body.spec.ingress_class_name = ingress_class
 
-    def _define_ingresses(self, excluded_relation=None):
+    def _delete_unused_ingresses(self, current_svc_hostnames: List[str]) -> None:
+        """Delete ingresses that are no longer managed by nginx-ingress-integrator charm.
+
+        Args:
+            current_svc_hostnames: service hostnames set by config or relation data
+        """
+        api = self._networking_v1_api()
+        all_ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
+            namespace=self._namespace, label_selector=f"{CREATED_BY_LABEL}={self.app.name}"
+        )
+        all_svc_hostnames = tuple(ingress.spec.rules[0].host for ingress in all_ingresses.items)
+        unused_svc_hostnames = tuple(
+            hostname for hostname in all_svc_hostnames if hostname not in current_svc_hostnames
+        )
+        LOGGER.debug(
+            "Checking for unused ingresses. Configured: %s Found: %s Unused: %s",
+            current_svc_hostnames,
+            all_svc_hostnames,
+            unused_svc_hostnames,
+        )
+        for unused_src_hostname in unused_svc_hostnames:
+            self._remove_ingress(self._ingress_name(unused_src_hostname))
+
+    def _define_ingresses(self, excluded_relation: Optional[Relation] = None) -> None:
         """(Re)Creates the Ingress Resources in Kubernetes from multiple ingress relations.
 
         Creates the Kubernetes Ingress Resource if it does not exist, or updates it if it does.
         The Ingress-related data is retrieved from the Charm's configuration and from the ingress
         relations.
 
-        :param excluded_relation: The relation for which Ingress rules should not be created.
-            For example, when a relation is broken, Ingress rules for it are no longer
-            necessary, hence, it is to be excluded. Additionally, any Ingress objects that it
-            required and that are no longer needed by other relations will be deleted.
+        Args:
+            excluded_relation: The relation for which Ingress rules should not be created.
+                For example, when a relation is broken, Ingress rules for it are no longer
+                necessary, hence, it is to be excluded. Additionally, any Ingress objects that it
+                required and that are no longer needed by other relations will be deleted.
         """
         config_or_relations = self._all_config_or_relations
         if excluded_relation:
@@ -528,29 +887,30 @@ class NginxIngressCharm(CharmBase):
         # Filter out any cases in which we don't have data set (e.g.: missing relation data)
         config_or_relations = filter(self._has_required_fields, config_or_relations)
 
-        ingresses = [conf_or_rel._get_k8s_ingress() for conf_or_rel in config_or_relations]
+        ingresses = [
+            conf_or_rel._get_k8s_ingress(self.app.name) for conf_or_rel in config_or_relations
+        ]
 
         ingresses = self._process_ingresses(ingresses)
-
-        # Check if we need to remove any Ingresses from the excluded relation. If it has hostnames
-        # that are not used by any other relation, we need to remove them.
-        if excluded_relation:
-            conf_or_rel = _ConfigOrRelation(
-                self.model, self.config, excluded_relation, self._multiple_relations
-            )
-            excluded_ingress = conf_or_rel._get_k8s_ingress()
-
-            # The Kubernetes Ingress Resources we're creating only has 1 rule per hostname.
-            used_hostnames = [ingress.spec.rules[0].host for ingress in ingresses]
-            for rule in excluded_ingress.spec.rules:
-                if rule.host not in used_hostnames:
-                    self._remove_ingress(self._ingress_name(rule.host))
 
         for ingress in ingresses:
             self._define_ingress(ingress)
 
-    def _process_ingresses(self, ingresses):
-        """Process ingresses, or raise an exception if there are unresolvable conflicts."""
+    def _process_ingresses(self, ingresses: List) -> List:
+        """Process ingresses, or raise an exception if there are unresolvable conflicts.
+
+        Args:
+            ingresses: List of ingresses to process.
+
+        Returns:
+            A list of fully processed ingress objects.
+
+        Raises:
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: if an invalid backend protocol is used.
+        """
         # If there are Ingress rules for the same service-hostname, we need to squash those
         # rules together. This will be used to group the rules by their host.
         ingress_paths = {}
@@ -563,7 +923,15 @@ class NginxIngressCharm(CharmBase):
         for ingress in ingresses:
             # A relation could have defined additional-hostnames, so there could be more than
             # one rule. Those hostnames might also be used in other relations.
+            if not is_backend_protocol_valid(
+                ingress.metadata.annotations["nginx.ingress.kubernetes.io/backend-protocol"]
+            ):
+                raise InvalidBackendProtocolError()
+
             for rule in ingress.spec.rules:
+                if not invalid_hostname_check(rule.host):
+                    raise InvalidHostnameError()
+
                 if rule.host not in ingress_paths:
                     # The same paths array is used for any additional-hostnames given, so we need
                     # to make our own copy.
@@ -581,19 +949,23 @@ class NginxIngressCharm(CharmBase):
                         ingress.metadata.annotations,
                         other_metadata.annotations,
                     )
-                    raise ConflictingAnnotationsException()
+                    raise ConflictingAnnotationsError()
 
                 # Ensure that the exact same route for this route was not yet defined.
                 defined_paths = ingress_paths[rule.host]
-                for path in rule.http.paths:
-                    duplicate_paths = list(filter(lambda p: p.path == path.path, defined_paths))
+                for item in rule.http.paths:
+                    duplicate_paths = [
+                        defined_path
+                        for defined_path in defined_paths
+                        if defined_path.path == item.path
+                    ]
                     if duplicate_paths:
                         LOGGER.error(
                             "Duplicate routes found:\nFirst route: %s\nSecond route: %s",
                             duplicate_paths[0],
-                            path,
+                            item,
                         )
-                        raise ConflictingRoutesException()
+                        raise ConflictingRoutesError()
 
                 # Extend the list of routes for this hostname.
                 ingress_paths[rule.host].extend(rule.http.paths)
@@ -603,19 +975,39 @@ class NginxIngressCharm(CharmBase):
         for hostname, paths in ingress_paths.items():
             # Use the metadata from the first rule.
             initial_ingress = hostname_ingress[hostname]
-            add_ingress = self._create_k8s_ingress_obj(hostname, initial_ingress, paths)
+            add_ingress = self._create_k8s_ingress_obj(
+                hostname, initial_ingress, paths, self.app.name
+            )
             ingress_objs.append(add_ingress)
 
         return ingress_objs
 
-    def _ingress_name(self, hostname):
-        """Returns the Kubernetes Ingress Resource name based on the given hostname."""
+    def _ingress_name(self, hostname: str) -> str:
+        """Return the Kubernetes Ingress Resource name based on the given hostname.
+
+        Args:
+            hostname: The base hostname to build the ingress name for.
+
+        Returns:
+            A formatted ingress name.
+        """
         ingress_name = _INGRESS_SUB_REGEX.sub("-", hostname)
-        return "{}-ingress".format(ingress_name)
+        return f"{ingress_name}-ingress"
 
-    def _create_k8s_ingress_obj(self, svc_hostname, initial_ingress, paths):
-        """Creates a Kubernetes Ingress Resources with the given data."""
+    def _create_k8s_ingress_obj(
+        self, svc_hostname: str, initial_ingress: Any, paths: Any, label: str
+    ) -> Any:
+        """Create a Kubernetes Ingress Resources with the given data.
 
+        Args:
+            svc_hostname: Ingress service hostname.
+            initial_ingress: Initial ingress previously built.
+            paths: Ingress paths.
+            label: Ingress label.
+
+        Returns:
+            An Ingress object.
+        """
         # Create a Ingress Object with the new ingress rules and return it.
         rule = kubernetes.client.V1IngressRule(
             host=svc_hostname,
@@ -639,14 +1031,18 @@ class NginxIngressCharm(CharmBase):
             metadata=kubernetes.client.V1ObjectMeta(
                 name=ingress_name,
                 annotations=initial_ingress.metadata.annotations,
+                labels={CREATED_BY_LABEL: label},
             ),
             spec=new_spec,
         )
 
-    def _define_ingress(self, body):
-        """Create or update an ingress in kubernetes."""
-        self.k8s_auth()
-        api = _networking_v1_api()
+    def _define_ingress(self, body: Any) -> None:
+        """Create or update an ingress in kubernetes.
+
+        Args:
+            body: Ingress resource body to configure.
+        """
+        api = self._networking_v1_api()
         self._look_up_and_set_ingress_class(api, body)
         ingress_name = body.metadata.name
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
@@ -672,10 +1068,13 @@ class NginxIngressCharm(CharmBase):
                 ingress_name,
             )
 
-    def _remove_ingress(self, ingress_name):
-        """Remove ingress resource."""
-        self.k8s_auth()
-        api = _networking_v1_api()
+    def _remove_ingress(self, ingress_name: str) -> None:
+        """Remove ingress resource.
+
+        Args:
+            ingress_name: Ingress resource name.
+        """
+        api = self._networking_v1_api()
         ingresses = api.list_namespaced_ingress(namespace=self._namespace)
         if ingress_name in [x.metadata.name for x in ingresses.items]:
             api.delete_namespaced_ingress(ingress_name, self._namespace)
@@ -685,52 +1084,98 @@ class NginxIngressCharm(CharmBase):
                 ingress_name,
             )
 
-    def _on_config_changed(self, _):
-        """Handle the config changed event."""
+    def _delete_unused_resources(self) -> None:
+        """Delete unused services and ingresses."""
+        svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
+        self._delete_unused_services(svc_names)
+        svc_hostnames = [
+            conf_or_rel._service_hostname for conf_or_rel in self._all_config_or_relations
+        ]
+        all_additional_hostnames = [
+            conf_or_rel._additional_hostnames for conf_or_rel in self._all_config_or_relations
+        ]
+        for additional_hostname in all_additional_hostnames:
+            svc_hostnames.extend(additional_hostname)
+        self._delete_unused_ingresses(svc_hostnames)
+
+    def _on_config_changed(self, _: HookEvent) -> None:
+        """Handle the config changed event.
+
+        Raises:
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: if an invalid backend protocol is used.
+        """
         msg = ""
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
         svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
-        print(svc_names)
         if self.unit.is_leader() and any(svc_names):
             try:
                 self._define_services()
                 self._define_ingresses()
-
-                # It's not recommended to do this via ActiveStatus, but we don't
-                # have another way of reporting status yet.
-                msg = "Ingress with service IP(s): {}".format(
-                    ", ".join(self._report_service_ips())
-                )
-            except kubernetes.client.exceptions.ApiException as e:
-                if e.status == 403:
+                msgs = []
+                self.unit.status = WaitingStatus("Waiting for ingress IP availability")
+                ingress_ips = self._report_ingress_ips()
+                if ingress_ips:
+                    msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
+                msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
+                msg = ", ".join(msgs)
+                self._delete_unused_resources()
+            except kubernetes.client.exceptions.ApiException as exception:
+                if exception.status == 403:
                     LOGGER.error(
                         "Insufficient permissions to create the k8s service, "
                         "will request `juju trust` to be run"
                     )
+                    juju_trust_cmd = f"juju trust {self.app.name} --scope=cluster"
                     self.unit.status = BlockedStatus(
-                        "Insufficient permissions, try: `juju trust {} --scope=cluster`".format(
-                            self.app.name
-                        )
+                        f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
-                else:
-                    raise
-            except ConflictingAnnotationsException:
+                raise
+            except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "
                     "Set manually via juju config."
                 )
                 return
-            except ConflictingRoutesException:
+            except ConflictingRoutesError:
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
                 return
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
+                return
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
+        self.unit.set_workload_version(self._get_kubernetes_library_version())
         self.unit.status = ActiveStatus(msg)
 
-    def _on_ingress_broken(self, event):
-        """Handle the ingress broken event."""
+    def _get_kubernetes_library_version(self) -> str:
+        """Retrieve the current version of Kubernetes library.
+
+        Returns:
+            The Kubernetes library used.
+        """
+        return kubernetes.__version__
+
+    def _on_ingress_broken(self, event: Any) -> None:
+        """Handle the ingress broken event.
+
+        Args:
+            event: The event that fires this method.
+
+        Raises:
+            An error if there are insufficient permissions to delete an ingress.
+            ConflictingAnnotationsError: if there are conflicting annotations.
+            ConflictingRoutesError: if there are conflicting routes.
+            InvalidHostnameError: if there is an invalid hostname.
+            InvalidBackendProtocolError: an invalid backend protocol.
+        """
         conf_or_rel = _ConfigOrRelation(self.model, {}, event.relation, self._multiple_relations)
         if self.unit.is_leader() and conf_or_rel._ingress_name:
             try:
@@ -738,33 +1183,36 @@ class NginxIngressCharm(CharmBase):
                 # on the existing relations, and remove any resources that are no longer needed
                 # (they were needed by the event relation).
                 self._define_ingresses(excluded_relation=event.relation)
-                self._remove_service(conf_or_rel)
-            except kubernetes.client.exceptions.ApiException as e:
-                if e.status == 403:
+                self._delete_unused_resources()
+            except kubernetes.client.exceptions.ApiException as exception:
+                if exception.status == 403:
                     LOGGER.error(
                         "Insufficient permissions to delete the k8s ingress resource, "
                         "will request `juju trust` to be run"
                     )
+                    juju_trust_cmd = f"juju trust {self.app.name} --scope=cluster"
                     self.unit.status = BlockedStatus(
-                        "Insufficient permissions, try: `juju trust {} --scope=cluster`".format(
-                            self.app.name
-                        )
+                        f"Insufficient permissions, try: `{juju_trust_cmd}`"
                     )
                     return
-                else:
-                    raise
-            except ConflictingAnnotationsException:
+                raise
+            except ConflictingAnnotationsError:
                 self.unit.status = BlockedStatus(
                     "Conflicting annotations from relations. Run juju debug-log for details. "
                     "Set manually via juju config."
                 )
                 return
-            except ConflictingRoutesException:
+            except ConflictingRoutesError:
                 self.unit.status = BlockedStatus(
                     "Duplicate route found; cannot add ingress. Run juju debug-log for details."
                 )
                 return
-
+            except InvalidHostnameError:
+                self.unit.status = BlockedStatus(INVALID_HOSTNAME_MSG)
+                return
+            except InvalidBackendProtocolError:
+                self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
+                return
         self.unit.status = ActiveStatus()
 
 

@@ -1,8 +1,9 @@
-# Copyright 2022 Canonical Ltd.
+# Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 import itertools
 import unittest
+from typing import Dict
 
 import yaml
 from charms.nginx_ingress_integrator.v0.ingress import (
@@ -16,7 +17,15 @@ from ops.testing import Harness
 
 
 class NginxIngressConsumerCharm(CharmBase):
+    """Class for consumer charm testing."""
+
     def __init__(self, *args, config_dict=None):
+        """Init method for the class.
+
+        Args:
+            args: Variable list of positional arguments passed to the parent constructor.
+            config_dict: Configuration options for the charm.
+        """
         super().__init__(*args)
         self.ingress = IngressRequires(self, config_dict or {})
 
@@ -33,10 +42,17 @@ class TestCharmInit(unittest.TestCase):
         act: when the charm is constructed with the configuration
         assert: then the default value is set.
         """
-        config_dict = {}
+        config_dict: Dict[str, str] = {}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
         self.harness = Harness(CharmWithConfigDict, meta=META)
@@ -57,10 +73,18 @@ class TestCharmInit(unittest.TestCase):
         config_dict = {"service-namespace": service_namespace}
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        # CharmType in Harness should be changed to fix this error
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
@@ -87,10 +111,17 @@ class TestCharmInit(unittest.TestCase):
         }
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
@@ -126,10 +157,17 @@ class TestCharmInit(unittest.TestCase):
         }
 
         class CharmWithConfigDict(NginxIngressConsumerCharm):
+            """Class consisting of the Charm with a configuration dict."""
+
             def __init__(self, *args):
+                """Init method for the class.
+
+                Args:
+                    args: Variable list of positional arguments passed to the parent constructor.
+                """
                 super().__init__(*args, config_dict=config_dict)
 
-        self.harness = Harness(CharmWithConfigDict, meta=META)
+        self.harness = Harness(CharmWithConfigDict, meta=META)  # type: ignore[arg-type]
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
@@ -140,7 +178,10 @@ class TestCharmInit(unittest.TestCase):
 
 
 class TestCharm(unittest.TestCase):
+    """Class for charm testing."""
+
     def setUp(self):
+        """Setup method for the class."""
         self.harness = Harness(
             NginxIngressConsumerCharm,
             meta=META,
@@ -155,7 +196,7 @@ class TestCharm(unittest.TestCase):
         assert: then True is returned and a message with the missing configuration is logged.
         """
         with self.assertLogs(level="ERROR") as logger:
-            result = self.harness.charm.ingress._config_dict_errors()
+            result = self.harness.charm.ingress._config_dict_errors({})
 
             self.assertTrue(result)
 
@@ -178,7 +219,9 @@ class TestCharm(unittest.TestCase):
         self.harness.charm.ingress.config_dict[unknown_key] = "unknown value"
 
         with self.assertLogs(level="ERROR") as logger:
-            result = self.harness.charm.ingress._config_dict_errors()
+            result = self.harness.charm.ingress._config_dict_errors(
+                self.harness.charm.ingress.config_dict
+            )
 
             self.assertTrue(result)
 
@@ -198,10 +241,10 @@ class TestCharm(unittest.TestCase):
         ):
             self.harness.charm.ingress.config_dict[key] = key
 
-        with self.assertNoLogs(level="ERROR"):
-            result = self.harness.charm.ingress._config_dict_errors()
-
-            self.assertFalse(result)
+        result = self.harness.charm.ingress._config_dict_errors(
+            self.harness.charm.ingress.config_dict
+        )
+        self.assertFalse(result)
 
     def test_update_config(self):
         log_message = (

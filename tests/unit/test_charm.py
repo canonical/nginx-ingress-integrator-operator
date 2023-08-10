@@ -15,6 +15,10 @@ from charm import (
     CREATED_BY_LABEL,
     INVALID_BACKEND_PROTOCOL_MSG,
     INVALID_HOSTNAME_MSG,
+    ConflictingAnnotationsError,
+    ConflictingRoutesError,
+    InvalidBackendProtocolError,
+    InvalidHostnameError,
     NginxIngressCharm,
 )
 from helpers import invalid_hostname_check
@@ -820,24 +824,67 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(conf_or_rel._service_name, "gunicorn")
         self.assertEqual(conf_or_rel._service_port, 80)
 
-    @patch("charm.NginxIngressCharm._remove_ingress")
-    @patch("charm.NginxIngressCharm._remove_service")
-    def test_on_ingress_relation_broken_unauthorized(self, _remove_service, _remove_ingress):
-        """Test the Unauthorized case on relation-broken."""
-        # Call the test test_on_ingress_relation_changed first
-        # to make sure the relation is created and therefore can be removed.
-        self.test_on_ingress_relation_changed()
-        _remove_service.side_effect = kubernetes.client.exceptions.ApiException(status=403)
+    def _run_on_ingress_relation_broken_exception(self, exception, expected_status):
+        """Test exceptions on relation-broken.
 
-        self.harness.charm._authed = True
-        relation = self.harness.charm.model.get_relation("ingress")
-        self.harness.remove_relation(relation.id)  # type: ignore[union-attr]
+        Args:
+            exception: exception to be raised in the relation broken handler.
+            expected_status: expected unit status.
+        """
+        with patch(
+            "charm.NginxIngressCharm._define_ingresses",
+            side_effect=exception,
+        ), patch("charm.NginxIngressCharm._delete_unused_services"):
+            # Call the test test_on_ingress_relation_changed first
+            # to make sure the relation is created and therefore can be removed.
+            self.test_on_ingress_relation_changed()
+            self.harness.charm._authed = True
+            relation = self.harness.charm.model.get_relation("ingress")
+            self.harness.remove_relation(relation.id)  # type: ignore[union-attr]
+            self.assertEqual(self.harness.charm.unit.status, expected_status)
 
-        expected_status = BlockedStatus(
-            "Insufficient permissions, try: `juju trust %s --scope=cluster`"
-            % self.harness.charm.app.name
+    def test_on_ingress_relation_broken_unauthorized(self):
+        """Test unauthorized error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            kubernetes.client.exceptions.ApiException(status=403),
+            BlockedStatus(
+                "Insufficient permissions, "
+                "try: `juju trust nginx-ingress-integrator --scope=cluster`"
+            ),
         )
-        self.assertEqual(self.harness.charm.unit.status, expected_status)
+
+    def test_on_ingress_relation_broken_conflict_annotation(self):
+        """Test conflict annotation error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            ConflictingAnnotationsError(),
+            BlockedStatus(
+                "Conflicting annotations from relations. Run juju debug-log for details. "
+                "Set manually via juju config."
+            ),
+        )
+
+    def test_on_ingress_relation_broken_conflict_routes(self):
+        """Test conflict routes error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            ConflictingRoutesError(),
+            BlockedStatus(
+                "Duplicate route found; cannot add ingress. Run juju debug-log for details."
+            ),
+        ),
+
+    def test_on_ingress_relation_invalid_hostname(self):
+        """Test invalid hostname error on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidHostnameError(),
+            BlockedStatus(INVALID_HOSTNAME_MSG),
+        )
+
+    def test_on_ingress_relation_invalid_backend_protocol(self):
+        """Test invalid backend protocol on ingress relation broken"""
+        self._run_on_ingress_relation_broken_exception(
+            InvalidBackendProtocolError(),
+            BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG),
+        )
 
     @patch("charm.NginxIngressCharm._networking_v1_api")
     @patch("charm.NginxIngressCharm._core_v1_api")
@@ -855,6 +902,7 @@ class TestCharm(unittest.TestCase):
 
         mock_ingress = mock.Mock()
         mock_ingress.metadata.name = conf_or_rels[0]._ingress_name
+        mock_ingress.spec.rules = [unittest.mock.MagicMock(host=conf_or_rels[0]._service_hostname)]
         mock_ingresses = mock_net_api.return_value.list_namespaced_ingress.return_value
         mock_ingresses.items = [mock_ingress]
 
@@ -1544,11 +1592,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
         relation = self.harness.charm.model.relations["ingress"][0]
         self.harness.charm.on.ingress_relation_broken.emit(relation)
 
-        mock_delete_service = mock_api.return_value.delete_namespaced_service
-        mock_delete_service.assert_called_once_with(
-            name=conf_or_rels[0]._k8s_service_name,
-            namespace=self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
+        _delete_unused_services.assert_called()
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
@@ -1659,7 +1704,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
-        mock_delete_ingress.assert_called_once()
+        _delete_unused_ingresses.assert_called()
 
     @patch("charm.NginxIngressCharm._delete_unused_ingresses", autospec=True)
     @patch("charm.NginxIngressCharm._delete_unused_services", autospec=True)
@@ -1752,12 +1797,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.reset_mock()
         self.harness.remove_relation(rel_id1)
 
-        # Assert that only the ingress for the first relation was removed.
-        mock_delete_ingress = mock_api.return_value.delete_namespaced_ingress
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
         mock_create_ingress.assert_not_called()
         expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
@@ -1768,13 +1808,10 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         # Remove the second relation.
         mock_replace_ingress.reset_mock()
-        mock_delete_ingress.reset_mock()
+        _delete_unused_ingresses.reset_mock()
         self.harness.remove_relation(rel_id2)
 
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[1]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called_once()
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
 
@@ -1970,12 +2007,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         mock_replace_ingress.reset_mock()
         self.harness.remove_relation(rel_id1)
 
-        # Assert that only the ingress for the first relation was removed.
-        mock_delete_ingress = mock_api.return_value.delete_namespaced_ingress
-        mock_delete_ingress.assert_called_once_with(
-            conf_or_rels[0]._ingress_name,
-            self.harness.charm._namespace,
-        )
+        _delete_unused_ingresses.assert_called()
         mock_create_ingress.assert_not_called()
         expected_body = conf_or_rels[1]._get_k8s_ingress(label=self.harness.charm.app.name)
         mock_replace_ingress.assert_called_once_with(
@@ -2211,3 +2243,67 @@ class TestHelpers:
     )
     def test_invalid_hostname_check(self, hostname, expected):
         assert invalid_hostname_check(hostname) == expected
+
+
+class TestZeroDowntime(unittest.TestCase):
+    """Unit test cause for the zero downtime upgrade from ingress relation to nginx-route."""
+
+    def setUp(self) -> None:
+        """Test setup."""
+        self.harness = Harness(NginxIngressCharm)
+
+    def tearDown(self) -> None:
+        """Test cleanup"""
+        self.harness.cleanup()
+
+    def _relate_ingress(self, relation_data):
+        """Create a new ingress relation with given data.
+
+        Args:
+            relation_data: relation data to be set in the new relation.
+        """
+        relation_id = self.harness.add_relation("ingress", "app")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="app/0")
+        self.harness.update_relation_data(relation_id, "app", relation_data)
+
+    def _relate_nginx_route(self, relation_data):
+        """Create a new nginx-route relation with given data.
+
+        Args:
+            relation_data: relation data to be set in the new relation.
+        """
+        relation_id = self.harness.add_relation("nginx-route", "app")
+        self.harness.add_relation_unit(relation_id=relation_id, remote_unit_name="app/0")
+        self.harness.update_relation_data(relation_id, "app", relation_data)
+
+    def test_dedup_relations(self):
+        relation_data = {
+            "service-hostname": "foo",
+            "service-name": "app",
+            "service-model": "test",
+            "service-port": "8080",
+        }
+        self._relate_ingress(relation_data)
+        self._relate_nginx_route(relation_data)
+        self.harness.begin()
+        self.assertEqual(len(self.harness.charm._deduped_relations()), 1)
+
+    def test_no_duplicate_relations(self):
+        self._relate_ingress(
+            {
+                "service-hostname": "foo",
+                "service-name": "app",
+                "service-model": "test",
+                "service-port": "8080",
+            }
+        )
+        self._relate_nginx_route(
+            {
+                "service-hostname": "foobar",
+                "service-name": "app",
+                "service-model": "test",
+                "service-port": "8080",
+            }
+        )
+        self.harness.begin()
+        self.assertEqual(len(self.harness.charm._deduped_relations()), 2)

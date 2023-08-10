@@ -9,9 +9,11 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Generator, List, Optional, Union
+import typing
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import kubernetes.client
+import ops
 from charms.nginx_ingress_integrator.v0.ingress import (
     RELATION_INTERFACES_MAPPINGS,
     REQUIRED_INGRESS_RELATION_FIELDS,
@@ -528,6 +530,59 @@ class NginxIngressCharm(CharmBase):
         # would remain in maintenance status.
         self.unit.status = ActiveStatus()
 
+    @staticmethod
+    def _gen_relation_dedup_key(relation: Relation) -> typing.Tuple[str, ...]:
+        """Generate a key from the given relation to detect duplicates in _deduped_relations.
+
+        Args:
+            relation: the given relation object.
+
+        Returns: The key as a tuple of strings.
+
+        Raises:
+            RuntimeError: if the remote application is unknown.
+        """
+        app = relation.app
+        if not app:
+            raise RuntimeError(f"can't retrieve remote application from relation {relation}")
+        data = relation.data[app]
+        return (
+            data.get("service-hostname"),
+            data.get("service-name"),
+            data.get("service-model"),
+            data.get("service-port"),
+            app.name,
+        )
+
+    def _deduped_relations(self) -> Tuple[ops.Relation, ...]:
+        """Return a relation list with duplicates removed.
+
+        Relations are considered duplicated if they meet the following criteria:
+        1. Two are connected via the legacy ingress and the nginx-route relation endpoint
+        2. Two share the same 4-tuple (service-hostname, service-name, service-model, service-port)
+        3. Both relations have the same remote application.
+
+        In the case of duplicates, the relation connected via legacy ingress is removed.
+
+        Returns:
+            A relation list with duplicates removed.
+        """
+        nginx_route_relations = self.model.relations["nginx-route"]
+        ingress_relations = self.model.relations["ingress"]
+        nginx_route_relation_keys = set(
+            self._gen_relation_dedup_key(r) for r in nginx_route_relations
+        )
+        dedup_ingress_relations = []
+        for relation in ingress_relations:
+            if self._gen_relation_dedup_key(relation) in nginx_route_relation_keys:
+                LOGGER.warning(
+                    "legacy ingress relation from app %s is shadowed by nginx-route relation",
+                    relation.app,
+                )
+                continue
+            dedup_ingress_relations.append(relation)
+        return tuple(nginx_route_relations + dedup_ingress_relations)
+
     @property
     def _all_config_or_relations(self) -> Any:
         """Get all configuration and relation data.
@@ -535,9 +590,9 @@ class NginxIngressCharm(CharmBase):
         Returns:
             All configuration and relation data.
         """
-        all_relations = self.model.relations["ingress"] + self.model.relations["nginx-route"]
+        all_relations = self._deduped_relations()
         if not all_relations:
-            all_relations = [None]  # type: ignore[list-item]
+            all_relations = (None,)  # type: ignore[assignment]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)
@@ -551,7 +606,7 @@ class NginxIngressCharm(CharmBase):
         Returns:
             if we're related to multiple applications or not.
         """
-        return len(self.model.relations["ingress"]) + len(self.model.relations["nginx-route"]) > 1
+        return len(self._deduped_relations()) > 1
 
     @property
     def _namespace(self) -> Any:
@@ -837,20 +892,6 @@ class NginxIngressCharm(CharmBase):
         ]
 
         ingresses = self._process_ingresses(ingresses)
-
-        # Check if we need to remove any Ingresses from the excluded relation. If it has hostnames
-        # that are not used by any other relation, we need to remove them.
-        if excluded_relation:
-            conf_or_rel = _ConfigOrRelation(
-                self.model, self.config, excluded_relation, self._multiple_relations
-            )
-            excluded_ingress = conf_or_rel._get_k8s_ingress(self.app.name)
-
-            # The Kubernetes Ingress Resources we're creating only has 1 rule per hostname.
-            used_hostnames = [ingress.spec.rules[0].host for ingress in ingresses]
-            for rule in excluded_ingress.spec.rules:
-                if rule.host not in used_hostnames:
-                    self._remove_ingress(self._ingress_name(rule.host))
 
         for ingress in ingresses:
             self._define_ingress(ingress)
@@ -1142,7 +1183,7 @@ class NginxIngressCharm(CharmBase):
                 # on the existing relations, and remove any resources that are no longer needed
                 # (they were needed by the event relation).
                 self._define_ingresses(excluded_relation=event.relation)
-                self._remove_service(conf_or_rel)
+                self._delete_unused_resources()
             except kubernetes.client.exceptions.ApiException as exception:
                 if exception.status == 403:
                     LOGGER.error(

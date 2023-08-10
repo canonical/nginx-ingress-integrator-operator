@@ -10,7 +10,7 @@ import logging
 import re
 import time
 import typing
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Tuple, Union
 
 import kubernetes.client
 import ops
@@ -530,7 +530,31 @@ class NginxIngressCharm(CharmBase):
         # would remain in maintenance status.
         self.unit.status = ActiveStatus()
 
-    def _deduped_relations(self) -> List[ops.Relation]:
+    @staticmethod
+    def _gen_relation_dedup_key(relation: Relation) -> typing.Tuple[str, ...]:
+        """Generate a key from the given relation to detect duplicates in _deduped_relations.
+
+        Args:
+            relation: the given relation object.
+
+        Returns: The key as a tuple of strings.
+
+        Raises:
+            RuntimeError: if the remote application is unknown.
+        """
+        app = relation.app
+        if not app:
+            raise RuntimeError(f"can't retrieve remote application from relation {relation}")
+        data = relation.data[app]
+        return (
+            data.get("service-hostname"),
+            data.get("service-name"),
+            data.get("service-model"),
+            data.get("service-port"),
+            app.name,
+        )
+
+    def _deduped_relations(self) -> Tuple[ops.Relation, ...]:
         """Return a relation list with duplicates removed.
 
         Relations are considered duplicated if they meet the following criteria:
@@ -543,43 +567,21 @@ class NginxIngressCharm(CharmBase):
         Returns:
             A relation list with duplicates removed.
         """
-
-        def key(rel: Relation) -> typing.Tuple[str, ...]:
-            """Generate a key from the given relation to detect duplicates.
-
-            Args:
-                rel: the given relation object.
-
-            Returns: The key as a tuple of strings.
-
-            Raises:
-                RuntimeError: if the remote application is unknown.
-            """
-            app = rel.app
-            if not app:
-                raise RuntimeError(f"can't retrieve remote application from relation {rel}")
-            data = rel.data[app]
-            return (
-                data.get("service-hostname"),
-                data.get("service-name"),
-                data.get("service-model"),
-                data.get("service-port"),
-                app.name,
-            )
-
         nginx_route_relations = self.model.relations["nginx-route"]
         ingress_relations = self.model.relations["ingress"]
-        nginx_route_relation_keys = set(key(r) for r in nginx_route_relations)
+        nginx_route_relation_keys = set(
+            self._gen_relation_dedup_key(r) for r in nginx_route_relations
+        )
         dedup_ingress_relations = []
         for relation in ingress_relations:
-            if key(relation) in nginx_route_relation_keys:
+            if self._gen_relation_dedup_key(relation) in nginx_route_relation_keys:
                 LOGGER.warning(
                     "legacy ingress relation from app %s is shadowed by nginx-route relation",
                     relation.app,
                 )
                 continue
             dedup_ingress_relations.append(relation)
-        return nginx_route_relations + dedup_ingress_relations
+        return tuple(nginx_route_relations + dedup_ingress_relations)
 
     @property
     def _all_config_or_relations(self) -> Any:
@@ -590,7 +592,7 @@ class NginxIngressCharm(CharmBase):
         """
         all_relations = self._deduped_relations()
         if not all_relations:
-            all_relations = [None]  # type: ignore[list-item]
+            all_relations = (None,)  # type: ignore[assignment]
         multiple_rels = self._multiple_relations
         return [
             _ConfigOrRelation(self.model, self.config, relation, multiple_rels)

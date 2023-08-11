@@ -23,7 +23,7 @@ docs: https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511
 issues: https://github.com/canonical/nginx-ingress-integrator-operator/issues
 source: https://github.com/canonical/nginx-ingress-integrator-operator
 maintainers:
-  - launchpad.net/~canonical-is-devops
+  - https://launchpad.net/~canonical-is-devops
 assumes:
   - k8s-api
 provides:

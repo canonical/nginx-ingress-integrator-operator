@@ -1,9 +1,13 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+"""Integration test for ingress relation."""
+
 import asyncio
 import json
+import pathlib
 import textwrap
 
-import juju.model
-import pytest_asyncio
 import requests
 from juju.model import Model
 
@@ -21,15 +25,12 @@ async def test_ingress_relation(
         f"""\
     import pathlib
     import subprocess
-    
     from any_charm_base import AnyCharmBase
     from ingress import IngressPerAppRequirer
-    
     class AnyCharm(AnyCharmBase):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.ingress = IngressPerAppRequirer(self, port=8080)
-    
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)
@@ -44,7 +45,7 @@ async def test_ingress_relation(
     )
 
     src_overwrite = {
-        "ingress.py": open("tests/integration/lib/ingress").read(),
+        "ingress.py": pathlib.Path("tests/integration/lib/ingress").read_text(encoding="utf-8"),
         "any_charm.py": any_charm_py,
     }
 
@@ -55,7 +56,7 @@ async def test_ingress_relation(
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await run_action("any", "rpc", method="start_server")
-    await model.add_relation(f"any:ingress", "ingress:ingress")
+    await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5

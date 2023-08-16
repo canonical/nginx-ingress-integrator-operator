@@ -98,10 +98,11 @@ class NginxIngressCharm(CharmBase):
             if not self._ingress_option.upstream_endpoints:
                 raise InvalidIngressOptionError("no endpoints are provided in ingress relation")
         required_fields = "service_hostname", "service_port", "service_name"
-        missing_fields = []
-        for required_field in required_fields:
-            if not getattr(self._ingress_option, required_field):
-                missing_fields.append(required_field)
+        missing_fields = [
+            required_field
+            for required_field in required_fields
+            if not getattr(self._ingress_option, required_field)
+        ]
         if missing_fields:
             raise InvalidIngressOptionError(
                 f"ingress options missing: [{', '.join(missing_fields)}]"

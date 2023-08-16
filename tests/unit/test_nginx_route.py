@@ -377,6 +377,7 @@ def test_rewrite_enabled(k8s_stub: K8sStub, harness: Harness, nginx_route_relati
     """
     harness.begin()
     nginx_route_relation.update_app_data(nginx_route_relation.gen_example_app_data())
+    harness.update_config({"rewrite-enabled": True})
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
     assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"
     harness.update_config({"rewrite-enabled": False})
@@ -391,6 +392,7 @@ def test_rewrite_target(k8s_stub: K8sStub, harness: Harness, nginx_route_relatio
     assert: ingress should contain correct rewrite-target annotations.
     """
     harness.begin()
+    harness.update_config({"rewrite-enabled": True})
     nginx_route_relation.update_app_data(
         {**nginx_route_relation.gen_example_app_data(), "rewrite-target": "/foo"}
     )
@@ -434,10 +436,10 @@ def test_tls_secret_name(k8s_stub: K8sStub, harness: Harness, nginx_route_relati
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
     # TODO: ingress tls contains only the service-hostname, not including additional-hostnames
     assert len(ingress.spec.tls) == 1
-    assert ingress.spec.tls[0].secret_name == "secret"
+    assert ingress.spec.tls[0].secret_name == "secret"  # nosec
     harness.update_config({"tls-secret-name": "new-secret"})
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
-    assert ingress.spec.tls[0].secret_name == "new-secret"
+    assert ingress.spec.tls[0].secret_name == "new-secret"  # nosec
 
 
 def test_whitelist_source_range(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):

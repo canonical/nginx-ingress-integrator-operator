@@ -86,6 +86,8 @@ class NginxIngressCharm(CharmBase):
         Raises:
             InvalidIngressOptionError: if the ingress option is invalid.
         """
+        if len(self.model.relations["nginx-route"] + self.model.relations["ingress"]) > 1:
+            raise InvalidIngressOptionError("more than one relations connected")
         if self._ingress_option is None:
             return
         if self._ingress_option.is_ingress_relation:

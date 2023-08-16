@@ -1,0 +1,52 @@
+# Copyright 2023 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+"""nginx-ingress-integrator charm unit tests."""
+
+from ops.testing import Harness
+
+from consts import CREATED_BY_LABEL
+from tests.unit.conftest import K8sStub
+from tests.unit.constants import TEST_NAMESPACE
+
+
+def test_basic(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: validate ingress, service and endpoint slice are created appropriately.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+    assert len(k8s_stub.get_ingresses(TEST_NAMESPACE)) == 1
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.labels[CREATED_BY_LABEL] == harness.charm.app.name
+    assert ingress.spec.rules[0].host == "example.com"
+    assert len(k8s_stub.get_services(TEST_NAMESPACE)) == 1
+    service = k8s_stub.get_services(TEST_NAMESPACE)[0]
+    assert service.spec.selector is None
+    assert service.spec.cluster_ip == "None"
+    assert len(service.spec.ports) == 1
+    assert service.spec.ports[0].port == 8080
+    assert service.spec.ports[0].target_port == 8080
+    assert len(k8s_stub.get_endpoint_slices(TEST_NAMESPACE)) == 1
+    endpoint_slice = k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0]
+    assert endpoint_slice.address_type == "IPv4"
+    assert endpoint_slice.endpoints[0].addresses == ["10.0.0.1"]
+    assert endpoint_slice.metadata.labels["kubernetes.io/service-name"] == service.metadata.name
+
+
+def test_route_path(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: service should contain correct path configurations.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.spec.rules[0].http.paths[0].path == "/test-app"

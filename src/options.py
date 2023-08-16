@@ -5,12 +5,12 @@
 
 
 import ipaddress
-from typing import Any, Dict, Generator, List, Optional, Union
+from typing import Any, Generator, List, cast
 
 import kubernetes.client
-from ops.model import ConfigData, Model, Relation
+from ops.model import Application, ConfigData, Model, Relation
 
-from consts import BOOLEAN_CONFIG_FIELDS, _INGRESS_SUB_REGEX, CREATED_BY_LABEL
+from consts import _INGRESS_SUB_REGEX, BOOLEAN_CONFIG_FIELDS, CREATED_BY_LABEL
 from exceptions import InvalidIngressOptionError
 
 
@@ -20,8 +20,8 @@ class _ConfigOrRelation:
     def __init__(
         self,
         model: Model,
-        config: Union[ConfigData, Dict],
-        relation: Optional[Relation],
+        config: ConfigData,
+        relation: Relation,
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
@@ -63,7 +63,7 @@ class _ConfigOrRelation:
         Returns:
             The field's content.
         """
-        return self.relation.data[self.relation.app].get(field)
+        return self.relation.data[cast(Application, self.relation.app)].get(field)
 
     def _get_config_or_relation_data(self, field: Any, fallback: Any) -> Any:
         """Get data from config or the ingress relation, in that order.
@@ -106,7 +106,7 @@ class _ConfigOrRelation:
         return fallback
 
     @property
-    def _additional_hostnames(self) -> Generator[str, None, None]:
+    def additional_hostnames(self) -> Generator[str, None, None]:
         """Return a list with additional hostnames.
 
         Returns:
@@ -116,14 +116,14 @@ class _ConfigOrRelation:
         yield from filter(None, additional_hostnames.split(","))
 
     @property
-    def _backend_protocol(self) -> str:
+    def backend_protocol(self) -> str:
         """Return the backend-protocol to use for k8s ingress."""
         return self._get_config_or_relation_data("backend-protocol", "HTTP").upper()
 
     @property
     def k8s_endpoint_slice_name(self) -> str:
         """Return the endpoint slice name for the use creating a k8s endpoint slice."""
-        return f"relation-{self.relation.id}-{self._service_name}-endpoint-slice"
+        return f"relation-{self.relation.id}-{self.service_name}-endpoint-slice"
 
     @property
     def k8s_service_name(self) -> str:
@@ -131,7 +131,7 @@ class _ConfigOrRelation:
         # Avoid collision with service name created by Juju. Currently
         # Juju creates a K8s service listening on port 65535/TCP so we
         # need to create a separate one.
-        return f"relation-{self.relation.id}-{self._service_name}-service"
+        return f"relation-{self.relation.id}-{self.service_name}-service"
 
     @property
     def k8s_ingress_name(self) -> str:
@@ -202,12 +202,11 @@ class _ConfigOrRelation:
         return self._get_config_or_relation_data("rewrite-target", "/")
 
     @property
-    def _namespace(self) -> Any:
+    def service_namespace(self) -> Any:
         """Return the namespace to operate on."""
-        if self._is_ingress_relation:
+        if self.is_ingress_relation:
             return self._get_config_or_relation_data("model", self.model.name)
-        else:
-            return self._get_config_or_relation_data("service-namespace", self.model.name)
+        return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
     def _retry_errors(self) -> str:
@@ -233,22 +232,21 @@ class _ConfigOrRelation:
         return " ".join([x.strip() for x in retry.split(",") if x.strip() in accepted_values])
 
     @property
-    def _service_hostname(self) -> Any:
+    def service_hostname(self) -> Any:
         """Return the hostname for the service we're connecting to."""
         return self._get_config_or_relation_data("service-hostname", "")
 
     @property
-    def _service_name(self) -> Any:
+    def service_name(self) -> Any:
         """Return the name of the service we're connecting to."""
-        if self._is_ingress_relation:
+        if self.is_ingress_relation:
             return self._get_relation_data_or_config("name", "")
-        else:
-            return self._get_relation_data_or_config("service-name", "")
+        return self._get_relation_data_or_config("service-name", "")
 
     @property
-    def _service_port(self) -> int:
+    def service_port(self) -> int:
         """Return the port for the service we're connecting to."""
-        if self._is_ingress_relation:
+        if self.is_ingress_relation:
             port = self._get_relation_data_or_config("port", 0)
         else:
             port = self._get_relation_data_or_config("service-port", 0)
@@ -257,6 +255,10 @@ class _ConfigOrRelation:
     @property
     def _path_routes(self) -> Any:
         """Return the path routes to use for the k8s ingress."""
+        if self.is_ingress_relation:
+            return self._get_config_or_relation_data(
+                "path-routes", f"/{self.service_namespace}-{self.service_name}"
+            ).split(",")
         return self._get_config_or_relation_data("path-routes", "/").split(",")
 
     @property
@@ -279,30 +281,38 @@ class _ConfigOrRelation:
         return self._get_config("whitelist-source-range")
 
     @property
-    def _upstream_endpoints(self) -> List[str]:
+    def upstream_endpoints(self) -> List[str]:
         """Return the ingress upstream endpoint ip addresses, only in ingress v2 relation."""
         if self.use_endpoint_slice:
             endpoints = [self.relation.data[unit].get("ip") for unit in self.relation.units]
             endpoints = [ip for ip in endpoints if ip]
             return endpoints
-        else:
-            return []
+        return []
 
     @property
     def use_endpoint_slice(self) -> bool:
         """Check if the ingress need to use endpoint slice."""
-        return self._is_ingress_relation
+        return self.is_ingress_relation
 
     @property
-    def _is_ingress_relation(self) -> bool:
+    def is_ingress_relation(self) -> bool:
         """Check if the relation is connected via ingress relation endpoint."""
         return self.relation.name == "ingress"
 
     def get_k8s_endpoint_slice(self, label: str) -> kubernetes.client.V1EndpointSlice:
-        address_type = None
-        addresses = []
+        """Get a K8s endpoint slice definition.
+
+        Args:
+            label: Custom label assigned to every service.
+
+        Returns:
+            A k8s service definition.
+
+        Raises:
+            InvalidIngressOptionError: if the upstream endpoints are invalid.
+        """
         address_types = []
-        for address in self._upstream_endpoints:
+        for address in self.upstream_endpoints:
             address = address.strip()
             try:
                 ipaddress.IPv6Address(address)
@@ -321,7 +331,7 @@ class _ConfigOrRelation:
             raise InvalidIngressOptionError(
                 "invalid ingress relation data, mixed or unknown IP types"
             )
-
+        address_type = address_types[0]
         return kubernetes.client.V1EndpointSlice(
             api_version="discovery.k8s.io/v1",
             kind="EndpointSlice",
@@ -335,13 +345,13 @@ class _ConfigOrRelation:
             address_type=address_type,
             ports=[
                 kubernetes.client.DiscoveryV1EndpointPort(
-                    name=f"endpoint-tcp-{self._service_port}",
-                    port=self._service_port,
+                    name=f"endpoint-tcp-{self.service_port}",
+                    port=self.service_port,
                 )
             ],
             endpoints=[
                 kubernetes.client.V1Endpoint(
-                    addresses=addresses,
+                    addresses=self.upstream_endpoints,
                     conditions=kubernetes.client.V1EndpointConditions(ready=True, serving=True),
                 )
             ],
@@ -356,22 +366,26 @@ class _ConfigOrRelation:
         Returns:
             A k8s service definition.
         """
+        spec = kubernetes.client.V1ServiceSpec(
+            ports=[
+                kubernetes.client.V1ServicePort(
+                    name=f"tcp-{self.service_port}",
+                    port=self.service_port,
+                    target_port=self.service_port,
+                )
+            ],
+        )
+        if not self.use_endpoint_slice:
+            spec.selector = {"app.kubernetes.io/name": self.service_name}
+        else:
+            spec.cluster_ip = "None"
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=self.k8s_service_name, labels={CREATED_BY_LABEL: label}
             ),
-            spec=kubernetes.client.V1ServiceSpec(
-                selector={"app.kubernetes.io/name": self._service_name},
-                ports=[
-                    kubernetes.client.V1ServicePort(
-                        name=f"tcp-{self._service_port}",
-                        port=self._service_port,
-                        target_port=self._service_port,
-                    )
-                ],
-            ),
+            spec=spec,
         )
 
     def get_k8s_ingress(self, label: str) -> kubernetes.client.V1Ingress:
@@ -391,7 +405,7 @@ class _ConfigOrRelation:
                     service=kubernetes.client.V1IngressServiceBackend(
                         name=self.k8s_service_name,
                         port=kubernetes.client.V1ServiceBackendPort(
-                            number=int(self._service_port),
+                            number=int(self.service_port),
                         ),
                     ),
                 ),
@@ -399,8 +413,8 @@ class _ConfigOrRelation:
             for path in self._path_routes
         ]
 
-        hostnames = [self._service_hostname]
-        hostnames.extend(self._additional_hostnames)
+        hostnames = [self.service_hostname]
+        hostnames.extend(self.additional_hostnames)
         ingress_rules = [
             kubernetes.client.V1IngressRule(
                 host=hostname,
@@ -413,7 +427,7 @@ class _ConfigOrRelation:
         annotations = {
             "nginx.ingress.kubernetes.io/proxy-body-size": self._max_body_size,
             "nginx.ingress.kubernetes.io/proxy-read-timeout": self._proxy_read_timeout,
-            "nginx.ingress.kubernetes.io/backend-protocol": self._backend_protocol,
+            "nginx.ingress.kubernetes.io/backend-protocol": self.backend_protocol,
         }
         if self._limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = self._limit_rps
@@ -440,12 +454,12 @@ class _ConfigOrRelation:
             ] = self._session_cookie_max_age
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-name"
-            ] = f"{self._service_name.upper()}_AFFINITY"
+            ] = f"{self.service_name.upper()}_AFFINITY"
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if self._tls_secret_name:
             spec.tls = [
                 kubernetes.client.V1IngressTLS(
-                    hosts=[self._service_hostname],
+                    hosts=[self.service_hostname],
                     secret_name=self._tls_secret_name,
                 ),
             ]

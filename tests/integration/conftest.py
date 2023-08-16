@@ -172,7 +172,7 @@ async def deploy_any_charm(model: Model):
         Args:
             src_overwrite: files to overwrite for testing purposes.
         """
-        await model.deploy(
+        return await model.deploy(
             "any-charm",
             application_name="any",
             channel="beta",

@@ -74,7 +74,7 @@ def test_incomplete_ingress(harness: Harness, k8s_stub: K8sStub, ingress_relatio
     assert harness.charm.unit.status.name == "blocked"
     assert harness.charm.unit.status.message == "no endpoints are provided in ingress relation"
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
-    ingress_relation.update_unit_data({"ip": "10.0.0.1"})
+    ingress_relation.update_unit_data({"ip": '"10.0.0.1"'})
     assert harness.charm.unit.status.name == "blocked"
     assert harness.charm.unit.status.message == "ingress options missing: [service_name]"
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []

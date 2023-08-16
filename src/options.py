@@ -5,6 +5,7 @@
 
 
 import ipaddress
+import json
 from typing import Any, Generator, List, cast
 
 import kubernetes.client
@@ -123,7 +124,9 @@ class _ConfigOrRelation:
     @property
     def k8s_endpoint_slice_name(self) -> str:
         """Return the endpoint slice name for the use creating a k8s endpoint slice."""
-        return f"relation-{self.relation.id}-{self.service_name}-endpoint-slice"
+        # endpoint slice name must be the same as service name
+        # to be detected by nginx ingress controller
+        return self.k8s_service_name
 
     @property
     def k8s_service_name(self) -> str:
@@ -205,7 +208,9 @@ class _ConfigOrRelation:
     def service_namespace(self) -> Any:
         """Return the namespace to operate on."""
         if self.is_ingress_relation:
-            return self._get_config_or_relation_data("model", self.model.name)
+            return json.loads(
+                self._get_config_or_relation_data("model", json.dumps(self.model.name))
+            )
         return self._get_config_or_relation_data("service-namespace", self.model.name)
 
     @property
@@ -240,7 +245,7 @@ class _ConfigOrRelation:
     def service_name(self) -> Any:
         """Return the name of the service we're connecting to."""
         if self.is_ingress_relation:
-            return self._get_relation_data_or_config("name", "")
+            return json.loads(self._get_relation_data_or_config("name", '""'))
         return self._get_relation_data_or_config("service-name", "")
 
     @property
@@ -285,7 +290,7 @@ class _ConfigOrRelation:
         """Return the ingress upstream endpoint ip addresses, only in ingress v2 relation."""
         if self.use_endpoint_slice:
             endpoints = [self.relation.data[unit].get("ip") for unit in self.relation.units]
-            endpoints = [ip for ip in endpoints if ip]
+            endpoints = [json.loads(ip) for ip in endpoints if ip]
             return endpoints
         return []
 

@@ -414,8 +414,9 @@ class NginxIngressCharm(CharmBase):
                     ingress_ips = self._report_ingress_ips()
                     if ingress_ips:
                         msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
-                    msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
-                    msg = ", ".join(msgs)
+                    if not self._ingress_option.is_ingress_relation:
+                        msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
+                        msg = ", ".join(msgs)
             except kubernetes.client.exceptions.ApiException as exception:
                 if exception.status == 403:
                     LOGGER.error(

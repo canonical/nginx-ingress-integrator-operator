@@ -570,7 +570,7 @@ class NginxIngressCharm(CharmBase):
         nginx_route_relations = [
             r for r in self.model.relations["nginx-route"] if r.app is not None
         ]
-        ingress_relations = [r for r in self.model.relations["ingress"] if r.data is not None]
+        ingress_relations = [r for r in self.model.relations["ingress"] if r.app is not None]
         nginx_route_relation_keys = set(
             self._gen_relation_dedup_key(r) for r in nginx_route_relations
         )

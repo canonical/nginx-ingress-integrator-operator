@@ -567,8 +567,10 @@ class NginxIngressCharm(CharmBase):
         Returns:
             A relation list with duplicates removed.
         """
-        nginx_route_relations = self.model.relations["nginx-route"]
-        ingress_relations = self.model.relations["ingress"]
+        nginx_route_relations = [
+            r for r in self.model.relations["nginx-route"] if r.app is not None
+        ]
+        ingress_relations = [r for r in self.model.relations["ingress"] if r.app is not None]
         nginx_route_relation_keys = set(
             self._gen_relation_dedup_key(r) for r in nginx_route_relations
         )

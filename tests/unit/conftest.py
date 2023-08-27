@@ -21,7 +21,7 @@ class K8sStub:
 
     def __init__(self):
         self.namespaces: defaultdict[str, dict] = defaultdict(
-            lambda: {"ingress": {}, "service": {}, "endpoint_slice": {}}
+            lambda: {"ingress": {}, "service": {}, "endpoint_slice": {}, "endpoints": {}}
         )
         self.auth = True
         self.ingress_classes = [
@@ -45,11 +45,26 @@ class K8sStub:
     def get_endpoint_slices(self, namespace: str) -> List[kubernetes.client.V1EndpointSlice]:
         return list(self._get_resource_dict("endpoint_slice", namespace=namespace).values())
 
+    def get_endpoints(self, namespace: str) -> List[kubernetes.client.V1Endpoints]:
+        return list(self._get_resource_dict("endpoints", namespace=namespace).values())
+
+    def _update_ingress_status(self, ingress: kubernetes.client.V1Ingress):
+        ingress.status = kubernetes.client.V1IngressStatus(
+            load_balancer=kubernetes.client.V1LoadBalancerStatus(
+                ingress=[kubernetes.client.V1LoadBalancerIngress(ip="127.0.0.1")]
+            )
+        )
+
+    def _update_service_spec(self, service: kubernetes.client.V1Service):
+        if service.spec.cluster_ip is None:
+            service.spec.cluster_ip = "10.0.0.1"
+
     def create_namespaced_resource(
         self,
         resource: str,
         namespace: str,
         body: Union[
+            kubernetes.client.V1Endpoints,
             kubernetes.client.V1EndpointSlice,
             kubernetes.client.V1Service,
             kubernetes.client.V1Ingress,
@@ -61,6 +76,10 @@ class K8sStub:
         name = body.metadata.name
         if name in resources:
             raise ValueError(f"can't overwrite existing {resource} {name}")
+        if isinstance(body, kubernetes.client.V1Ingress):
+            self._update_ingress_status(body)
+        if isinstance(body, kubernetes.client.V1Service):
+            self._update_service_spec(body)
         resources[name] = body
 
     def patch_namespaced_resource(
@@ -69,6 +88,7 @@ class K8sStub:
         namespace: str,
         name: str,
         body: Union[
+            kubernetes.client.V1Endpoints,
             kubernetes.client.V1EndpointSlice,
             kubernetes.client.V1Service,
             kubernetes.client.V1Ingress,
@@ -79,11 +99,16 @@ class K8sStub:
         resources = self._get_resource_dict(resource=resource, namespace=namespace)
         if name not in resources:
             raise ValueError(f"{resource} {name} in {namespace} not found")
+        if isinstance(body, kubernetes.client.V1Ingress):
+            self._update_ingress_status(body)
+        if isinstance(body, kubernetes.client.V1Service):
+            self._update_service_spec(body)
         resources[name] = body
 
     def list_namespaced_resource(
         self, resource: str, namespace: str, label_selector: str
     ) -> Union[
+        kubernetes.client.V1EndpointsList,
         kubernetes.client.V1EndpointSliceList,
         kubernetes.client.V1ServiceList,
         kubernetes.client.V1IngressList,
@@ -91,7 +116,9 @@ class K8sStub:
         if not self.auth:
             raise kubernetes.client.ApiException(status=403)
         resources = list(self._get_resource_dict(resource=resource, namespace=namespace).values())
-        if resource == "endpoint_slice":
+        if resource == "endpoints":
+            return kubernetes.client.V1EndpointsList(items=resources)
+        elif resource == "endpoint_slice":
             return kubernetes.client.V1EndpointSliceList(items=resources)
         elif resource == "service":
             return kubernetes.client.V1ServiceList(items=resources)
@@ -114,6 +141,10 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
     stub = K8sStub()
     for action in ("create", "patch", "list", "delete"):
         monkeypatch.setattr(
+            f"kubernetes.client.CoreV1Api.{action}_namespaced_endpoints",
+            partial(getattr(stub, f"{action}_namespaced_resource"), "endpoints"),
+        )
+        monkeypatch.setattr(
             f"kubernetes.client.DiscoveryV1Api.{action}_namespaced_endpoint_slice",
             partial(getattr(stub, f"{action}_namespaced_resource"), "endpoint_slice"),
         )
@@ -131,8 +162,6 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
         lambda _: kubernetes.client.V1IngressClassList(items=stub.ingress_classes),
     )
     monkeypatch.setattr("kubernetes.config.load_incluster_config", lambda: None)
-    monkeypatch.setattr(NginxIngressCharm, "_report_ingress_ips", lambda _: ["127.0.0.1"])
-    monkeypatch.setattr(NginxIngressCharm, "_report_service_ips", lambda _: ["10.0.0.1"])
     return stub
 
 

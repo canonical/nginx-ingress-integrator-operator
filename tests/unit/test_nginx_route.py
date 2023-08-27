@@ -69,7 +69,8 @@ def test_remove_old_resources(k8s_stub: K8sStub, harness: Harness, nginx_route_r
         body=kubernetes.client.V1Service(
             metadata=kubernetes.client.V1ObjectMeta(
                 name="app-service", annotations={CREATED_BY_LABEL: harness.charm.app.name}
-            )
+            ),
+            spec=kubernetes.client.V1ServiceSpec(),
         ),
     )
     k8s_stub.create_namespaced_resource(

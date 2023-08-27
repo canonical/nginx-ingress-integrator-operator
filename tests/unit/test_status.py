@@ -2,8 +2,6 @@
 # See LICENSE file for licensing details.
 
 """nginx-ingress-integrator charm unit tests."""
-
-
 from ops.testing import Harness
 
 from charm import NginxIngressCharm
@@ -20,7 +18,7 @@ def test_follower():
     harness = Harness(NginxIngressCharm)
     harness.begin_with_initial_hooks()
     assert harness.charm.unit.status.name == "waiting"
-    assert harness.charm.unit.status.message == "follower unit is idling"
+    assert harness.charm.unit.status.message.startswith("follower unit is idling")
 
 
 def test_no_relation(harness: Harness, k8s_stub: K8sStub):
@@ -67,17 +65,25 @@ def test_incomplete_ingress(harness: Harness, k8s_stub: K8sStub, ingress_relatio
     assert harness.charm.unit.status.name == "blocked"
     assert (
         harness.charm.unit.status.message
-        == "service-hostname is not configured for ingress relation"
+        == "name is missing in the ingress relation, verify the relation"
     )
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+
+    ingress_relation.update_app_data({"name": '"test"'})
+    assert (
+        harness.charm.unit.status.message
+        == "service-hostname is not set for the ingress relation, configure it using `juju config`"
+    )
+    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+
     harness.update_config({"service-hostname": "example.com"})
     assert harness.charm.unit.status.name == "blocked"
     assert harness.charm.unit.status.message == "no endpoints are provided in ingress relation"
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+
     ingress_relation.update_unit_data({"ip": '"10.0.0.1"'})
-    assert harness.charm.unit.status.name == "blocked"
-    assert harness.charm.unit.status.message == "ingress options missing: [service_name]"
-    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+    assert harness.charm.unit.status.name == "active"
+    assert len(k8s_stub.get_ingresses(TEST_NAMESPACE)) == 1
 
 
 def test_no_permission(harness: Harness, k8s_stub: K8sStub, ingress_relation):
@@ -92,4 +98,13 @@ def test_no_permission(harness: Harness, k8s_stub: K8sStub, ingress_relation):
     assert (
         harness.charm.unit.status.message
         == "Insufficient permissions, try: `juju trust nginx-ingress-integrator --scope=cluster`"
+    )
+
+
+def test_two_relation(harness: Harness, k8s_stub, ingress_relation, nginx_route_relation):
+    harness.begin_with_initial_hooks()
+    assert harness.charm.unit.status.name == "blocked"
+    assert (
+        harness.charm.unit.status.message
+        == "nginx-ingress-integrator cannot establish more than one relation at a time"
     )

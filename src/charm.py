@@ -12,6 +12,7 @@ from typing import Any, List, Optional
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
+from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops.charm import CharmBase, HookEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
@@ -55,8 +56,9 @@ class NginxIngressCharm(CharmBase):
         self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
         self.framework.observe(self.on.start, self._on_config_changed)
 
-        self.framework.observe(self.on["ingress"].relation_changed, self._on_config_changed)
-        self.framework.observe(self.on["ingress"].relation_broken, self._on_config_changed)
+        self._ingress_provider = IngressPerAppProvider(charm=self)
+        self.framework.observe(self._ingress_provider.on.data_provided, self._on_config_changed)
+        self.framework.observe(self._ingress_provider.on.data_removed, self._on_config_changed)
 
         provide_nginx_route(
             charm=self,
@@ -88,7 +90,10 @@ class NginxIngressCharm(CharmBase):
             return None
         if relation.app is not None and relation.data[relation.app]:
             ingress_option_essence = IngressOptionEssence(
-                self.model, self.config, relation=relation
+                self.model,
+                self.config,
+                relation=relation,
+                ingress_provider=self._ingress_provider if ingress_relations else None,
             )
             ingress_option = IngressOption.from_essence(ingress_option_essence)
             return ingress_option

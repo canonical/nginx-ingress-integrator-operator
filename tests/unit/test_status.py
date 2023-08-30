@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 """nginx-ingress-integrator charm unit tests."""
+import pytest
 from ops.testing import Harness
 
 from charm import NginxIngressCharm
@@ -52,38 +53,46 @@ def test_incomplete_nginx_route(harness: Harness, k8s_stub: K8sStub, nginx_route
     )
 
 
-def test_incomplete_ingress(harness: Harness, k8s_stub: K8sStub, ingress_relation):
+TEST_INCOMPLETE_INGRESS_PARAMS = [
+    pytest.param(
+        ["service-hostname"],
+        "blocked",
+        "service-hostname is not set for the ingress relation, configure it using `juju config`",
+        id="missing-service-hostname",
+    ),
+    pytest.param(["port"], "waiting", "waiting for relation", id="missing-port"),
+    pytest.param(["name"], "waiting", "waiting for relation", id="missing-name"),
+    pytest.param(["ip"], "waiting", "waiting for relation", id="missing-ip"),
+]
+
+
+@pytest.mark.parametrize("missing,status,message", TEST_INCOMPLETE_INGRESS_PARAMS)
+def test_incomplete_ingress(
+    harness: Harness, k8s_stub: K8sStub, ingress_relation, missing, status, message
+):
     """
     arrange: set up test harness and ingress relation.
     act: update the relation with different incomplete data.
     assert: unit should enter blocked status with appropriate status message.
     """
     harness.begin_with_initial_hooks()
-    assert harness.charm.unit.status.name == "waiting"
-    assert harness.charm.unit.status.message == "waiting for relation"
-    ingress_relation.update_app_data({"port": "8080"})
-    assert harness.charm.unit.status.name == "blocked"
-    assert (
-        harness.charm.unit.status.message
-        == "name is missing in the ingress relation, verify the relation"
-    )
-    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
 
-    ingress_relation.update_app_data({"name": '"test"'})
-    assert (
-        harness.charm.unit.status.message
-        == "service-hostname is not set for the ingress relation, configure it using `juju config`"
-    )
-    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+    if "service-hostname" not in missing:
+        harness.update_config({"service-hostname": "example.com"})
+    app_data = ingress_relation.gen_example_app_data()
+    unit_data = ingress_relation.gen_example_unit_data()
+    for missing_field in missing:
+        if missing_field in app_data:
+            del app_data[missing_field]
+        if missing_field in unit_data:
+            del unit_data[missing_field]
 
-    harness.update_config({"service-hostname": "example.com"})
-    assert harness.charm.unit.status.name == "blocked"
-    assert harness.charm.unit.status.message == "no endpoints are provided in ingress relation"
-    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+    ingress_relation.update_app_data(app_data)
+    ingress_relation.update_unit_data(unit_data)
 
-    ingress_relation.update_unit_data({"ip": '"10.0.0.1"'})
-    assert harness.charm.unit.status.name == "active"
-    assert len(k8s_stub.get_ingresses(TEST_NAMESPACE)) == 1
+    assert harness.charm.unit.status.name == status
+    assert harness.charm.unit.status.message == message
+    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
 
 
 def test_no_permission(harness: Harness, k8s_stub: K8sStub, ingress_relation):

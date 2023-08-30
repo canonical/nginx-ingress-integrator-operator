@@ -4,10 +4,10 @@
 """nginx-ingress-integrator ingress option."""
 import dataclasses
 import ipaddress
-import json
 import re
 from typing import List, Optional, Union, cast
 
+from charms.traefik_k8s.v2.ingress import DataValidationError, IngressPerAppProvider
 from ops.model import Application, ConfigData, Model, Relation
 
 from consts import BOOLEAN_CONFIG_FIELDS
@@ -22,6 +22,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         model: Model,
         config: ConfigData,
         relation: Relation,
+        ingress_provider: Optional[IngressPerAppProvider],
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
@@ -29,13 +30,15 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
             model: The charm model.
             config: The charm's configuration.
             relation: One of the charm's relations, if any.
+            ingress_provider: The ingress provider object from the ingress charm library.
         """
         super().__init__()
         self.model = model
         self.config = config
         self.relation = relation
+        self.ingress_provider = ingress_provider
 
-    def _get_config(self, field: str) -> Optional[str]:
+    def _get_config(self, field: str) -> Union[str, float, int, bool, None]:
         """Get data from config.
 
         Args:
@@ -54,7 +57,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
 
         return None
 
-    def _get_relation(self, field: str) -> Union[str, int, bool, None]:
+    def _get_relation(self, field: str) -> Union[str, None]:
         """Get data from the relation, if any.
 
         Args:
@@ -66,8 +69,8 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         return self.relation.data[cast(Application, self.relation.app)].get(field)
 
     def _get_config_or_relation_data(
-        self, field: str, fallback: Union[str, int, bool, None]
-    ) -> Union[str, int, bool, None]:
+        self, field: str, fallback: Union[str, float, int, bool, None]
+    ) -> Union[str, float, int, bool, None]:
         """Get data from config or the ingress relation, in that order.
 
         Args:
@@ -77,7 +80,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         Returns:
             The field's content or the fallback value if no field is found.
         """
-        data: Union[str, int, bool, None] = self._get_config(field)
+        data: Union[str, float, int, bool, None] = self._get_config(field)
         if data is not None:
             return data
 
@@ -89,7 +92,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
 
     def _get_relation_data_or_config(
         self, field: str, fallback: Union[str, int, bool, None]
-    ) -> Union[str, int, bool, None]:
+    ) -> Union[str, float, int, bool, None]:
         """Get data from the ingress relation or config, in that order.
 
         Args:
@@ -99,7 +102,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         Returns:
             The field's content or the fallback value if no field is found.
         """
-        data: Union[str, int, bool, None] = self._get_relation(field)
+        data: Union[str, float, int, bool, None] = self._get_relation(field)
         if data is not None:
             return data
 
@@ -223,9 +226,14 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
     def service_namespace(self) -> str:
         """Return the namespace to operate on."""
         if self.is_ingress_relation:
-            return json.loads(
-                cast(str, self._get_config_or_relation_data("model", json.dumps(self.model.name)))
-            )
+            try:
+                return (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.model
+                )
+            except DataValidationError as exc:
+                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         return cast(str, self._get_config_or_relation_data("service-namespace", self.model.name))
 
     @property
@@ -296,7 +304,14 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
     def service_name(self) -> str:
         """Return the name of the service we're connecting to."""
         if self.is_ingress_relation:
-            service_name = json.loads(cast(str, self._get_relation_data_or_config("name", '""')))
+            try:
+                return (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.name
+                )
+            except DataValidationError as exc:
+                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             service_name = cast(str, self._get_relation_data_or_config("service-name", ""))
         if not service_name:
@@ -313,7 +328,14 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
     def service_port(self) -> int:
         """Return the port for the service we're connecting to."""
         if self.is_ingress_relation:
-            port = self._get_relation_data_or_config("port", 0)
+            try:
+                return (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.port
+                )
+            except DataValidationError as exc:
+                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             port = self._get_relation_data_or_config("service-port", 0)
         if not port:
@@ -367,8 +389,15 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         """Return the ingress upstream endpoint ip addresses, only in ingress v2 relation."""
         endpoints = []
         if self.use_endpoint_slice:
-            endpoints = [self.relation.data[unit].get("ip") for unit in self.relation.units]
-            endpoints = [json.loads(ip) for ip in endpoints if ip]
+            try:
+                endpoints = [
+                    u.ip
+                    for u in cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .units
+                ]
+            except DataValidationError as exc:
+                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         if self.use_endpoint_slice and not endpoints:
             raise InvalidIngressOptionError("no endpoints are provided in ingress relation")
         return endpoints

@@ -20,6 +20,7 @@ class K8sStub:
     """A test stub for kubernetes APIs."""
 
     def __init__(self):
+        """Initialize a new K8sStub instance."""
         self.namespaces: defaultdict[str, dict] = defaultdict(
             lambda: {"ingress": {}, "service": {}, "endpoint_slice": {}, "endpoints": {}}
         )
@@ -34,21 +35,67 @@ class K8sStub:
         ]
 
     def _get_resource_dict(self, resource: str, namespace: str) -> Dict[str, Any]:
+        """Retrieve the resource dictionary for a given namespace.
+
+        Args:
+            resource: Type of the kubernetes resource (ingress, service, etc.).
+            namespace: Kubernetes namespace.
+
+        Returns:
+            A dictionary of resources for the given namespace.
+        """
         return self.namespaces[namespace][resource]
 
     def get_ingresses(self, namespace: str) -> List[kubernetes.client.V1Ingress]:
+        """Get ingress resources for the specified namespace.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            List of ingress resources.
+        """
         return list(self._get_resource_dict("ingress", namespace=namespace).values())
 
     def get_services(self, namespace: str) -> List[kubernetes.client.V1Service]:
+        """Get service resources for the specified namespace.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            List of service resources.
+        """
         return list(self._get_resource_dict("service", namespace=namespace).values())
 
     def get_endpoint_slices(self, namespace: str) -> List[kubernetes.client.V1EndpointSlice]:
+        """Get endpoint slice resources for the specified namespace.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            List of endpoint slice resources.
+        """
         return list(self._get_resource_dict("endpoint_slice", namespace=namespace).values())
 
     def get_endpoints(self, namespace: str) -> List[kubernetes.client.V1Endpoints]:
+        """Get endpoints resources for the specified namespace.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            List of endpoints resources.
+        """
         return list(self._get_resource_dict("endpoints", namespace=namespace).values())
 
     def _update_ingress_status(self, ingress: kubernetes.client.V1Ingress):
+        """Update the status of the provided ingress to include ingress IP address.
+
+        Args:
+            ingress: The ingress resource to update.
+        """
         ingress.status = kubernetes.client.V1IngressStatus(
             load_balancer=kubernetes.client.V1LoadBalancerStatus(
                 ingress=[kubernetes.client.V1LoadBalancerIngress(ip="127.0.0.1")]
@@ -56,6 +103,11 @@ class K8sStub:
         )
 
     def _update_service_spec(self, service: kubernetes.client.V1Service):
+        """Update the spec of the provided service to include service cluster IP address.
+
+        Args:
+            service: The service resource to update.
+        """
         if service.spec.cluster_ip is None:
             service.spec.cluster_ip = "10.0.0.1"
 
@@ -70,6 +122,17 @@ class K8sStub:
             kubernetes.client.V1Ingress,
         ],
     ):
+        """Create a namespaced Kubernetes resource.
+
+        Args:
+            resource: Type of the Kubernetes resource (endpoints, service, etc.).
+            namespace: Kubernetes namespace in which the resource is to be created.
+            body: The actual resource body that needs to be created.
+
+        Raises:
+            kubernetes.client.ApiException: If authentication fails (status=403).
+            ValueError: If attempting to overwrite an existing resource of the same name.
+        """
         if not self.auth:
             raise kubernetes.client.ApiException(status=403)
         resources = self._get_resource_dict(resource=resource, namespace=namespace)
@@ -94,6 +157,18 @@ class K8sStub:
             kubernetes.client.V1Ingress,
         ],
     ) -> None:
+        """Patch a specific namespaced Kubernetes resource.
+
+        Args:
+            resource: Type of the Kubernetes resource (endpoints, service, etc.).
+            namespace: Kubernetes namespace where the resource is located.
+            name: The name of the specific resource to patch.
+            body: The updated body for the resource.
+
+        Raises:
+            kubernetes.client.ApiException: If authentication fails (status=403).
+            ValueError: If the specified resource is not found in the given namespace.
+        """
         if not self.auth:
             raise kubernetes.client.ApiException(status=403)
         resources = self._get_resource_dict(resource=resource, namespace=namespace)
@@ -113,6 +188,19 @@ class K8sStub:
         kubernetes.client.V1ServiceList,
         kubernetes.client.V1IngressList,
     ]:
+        """List all resource in a specified namespace.
+
+        Args:
+            resource: Type of the kubernetes resource.
+            namespace: Kubernetes namespace.
+            label_selector: not used.
+
+        Returns:
+            List of endpoints resources in the namespace.
+
+        Raises:
+            kubernetes.client.ApiException: If authentication fails (status=403).
+        """
         if not self.auth:
             raise kubernetes.client.ApiException(status=403)
         resources = list(self._get_resource_dict(resource=resource, namespace=namespace).values())
@@ -128,6 +216,16 @@ class K8sStub:
             raise ValueError(f"unknown resource type: {resource}")
 
     def delete_namespaced_resource(self, resource: str, namespace: str, name: str):
+        """Delete a resource in a specified namespace.
+
+        Args:
+            resource: Type of the kubernetes resource.
+            namespace: Kubernetes namespace.
+            name: Name of the resource.
+
+        Raises:
+            ValueError: If the resource is not found in the namespace.
+        """
         if not self.auth:
             raise kubernetes.client.ApiException(status=403)
         resources = self._get_resource_dict(resource=resource, namespace=namespace)
@@ -138,6 +236,7 @@ class K8sStub:
 
 @pytest.fixture
 def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
+    """Pytest fixture for creating a stub for Kubernetes API."""
     stub = K8sStub()
     for action in ("create", "patch", "list", "delete"):
         monkeypatch.setattr(
@@ -167,6 +266,7 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
 
 @pytest.fixture(name="harness")
 def harness_fixture() -> ops.testing.Harness:
+    """Create and prepare the ops testing harness."""
     harness = ops.testing.Harness(NginxIngressCharm)
     harness.set_model_name("test")
     harness.set_leader(True)
@@ -174,6 +274,12 @@ def harness_fixture() -> ops.testing.Harness:
 
 
 class RelationFixture:
+    """A fixture helper class for manipulating Charm relation events.
+
+    Attrs:
+        relation: The Ops Relation object for the current relation fixture.
+    """
+
     def __init__(
         self,
         harness: ops.testing.Harness,
@@ -181,6 +287,14 @@ class RelationFixture:
         example_app_data: Dict[str, str],
         example_unit_data: Dict[str, str],
     ):
+        """Initialize the RelationFixture.
+
+        Args:
+            harness: The testing harness from Ops testing framework.
+            relation_name: Name of the relation.
+            example_app_data: Sample app relation data for the relation.
+            example_unit_data: Sample unit relation data for the relation.
+        """
         self._harness = harness
         self._relation_name = relation_name
         self._remote_app = f"{relation_name}-remote"
@@ -191,23 +305,49 @@ class RelationFixture:
         self._example_unit_data = example_unit_data
 
     def update_app_data(self, data: Dict[str, str]) -> None:
+        """Update the application relation data with the provided data.
+
+        Args:
+            data: The new app relation data.
+        """
         self._harness.update_relation_data(self._relation_id, self._remote_app, data)
 
     def update_unit_data(self, data: Dict[str, str]) -> None:
+        """Update the unit relation data with the provided data.
+
+        Args:
+            data: The new unit relation data.
+        """
         self._harness.update_relation_data(self._relation_id, self._remote_unit, data)
 
     def remove_relation(self) -> None:
+        """Remove the relation from the testing harness."""
         self._harness.remove_relation_unit(self._relation_id, self._remote_unit)
         self._harness.remove_relation(self._relation_id)
 
     def gen_example_app_data(self) -> Dict[str, str]:
+        """Generate a copy of the example application relation data.
+
+        Returns:
+            A copy of the example app relation data.
+        """
         return copy.copy(self._example_app_data)
 
     def gen_example_unit_data(self) -> Dict[str, str]:
+        """Generate a copy of the example unit relation data.
+
+        Returns:
+            A copy of the example unit relation data.
+        """
         return copy.copy(self._example_unit_data)
 
     @property
     def relation(self) -> ops.Relation:
+        """Get the relation object for the current relation fixture.
+
+        Returns:
+            The relation object from Ops framework.
+        """
         return self._harness.charm.model.get_relation(
             relation_name=self._relation_name, relation_id=self._relation_id
         )
@@ -215,6 +355,7 @@ class RelationFixture:
 
 @pytest.fixture
 def nginx_route_relation(harness: ops.testing.Harness) -> RelationFixture:
+    """Pytest fixture for simulating an nginx-route relation."""
     return RelationFixture(
         harness,
         relation_name="nginx-route",
@@ -230,6 +371,7 @@ def nginx_route_relation(harness: ops.testing.Harness) -> RelationFixture:
 
 @pytest.fixture
 def ingress_relation(harness: ops.testing.Harness) -> RelationFixture:
+    """Pytest fixture for simulating an ingress relation."""
     return RelationFixture(
         harness,
         relation_name="ingress",

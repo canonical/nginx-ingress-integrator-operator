@@ -426,7 +426,10 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
 
 @dataclasses.dataclass
 class IngressOption:  # pylint: disable=too-many-public-methods,too-many-instance-attributes
-    """Class containing ingress options collected from the Charm configuration or relation."""
+    """Class containing ingress options collected from the Charm configuration or relation.
+
+    See config.yaml for descriptions of each property.
+    """
 
     additional_hostnames: List[str]
     backend_protocol: str

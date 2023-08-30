@@ -102,6 +102,11 @@ def test_no_permission(harness: Harness, k8s_stub: K8sStub, ingress_relation):
 
 
 def test_two_relation(harness: Harness, k8s_stub, ingress_relation, nginx_route_relation):
+    """
+    arrange: set up test harness with ingress relation and nginx-route relation.
+    act: none.
+    assert: unit should enter blocked status with appropriate status message.
+    """
     harness.begin_with_initial_hooks()
     assert harness.charm.unit.status.name == "blocked"
     assert (

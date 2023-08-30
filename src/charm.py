@@ -210,14 +210,18 @@ class NginxIngressCharm(CharmBase):
         """Get the label selector to select resources created by this app."""
         return f"{CREATED_BY_LABEL}={self.app.name}"
 
-    def _define_resources(self, controller: ResourceController) -> None:
+    def _define_resources(self, controller: ResourceController) -> Optional[str]:
         """Create or update a resource in kubernetes.
 
         Args:
             controller: The controller for the resource type.
+
+        Returns:
+            The name of the created or modified resource, None if no resource is
+            modified or created.
         """
         if self._ingress_options is None:
-            return
+            return None
         resource_list = controller.list_resource(
             namespace=self._namespace, label_selector=self._label_selector
         )
@@ -240,21 +244,19 @@ class NginxIngressCharm(CharmBase):
                 self._namespace,
                 body.metadata.name,
             )
+        return body.metadata.name
 
-    def _cleanup_resources(self, controller: ResourceController) -> None:
+    def _cleanup_resources(self, controller: ResourceController, exclude: Optional[str]) -> None:
         """Remove unused resources.
 
         Args:
             controller: The controller for the resource type.
+            exclude: The name of resource to be excluded from the clean up.
         """
         for resource in controller.list_resource(
             namespace=self._namespace, label_selector=self._label_selector
         ):
-            if (
-                self._ingress_options is not None
-                and resource.metadata.name
-                == controller.gen_resource_from_options(self._ingress_options).metadata.name
-            ):
+            if exclude is not None and resource.metadata.name == exclude:
                 continue
             controller.delete_resource(namespace=self._namespace, name=resource.metadata.name)
             LOGGER.info(
@@ -267,31 +269,32 @@ class NginxIngressCharm(CharmBase):
         """Create or update an endpoints in kubernetes, also remove unused endpoints."""
         api = self._core_v1_api()
         controller = EndpointsController(client=api, label=self.app.name)
+        exclude = None
         if self._ingress_options is not None and self._ingress_options.use_endpoint_slice:
-            self._define_resources(controller)
-        self._cleanup_resources(controller)
+            exclude = self._define_resources(controller)
+        self._cleanup_resources(controller, exclude=exclude)
 
     def _define_endpoint_slice(self) -> None:
         """Create or update an endpoint slice in kubernetes, also remove unused endpoint slices."""
         api = self._discovery_v1_api()
         controller = EndpointSliceController(client=api, label=self.app.name)
+        exclude = None
         if self._ingress_options is not None and self._ingress_options.use_endpoint_slice:
-            self._define_resources(controller)
-        self._cleanup_resources(controller)
+            exclude = self._define_resources(controller)
+        self._cleanup_resources(controller, exclude=exclude)
 
     def _define_service(self) -> None:
         """Create or update a service in kubernetes, also remove unused services."""
         api = self._core_v1_api()
         controller = ServiceController(client=api, label=self.app.name)
-        self._define_resources(controller)
-        self._cleanup_resources(controller)
+        self._cleanup_resources(controller, exclude=self._define_resources(controller))
 
     def _define_ingress(self) -> None:
         """Create or update an ingress in kubernetes and remove unused ingresses."""
         api = self._networking_v1_api()
         controller = IngressController(client=api, label=self.app.name)
         self._define_resources(controller)
-        self._cleanup_resources(controller)
+        self._cleanup_resources(controller, exclude=self._define_resources(controller))
 
     def _on_config_changed(self, _: HookEvent) -> None:
         """Handle the config changed event.

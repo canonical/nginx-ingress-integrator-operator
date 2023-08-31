@@ -190,7 +190,7 @@ class NginxIngressCharm(CharmBase):
             )
         return body
 
-    def _cleanup_resource(
+    def _cleanup_resources(
         self,
         controller: ResourceController[ResourceType],
         namespace: str,
@@ -258,17 +258,17 @@ class NginxIngressCharm(CharmBase):
         service = None
         ingress = None
         define_resource = functools.partial(self._define_resource, namespace=namespace)
-        cleanup_resource = functools.partial(self._cleanup_resource, namespace=namespace)
+        cleanup_resources = functools.partial(self._cleanup_resources, namespace=namespace)
         if options is not None and options.use_endpoint_slice:
             endpoints = define_resource(controller=endpoints_controller, options=options)
             endpoint_slice = define_resource(controller=endpoint_slice_controller, options=options)
         if options is not None:
             service = define_resource(controller=service_controller, options=options)
             ingress = define_resource(controller=ingress_controller, options=options)
-        cleanup_resource(controller=endpoints_controller, exclude=endpoints)
-        cleanup_resource(controller=endpoint_slice_controller, exclude=endpoint_slice)
-        cleanup_resource(controller=service_controller, exclude=service)
-        cleanup_resource(controller=ingress_controller, exclude=ingress)
+        cleanup_resources(controller=endpoints_controller, exclude=endpoints)
+        cleanup_resources(controller=endpoint_slice_controller, exclude=endpoint_slice)
+        cleanup_resources(controller=service_controller, exclude=service)
+        cleanup_resources(controller=ingress_controller, exclude=ingress)
         return ingress
 
     def _update_ingress(self) -> None:

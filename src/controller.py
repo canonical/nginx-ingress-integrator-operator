@@ -16,12 +16,10 @@ logger = logging.getLogger(__name__)
 
 ResourceType = typing.TypeVar(  # pylint: disable=invalid-name
     "ResourceType",
-    bound=typing.Union[
-        kubernetes.client.V1Endpoints,
-        kubernetes.client.V1EndpointSlice,
-        kubernetes.client.V1Service,
-        kubernetes.client.V1Ingress,
-    ],
+    kubernetes.client.V1Endpoints,
+    kubernetes.client.V1EndpointSlice,
+    kubernetes.client.V1Service,
+    kubernetes.client.V1Ingress,
 )
 
 

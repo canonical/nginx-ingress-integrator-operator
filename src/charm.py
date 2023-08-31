@@ -5,7 +5,7 @@
 # pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 """Nginx-ingress-integrator charm file."""
-
+import functools
 import logging
 import time
 from typing import Any, List, Optional
@@ -149,12 +149,12 @@ class NginxIngressCharm(CharmBase):
         """Get the label selector to select resources created by this app."""
         return f"{CREATED_BY_LABEL}={self.app.name}"
 
-    def _define_resources(
+    def _define_resource(
         self,
         controller: ResourceController[ResourceType],
         namespace: str,
         options: IngressOption,
-    ) -> Optional[ResourceType]:
+    ) -> ResourceType:
         """Create or update a resource in kubernetes.
 
         Args:
@@ -190,7 +190,7 @@ class NginxIngressCharm(CharmBase):
             )
         return body
 
-    def _cleanup_resources(
+    def _cleanup_resource(
         self,
         controller: ResourceController[ResourceType],
         namespace: str,
@@ -257,32 +257,18 @@ class NginxIngressCharm(CharmBase):
         endpoint_slice = None
         service = None
         ingress = None
+        define_resource = functools.partial(self._define_resource, namespace=namespace)
+        cleanup_resource = functools.partial(self._cleanup_resource, namespace=namespace)
         if options is not None and options.use_endpoint_slice:
-            endpoints = self._define_resources(
-                controller=endpoints_controller, namespace=namespace, options=options
-            )
-            endpoint_slice = self._define_resources(
-                controller=endpoint_slice_controller, namespace=namespace, options=options
-            )
+            endpoints = define_resource(controller=endpoints_controller, options=options)
+            endpoint_slice = define_resource(controller=endpoint_slice_controller, options=options)
         if options is not None:
-            service = self._define_resources(
-                controller=service_controller, namespace=namespace, options=options
-            )
-            ingress = self._define_resources(
-                controller=ingress_controller, namespace=namespace, options=options
-            )
-        self._cleanup_resources(
-            controller=endpoints_controller, namespace=namespace, exclude=endpoints
-        )
-        self._cleanup_resources(
-            controller=endpoint_slice_controller, namespace=namespace, exclude=endpoint_slice
-        )
-        self._cleanup_resources(
-            controller=service_controller, namespace=namespace, exclude=service
-        )
-        self._cleanup_resources(
-            controller=ingress_controller, namespace=namespace, exclude=ingress
-        )
+            service = define_resource(controller=service_controller, options=options)
+            ingress = define_resource(controller=ingress_controller, options=options)
+        cleanup_resource(controller=endpoints_controller, exclude=endpoints)
+        cleanup_resource(controller=endpoint_slice_controller, exclude=endpoint_slice)
+        cleanup_resource(controller=service_controller, exclude=service)
+        cleanup_resource(controller=ingress_controller, exclude=ingress)
         return ingress
 
     def _update_ingress(self) -> None:

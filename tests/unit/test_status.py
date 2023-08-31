@@ -18,8 +18,8 @@ def test_follower():
     """
     harness = Harness(NginxIngressCharm)
     harness.begin_with_initial_hooks()
-    assert harness.charm.unit.status.name == "waiting"
-    assert harness.charm.unit.status.message.startswith("follower unit is idling")
+    assert harness.charm.unit.status.name == "blocked"
+    assert harness.charm.unit.status.message.startswith("this charm only supports a single unit")
 
 
 def test_no_relation(harness: Harness, k8s_stub: K8sStub):

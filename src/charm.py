@@ -44,12 +44,6 @@ class NginxIngressCharm(CharmBase):
             args: Variable list of positional arguments passed to the parent constructor.
         """
         super().__init__(*args)
-        if not self.unit.is_leader():
-            self.unit.status = WaitingStatus(
-                "follower unit is idling, "
-                "remove follower units using `juju scale-application {self.app.name} 1`"
-            )
-            return
         self._ingress_provider = IngressPerAppProvider(charm=self)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -98,32 +92,29 @@ class NginxIngressCharm(CharmBase):
 
         self._authed = True
 
-    def _core_v1_api(self) -> kubernetes.client.CoreV1Api:
-        """Use the v1 k8s API.
-
-        Returns:
-            The core v1 API.
-        """
+    @property
+    def _endpoints_controller(self) -> EndpointsController:
         self._k8s_auth()
-        return kubernetes.client.CoreV1Api()
+        api = kubernetes.client.CoreV1Api()
+        return EndpointsController(client=api, label=self.app.name)
 
-    def _networking_v1_api(self) -> kubernetes.client.NetworkingV1Api:
-        """Use the v1 beta1 networking API.
-
-        Returns:
-            The networking v1 API.
-        """
+    @property
+    def _endpoint_slice_controller(self) -> EndpointSliceController:
         self._k8s_auth()
-        return kubernetes.client.NetworkingV1Api()
+        api = kubernetes.client.DiscoveryV1Api()
+        return EndpointSliceController(client=api, label=self.app.name)
 
-    def _discovery_v1_api(self) -> kubernetes.client.DiscoveryV1Api:
-        """Use the v1 discovery API.
-
-        Returns:
-            The discovery v1 API.
-        """
+    @property
+    def _service_controller(self) -> ServiceController:
         self._k8s_auth()
-        return kubernetes.client.DiscoveryV1Api()
+        api = kubernetes.client.CoreV1Api()
+        return ServiceController(client=api, label=self.app.name)
+
+    @property
+    def _ingress_controller(self) -> IngressController:
+        self._k8s_auth()
+        api = kubernetes.client.NetworkingV1Api()
+        return IngressController(client=api, label=self.app.name)
 
     def _report_ingress_ips(self, ingress: kubernetes.client.V1Ingress) -> List[str]:
         """Report on ingress IP(s) and return a list of them.
@@ -134,16 +125,16 @@ class NginxIngressCharm(CharmBase):
         Returns:
             A list of Ingress IPs.
         """
-        api = self._networking_v1_api()
+        controller = self._ingress_controller
         # Wait up to `interval * count` seconds for ingress IPs.
         count, interval = 100, 1
         ips = []
         for _ in range(count):
-            ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
+            ingresses = controller.list_resource(
                 namespace=ingress.metadata.namespace, label_selector=self._label_selector
             )
             try:
-                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
+                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses]
             except TypeError:
                 # We have no IPs yet.
                 pass
@@ -162,7 +153,7 @@ class NginxIngressCharm(CharmBase):
         self,
         controller: ResourceController[ResourceType],
         namespace: str,
-        options: Optional[IngressOption],
+        options: IngressOption,
     ) -> Optional[ResourceType]:
         """Create or update a resource in kubernetes.
 
@@ -175,8 +166,6 @@ class NginxIngressCharm(CharmBase):
             The name of the created or modified resource, None if no resource is
             modified or created.
         """
-        if options is None:
-            return None
         resource_list = controller.list_resource(
             namespace=namespace, label_selector=self._label_selector
         )
@@ -205,7 +194,7 @@ class NginxIngressCharm(CharmBase):
         self,
         controller: ResourceController[ResourceType],
         namespace: str,
-        exclude: Optional[ResourceType],
+        exclude: Optional[ResourceType] = None,
     ) -> None:
         """Remove unused resources.
 
@@ -226,67 +215,6 @@ class NginxIngressCharm(CharmBase):
                 resource.metadata.name,
             )
 
-    def _define_endpoints(self, options: Optional[IngressOption]) -> None:
-        """Create or update an endpoints in kubernetes, also remove unused endpoints.
-
-        Args:
-            options: the ingress options used to created resources.
-        """
-        api = self._core_v1_api()
-        controller = EndpointsController(client=api, label=self.app.name)
-        namespace = options.service_namespace if options is not None else self.model.name
-        updated = None
-        if options is not None and options.use_endpoint_slice:
-            updated = self._define_resources(controller, namespace=namespace, options=options)
-        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
-
-    def _define_endpoint_slice(self, options: Optional[IngressOption]) -> None:
-        """Create or update an endpoint slice in kubernetes, also remove unused endpoint slices.
-
-        Args:
-            options: the ingress options used to created resources.
-        """
-        api = self._discovery_v1_api()
-        controller = EndpointSliceController(client=api, label=self.app.name)
-        namespace = options.service_namespace if options is not None else self.model.name
-        updated = None
-        if options is not None and options.use_endpoint_slice:
-            updated = self._define_resources(controller, namespace=namespace, options=options)
-        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
-
-    def _define_service(self, options: Optional[IngressOption]) -> None:
-        """Create or update a service in kubernetes, also remove unused services.
-
-        Args:
-            options: the ingress options used to created resources.
-        """
-        api = self._core_v1_api()
-        controller = ServiceController(client=api, label=self.app.name)
-        namespace = options.service_namespace if options is not None else self.model.name
-        self._cleanup_resources(
-            controller,
-            namespace=namespace,
-            exclude=self._define_resources(controller, namespace=namespace, options=options),
-        )
-
-    def _define_ingress(
-        self, options: Optional[IngressOption]
-    ) -> Optional[kubernetes.client.V1Ingress]:
-        """Create or update an ingress in kubernetes and remove unused ingresses.
-
-        Args:
-            options: the ingress options used to created resources.
-
-        Returns:
-            The created or updated ingress.
-        """
-        api = self._networking_v1_api()
-        controller = IngressController(client=api, label=self.app.name)
-        namespace = options.service_namespace if options is not None else self.model.name
-        updated = self._define_resources(controller, namespace=namespace, options=options)
-        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
-        return updated
-
     def _check_precondition(self) -> None:
         """Check the precondition of the charm.
 
@@ -294,12 +222,68 @@ class NginxIngressCharm(CharmBase):
             InvalidIngressOptionError: If both "nginx-route" and "ingress" relations are present
                 or some options are invalid.
         """
+        if not self.unit.is_leader():
+            raise InvalidIngressOptionError(
+                "this charm only supports a single unit, "
+                "please remove the additional units "
+                f"using `juju scale-application {self.app.name} 1`"
+            )
         nginx_route_relations = self.model.relations["nginx-route"]
         ingress_relations = self.model.relations["ingress"]
         if nginx_route_relations and ingress_relations:
             raise InvalidIngressOptionError(
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
+
+    def _reconcile_ingress(
+        self, options: Optional[IngressOption]
+    ) -> Optional[kubernetes.client.V1Ingress]:
+        """Reconcile ingress related resources based on the provided options.
+
+        Args:
+            options: Configuration options for the ingress. If not provided, no resources will be
+                created but the cleanup will still run.
+
+        Returns:
+            The created or modified ingress resource, None if no ingress resource was created or
+                modified.
+        """
+        endpoints_controller = self._endpoints_controller
+        endpoint_slice_controller = self._endpoint_slice_controller
+        service_controller = self._service_controller
+        ingress_controller = self._ingress_controller
+        namespace = options.service_namespace if options is not None else self.model.name
+        endpoints = None
+        endpoint_slice = None
+        service = None
+        ingress = None
+        if options is not None and options.use_endpoint_slice:
+            endpoints = self._define_resources(
+                controller=endpoints_controller, namespace=namespace, options=options
+            )
+            endpoint_slice = self._define_resources(
+                controller=endpoint_slice_controller, namespace=namespace, options=options
+            )
+        if options is not None:
+            service = self._define_resources(
+                controller=service_controller, namespace=namespace, options=options
+            )
+            ingress = self._define_resources(
+                controller=ingress_controller, namespace=namespace, options=options
+            )
+        self._cleanup_resources(
+            controller=endpoints_controller, namespace=namespace, exclude=endpoints
+        )
+        self._cleanup_resources(
+            controller=endpoint_slice_controller, namespace=namespace, exclude=endpoint_slice
+        )
+        self._cleanup_resources(
+            controller=service_controller, namespace=namespace, exclude=service
+        )
+        self._cleanup_resources(
+            controller=ingress_controller, namespace=namespace, exclude=ingress
+        )
+        return ingress
 
     def _update_ingress(self) -> None:
         """Handle the config changed event.
@@ -315,14 +299,11 @@ class NginxIngressCharm(CharmBase):
             return
         msg = ""
         try:
-            self._define_endpoints(options)
-            self._define_endpoint_slice(options)
-            self._define_service(options)
-            updated_ingress = self._define_ingress(options)
             msgs = []
-            if updated_ingress is not None:
+            ingress = self._reconcile_ingress(options)
+            if ingress is not None:
                 self.unit.status = WaitingStatus("Waiting for ingress IP availability")
-                ingress_ips = self._report_ingress_ips(updated_ingress)
+                ingress_ips = self._report_ingress_ips(ingress)
                 if ingress_ips:
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
         except kubernetes.client.exceptions.ApiException as exception:
@@ -338,7 +319,7 @@ class NginxIngressCharm(CharmBase):
                 return
             raise
         self.unit.set_workload_version(kubernetes.__version__)
-        if options is None:
+        if ingress is None:
             self.unit.status = WaitingStatus("waiting for relation")
         else:
             self.unit.status = ActiveStatus(msg)

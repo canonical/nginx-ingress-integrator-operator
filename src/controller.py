@@ -128,6 +128,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
                 labels={
                     CREATED_BY_LABEL: self._label,
                 },
+                namespace=options.service_namespace,
             ),
             subsets=[
                 kubernetes.client.V1EndpointSubset(
@@ -221,6 +222,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             kind="EndpointSlice",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=options.k8s_endpoint_slice_name,
+                namespace=options.service_namespace,
                 labels={
                     CREATED_BY_LABEL: self._label,
                     "kubernetes.io/service-name": options.k8s_service_name,
@@ -332,7 +334,9 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
             api_version="v1",
             kind="Service",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=options.k8s_service_name, labels={CREATED_BY_LABEL: self._label}
+                name=options.k8s_service_name,
+                labels={CREATED_BY_LABEL: self._label},
+                namespace=options.service_namespace,
             ),
             spec=spec,
         )
@@ -529,12 +533,12 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=options.k8s_ingress_name,
+                namespace=options.service_namespace,
                 annotations=annotations,
                 labels={CREATED_BY_LABEL: self._label},
             ),
             spec=spec,
         )
-
         self._look_up_and_set_ingress_class(ingress_class=options.ingress_class, body=ingress)
         return ingress
 

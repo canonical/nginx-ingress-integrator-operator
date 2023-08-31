@@ -13,7 +13,7 @@ from typing import Any, List, Optional
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
-from ops.charm import CharmBase, HookEvent
+from ops.charm import CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
 
@@ -23,6 +23,7 @@ from controller import (
     EndpointSliceController,
     IngressController,
     ResourceController,
+    ResourceType,
     ServiceController,
 )
 from exceptions import InvalidIngressOptionError
@@ -49,21 +50,18 @@ class NginxIngressCharm(CharmBase):
                 "remove follower units using `juju scale-application {self.app.name} 1`"
             )
             return
-
-        self._ingress_options: Optional[IngressOption] = None
+        self._ingress_provider = IngressPerAppProvider(charm=self)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.describe_ingresses_action, self._describe_ingresses_action)
-        self.framework.observe(self.on.start, self._on_config_changed)
+        self.framework.observe(self.on.start, self._on_start)
 
-        self._ingress_provider = IngressPerAppProvider(charm=self)
-        self.framework.observe(self._ingress_provider.on.data_provided, self._on_config_changed)
-        self.framework.observe(self._ingress_provider.on.data_removed, self._on_config_changed)
+        self.framework.observe(self._ingress_provider.on.data_provided, self._on_data_provided)
+        self.framework.observe(self._ingress_provider.on.data_removed, self._on_data_removed)
 
         provide_nginx_route(
             charm=self,
-            on_nginx_route_available=self._on_config_changed,
-            on_nginx_route_broken=self._on_config_changed,
+            on_nginx_route_available=self._on_nginx_route_available,
+            on_nginx_route_broken=self._on_nginx_route_broken,
         )
 
     def _get_ingress_options(self) -> Optional[IngressOption]:
@@ -71,66 +69,25 @@ class NginxIngressCharm(CharmBase):
 
         Returns:
             IngressOption instance based on the relation data, or None if no valid relation exists.
-
-        Raises:
-            InvalidIngressOptionError: If both "nginx-route" and "ingress" relations are present
-                or some options are invalid.
         """
-        nginx_route_relations = self.model.relations["nginx-route"]
-        ingress_relations = self.model.relations["ingress"]
-        if nginx_route_relations and ingress_relations:
-            raise InvalidIngressOptionError(
-                "nginx-ingress-integrator cannot establish more than one relation at a time"
+        if self.model.relations["nginx-route"]:
+            relation = self.model.relations["nginx-route"][0]
+            if relation.app is None or not relation.data[relation.app]:
+                return None
+            option_essence = IngressOptionEssence.from_nginx_route(
+                self, self.model.relations["nginx-route"][0]
             )
-        if nginx_route_relations:
-            relation = nginx_route_relations[0]
-        elif ingress_relations:
-            relation = ingress_relations[0]
+        elif self.model.relations["ingress"]:
+            relation = self.model.relations["ingress"][0]
+            if relation.app is None or not relation.data[relation.app]:
+                return None
+            option_essence = IngressOptionEssence.from_ingress(
+                self, self.model.relations["ingress"][0], self._ingress_provider
+            )
         else:
             return None
-        if relation.app is not None and relation.data[relation.app]:
-            ingress_option_essence = IngressOptionEssence(
-                self.model,
-                self.config,
-                relation=relation,
-                ingress_provider=self._ingress_provider if ingress_relations else None,
-            )
-            ingress_option = IngressOption.from_essence(ingress_option_essence)
-            return ingress_option
-        return None
-
-    @property
-    def _namespace(self) -> Any:
-        """Namespace for this ingress.
-
-        Returns:
-            The namespace for this Ingress.
-        """
-        # We're querying the first one here because this will always be the same
-        # for all instances. It would be very unusual for a relation to specify
-        # this (arguably we should remove this as a relation option), so if set
-        # via config it will be the same for all relations.
-        return (
-            self.model.name
-            if self._ingress_options is None
-            else self._ingress_options.service_namespace
-        )
-
-    def _describe_ingresses_action(self, event: Any) -> None:
-        """Handle the 'describe-ingresses' action.
-
-        Args:
-            event: Juju event that fires this handler.
-        """
-        try:
-            self._ingress_options = self._get_ingress_options()
-        except InvalidIngressOptionError:
-            pass
-        api = self._networking_v1_api()
-        ingresses = api.list_namespaced_ingress(
-            namespace=self._namespace, label_selector=self._label_selector
-        )
-        event.set_results({"ingresses": ingresses})
+        ingress_option = IngressOption.from_essence(option_essence)
+        return ingress_option
 
     def _k8s_auth(self) -> None:
         """Authenticate to kubernetes."""
@@ -168,25 +125,11 @@ class NginxIngressCharm(CharmBase):
         self._k8s_auth()
         return kubernetes.client.DiscoveryV1Api()
 
-    def _report_service_ips(self) -> List[str]:
-        """Report on service IP(s) and return a list of them.
-
-        Returns:
-            A list of service IPs.
-        """
-        api = self._core_v1_api()
-        services = api.list_namespaced_service(  # type: ignore[attr-defined]
-            namespace=self._namespace, label_selector=self._label_selector
-        )
-        return [
-            x.spec.cluster_ip
-            for x in services.items
-            if self._ingress_options is not None
-            and x.metadata.name == self._ingress_options.k8s_service_name
-        ]
-
-    def _report_ingress_ips(self) -> List[str]:
+    def _report_ingress_ips(self, ingress: kubernetes.client.V1Ingress) -> List[str]:
         """Report on ingress IP(s) and return a list of them.
+
+        Args:
+            ingress: the target ingress.
 
         Returns:
             A list of Ingress IPs.
@@ -197,7 +140,7 @@ class NginxIngressCharm(CharmBase):
         ips = []
         for _ in range(count):
             ingresses = api.list_namespaced_ingress(  # type: ignore[attr-defined]
-                namespace=self._namespace, label_selector=self._label_selector
+                namespace=ingress.metadata.namespace, label_selector=self._label_selector
             )
             try:
                 ips = [x.status.load_balancer.ingress[0].ip for x in ingresses.items]
@@ -215,121 +158,173 @@ class NginxIngressCharm(CharmBase):
         """Get the label selector to select resources created by this app."""
         return f"{CREATED_BY_LABEL}={self.app.name}"
 
-    def _define_resources(self, controller: ResourceController) -> Optional[str]:
+    def _define_resources(
+        self,
+        controller: ResourceController[ResourceType],
+        namespace: str,
+        options: Optional[IngressOption],
+    ) -> Optional[ResourceType]:
         """Create or update a resource in kubernetes.
 
         Args:
             controller: The controller for the resource type.
+            namespace: The namespace for the resource to reside in.
+            options: The ingress option
 
         Returns:
             The name of the created or modified resource, None if no resource is
             modified or created.
         """
-        if self._ingress_options is None:
+        if options is None:
             return None
         resource_list = controller.list_resource(
-            namespace=self._namespace, label_selector=self._label_selector
+            namespace=namespace, label_selector=self._label_selector
         )
-        body = controller.gen_resource_from_options(self._ingress_options)
+        body = controller.gen_resource_from_options(options)
         if body.metadata.name in [r.metadata.name for r in resource_list]:
             controller.patch_resource(
                 name=body.metadata.name,
-                namespace=self._namespace,
+                namespace=namespace,
                 body=body,
             )
             LOGGER.info(
                 f"{controller.name} updated in namespace %s with name %s",
-                self._namespace,
+                namespace,
                 body.metadata.name,
             )
         else:
-            controller.create_resource(namespace=self._namespace, body=body)
+            controller.create_resource(namespace=namespace, body=body)
             LOGGER.info(
                 f"{controller.name} created in namespace %s with name %s",
-                self._namespace,
+                namespace,
                 body.metadata.name,
             )
-        return body.metadata.name
+        return body
 
-    def _cleanup_resources(self, controller: ResourceController, exclude: Optional[str]) -> None:
+    def _cleanup_resources(
+        self,
+        controller: ResourceController[ResourceType],
+        namespace: str,
+        exclude: Optional[ResourceType],
+    ) -> None:
         """Remove unused resources.
 
         Args:
             controller: The controller for the resource type.
-            exclude: The name of resource to be excluded from the clean up.
+            namespace: The namespace of resources.
+            exclude: The name of resource to be excluded from the cleanup.
         """
         for resource in controller.list_resource(
-            namespace=self._namespace, label_selector=self._label_selector
+            namespace=namespace, label_selector=self._label_selector
         ):
-            if exclude is not None and resource.metadata.name == exclude:
+            if exclude is not None and resource.metadata.name == exclude.metadata.name:
                 continue
-            controller.delete_resource(namespace=self._namespace, name=resource.metadata.name)
+            controller.delete_resource(namespace=namespace, name=resource.metadata.name)
             LOGGER.info(
                 f"{controller.name} deleted in namespace %s with name %s",
-                self._namespace,
+                namespace,
                 resource.metadata.name,
             )
 
-    def _define_endpoints(self) -> None:
-        """Create or update an endpoints in kubernetes, also remove unused endpoints."""
-        api = self._core_v1_api()
-        controller = EndpointsController(client=api, label=self.app.name)
-        exclude = None
-        if self._ingress_options is not None and self._ingress_options.use_endpoint_slice:
-            exclude = self._define_resources(controller)
-        self._cleanup_resources(controller, exclude=exclude)
-
-    def _define_endpoint_slice(self) -> None:
-        """Create or update an endpoint slice in kubernetes, also remove unused endpoint slices."""
-        api = self._discovery_v1_api()
-        controller = EndpointSliceController(client=api, label=self.app.name)
-        exclude = None
-        if self._ingress_options is not None and self._ingress_options.use_endpoint_slice:
-            exclude = self._define_resources(controller)
-        self._cleanup_resources(controller, exclude=exclude)
-
-    def _define_service(self) -> None:
-        """Create or update a service in kubernetes, also remove unused services."""
-        api = self._core_v1_api()
-        controller = ServiceController(client=api, label=self.app.name)
-        self._cleanup_resources(controller, exclude=self._define_resources(controller))
-
-    def _define_ingress(self) -> None:
-        """Create or update an ingress in kubernetes and remove unused ingresses."""
-        api = self._networking_v1_api()
-        controller = IngressController(client=api, label=self.app.name)
-        self._define_resources(controller)
-        self._cleanup_resources(controller, exclude=self._define_resources(controller))
-
-    def _on_config_changed(self, _: HookEvent) -> None:
-        """Handle the config changed event.
+    def _define_endpoints(self, options: Optional[IngressOption]) -> None:
+        """Create or update an endpoints in kubernetes, also remove unused endpoints.
 
         Args:
-            _: argument not used.
+            options: the ingress options used to created resources.
+        """
+        api = self._core_v1_api()
+        controller = EndpointsController(client=api, label=self.app.name)
+        namespace = options.service_namespace if options is not None else self.model.name
+        updated = None
+        if options is not None and options.use_endpoint_slice:
+            updated = self._define_resources(controller, namespace=namespace, options=options)
+        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
+
+    def _define_endpoint_slice(self, options: Optional[IngressOption]) -> None:
+        """Create or update an endpoint slice in kubernetes, also remove unused endpoint slices.
+
+        Args:
+            options: the ingress options used to created resources.
+        """
+        api = self._discovery_v1_api()
+        controller = EndpointSliceController(client=api, label=self.app.name)
+        namespace = options.service_namespace if options is not None else self.model.name
+        updated = None
+        if options is not None and options.use_endpoint_slice:
+            updated = self._define_resources(controller, namespace=namespace, options=options)
+        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
+
+    def _define_service(self, options: Optional[IngressOption]) -> None:
+        """Create or update a service in kubernetes, also remove unused services.
+
+        Args:
+            options: the ingress options used to created resources.
+        """
+        api = self._core_v1_api()
+        controller = ServiceController(client=api, label=self.app.name)
+        namespace = options.service_namespace if options is not None else self.model.name
+        self._cleanup_resources(
+            controller,
+            namespace=namespace,
+            exclude=self._define_resources(controller, namespace=namespace, options=options),
+        )
+
+    def _define_ingress(
+        self, options: Optional[IngressOption]
+    ) -> Optional[kubernetes.client.V1Ingress]:
+        """Create or update an ingress in kubernetes and remove unused ingresses.
+
+        Args:
+            options: the ingress options used to created resources.
+
+        Returns:
+            The created or updated ingress.
+        """
+        api = self._networking_v1_api()
+        controller = IngressController(client=api, label=self.app.name)
+        namespace = options.service_namespace if options is not None else self.model.name
+        updated = self._define_resources(controller, namespace=namespace, options=options)
+        self._cleanup_resources(controller, namespace=namespace, exclude=updated)
+        return updated
+
+    def _check_precondition(self) -> None:
+        """Check the precondition of the charm.
+
+        Raises:
+            InvalidIngressOptionError: If both "nginx-route" and "ingress" relations are present
+                or some options are invalid.
+        """
+        nginx_route_relations = self.model.relations["nginx-route"]
+        ingress_relations = self.model.relations["ingress"]
+        if nginx_route_relations and ingress_relations:
+            raise InvalidIngressOptionError(
+                "nginx-ingress-integrator cannot establish more than one relation at a time"
+            )
+
+    def _update_ingress(self) -> None:
+        """Handle the config changed event.
 
         Raises:
             ApiException: if kubernetes API error happens.
         """
         try:
-            self._ingress_options = self._get_ingress_options()
+            self._check_precondition()
+            options = self._get_ingress_options()
         except InvalidIngressOptionError as exc:
             self.unit.status = BlockedStatus(exc.msg)
             return
         msg = ""
         try:
-            self._define_endpoints()
-            self._define_endpoint_slice()
-            self._define_service()
-            self._define_ingress()
+            self._define_endpoints(options)
+            self._define_endpoint_slice(options)
+            self._define_service(options)
+            updated_ingress = self._define_ingress(options)
             msgs = []
-            if self._ingress_options is not None:
+            if updated_ingress is not None:
                 self.unit.status = WaitingStatus("Waiting for ingress IP availability")
-                ingress_ips = self._report_ingress_ips()
+                ingress_ips = self._report_ingress_ips(updated_ingress)
                 if ingress_ips:
                     msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
-                if not self._ingress_options.is_ingress_relation:
-                    msgs.append(f"Service IP(s): {', '.join(self._report_service_ips())}")
-                    msg = ", ".join(msgs)
         except kubernetes.client.exceptions.ApiException as exception:
             if exception.status == 403:
                 LOGGER.error(
@@ -343,10 +338,34 @@ class NginxIngressCharm(CharmBase):
                 return
             raise
         self.unit.set_workload_version(kubernetes.__version__)
-        if self._ingress_options is None:
+        if options is None:
             self.unit.status = WaitingStatus("waiting for relation")
         else:
             self.unit.status = ActiveStatus(msg)
+
+    def _on_config_changed(self, _: Any) -> None:
+        """Handle the config-changed event."""
+        self._update_ingress()
+
+    def _on_start(self, _: Any) -> None:
+        """Handle the start event."""
+        self._update_ingress()
+
+    def _on_data_provided(self, _: Any) -> None:
+        """Handle the data-provided event."""
+        self._update_ingress()
+
+    def _on_data_removed(self, _: Any) -> None:
+        """Handle the data-removed event."""
+        self._update_ingress()
+
+    def _on_nginx_route_available(self, _: Any) -> None:
+        """Handle the nginx-route-available event."""
+        self._update_ingress()
+
+    def _on_nginx_route_broken(self, _: Any) -> None:
+        """Handle the nginx-route-broken event."""
+        self._update_ingress()
 
 
 if __name__ == "__main__":  # pragma: no cover

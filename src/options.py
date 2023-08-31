@@ -7,6 +7,7 @@ import ipaddress
 import re
 from typing import List, Optional, Union, cast
 
+import ops
 from charms.traefik_k8s.v2.ingress import DataValidationError, IngressPerAppProvider
 from ops.model import Application, ConfigData, Model, Relation
 
@@ -17,12 +18,46 @@ from exceptions import InvalidIngressOptionError
 class IngressOptionEssence:  # pylint: disable=too-many-public-methods
     """Class containing data from the Charm configuration, or from a relation."""
 
+    @classmethod
+    def from_nginx_route(cls, charm: ops.CharmBase, relation: Relation) -> "IngressOptionEssence":
+        """Create an ingress option essence object for nginx-route relation.
+
+        Args:
+            charm: The charm object.
+            relation: The nginx-route relation
+
+        Returns:
+            The created ingress option essence object.
+        """
+        return cls(model=charm.model, config=charm.config, relation=relation)
+
+    @classmethod
+    def from_ingress(
+        cls, charm: ops.CharmBase, relation: Relation, ingress_provider: IngressPerAppProvider
+    ) -> "IngressOptionEssence":
+        """Create an ingress option essence object for ingress relation.
+
+        Args:
+            charm: The charm object.
+            relation: The ingress relation.
+            ingress_provider: The ingress provider object from ingress charm library.
+
+        Returns:
+            The created ingress option essence object.
+        """
+        return cls(
+            model=charm.model,
+            config=charm.config,
+            relation=relation,
+            ingress_provider=ingress_provider,
+        )
+
     def __init__(
         self,
         model: Model,
         config: ConfigData,
         relation: Relation,
-        ingress_provider: Optional[IngressPerAppProvider],
+        ingress_provider: Optional[IngressPerAppProvider] = None,
     ) -> None:
         """Create a _ConfigOrRelation Object.
 
@@ -314,14 +349,6 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                 raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             service_name = cast(str, self._get_relation_data_or_config("service-name", ""))
-        if not service_name:
-            if self.is_ingress_relation:
-                raise InvalidIngressOptionError(
-                    "name is missing in the ingress relation, verify the relation"
-                )
-            raise InvalidIngressOptionError(
-                "service-name option is missing, verify the relation or configuration"
-            )
         return service_name
 
     @property
@@ -338,15 +365,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                 raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             port = self._get_relation_data_or_config("service-port", 0)
-        if not port:
-            if self.is_ingress_relation:
-                raise InvalidIngressOptionError(
-                    "port is missing in the ingress relation, verify the relation"
-                )
-            raise InvalidIngressOptionError(
-                "service-port option is missing, verify the relation or configuration"
-            )
-        return int(port)
+        return int(cast(Union[str, int], port))
 
     @property
     def path_routes(self) -> List[str]:

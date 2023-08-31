@@ -14,8 +14,8 @@ from options import IngressOption
 
 logger = logging.getLogger(__name__)
 
-ResourceType = typing.TypeVar(  # pylint: disable=invalid-name
-    "ResourceType",
+AnyResource = typing.TypeVar(  # pylint: disable=invalid-name
+    "AnyResource",
     kubernetes.client.V1Endpoints,
     kubernetes.client.V1EndpointSlice,
     kubernetes.client.V1Service,
@@ -23,7 +23,7 @@ ResourceType = typing.TypeVar(  # pylint: disable=invalid-name
 )
 
 
-class ResourceController(abc.ABC, typing.Generic[ResourceType]):
+class ResourceController(abc.ABC, typing.Generic[AnyResource]):
     """Abstract base class for a generic Kubernetes resource controller."""
 
     @property
@@ -36,7 +36,7 @@ class ResourceController(abc.ABC, typing.Generic[ResourceType]):
         """
 
     @abc.abstractmethod
-    def gen_resource_from_options(self, options: IngressOption) -> ResourceType:
+    def gen_resource_from_options(self, options: IngressOption) -> AnyResource:
         """Abstract method to generate a resource from ingress options.
 
         Args:
@@ -47,7 +47,7 @@ class ResourceController(abc.ABC, typing.Generic[ResourceType]):
         """
 
     @abc.abstractmethod
-    def create_resource(self, namespace: str, body: ResourceType) -> None:
+    def create_resource(self, namespace: str, body: AnyResource) -> None:
         """Abstract method to create a new resource in a given namespace.
 
         Args:
@@ -56,7 +56,7 @@ class ResourceController(abc.ABC, typing.Generic[ResourceType]):
         """
 
     @abc.abstractmethod
-    def patch_resource(self, namespace: str, name: str, body: ResourceType) -> None:
+    def patch_resource(self, namespace: str, name: str, body: AnyResource) -> None:
         """Abstract method to patch an existing resource in a given namespace.
 
         Args:
@@ -66,7 +66,7 @@ class ResourceController(abc.ABC, typing.Generic[ResourceType]):
         """
 
     @abc.abstractmethod
-    def list_resource(self, namespace: str, label_selector: str) -> typing.List[ResourceType]:
+    def list_resource(self, namespace: str, label_selector: str) -> typing.List[AnyResource]:
         """Abstract method to list resources in a given namespace based on a label selector.
 
         Args:

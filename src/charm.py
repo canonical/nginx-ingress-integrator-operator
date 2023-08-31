@@ -23,7 +23,7 @@ from controller import (
     EndpointSliceController,
     IngressController,
     ResourceController,
-    ResourceType,
+    AnyResource,
     ServiceController,
 )
 from exceptions import InvalidIngressOptionError
@@ -151,10 +151,10 @@ class NginxIngressCharm(CharmBase):
 
     def _define_resource(
         self,
-        controller: ResourceController[ResourceType],
+        controller: ResourceController[AnyResource],
         namespace: str,
         options: IngressOption,
-    ) -> ResourceType:
+    ) -> AnyResource:
         """Create or update a resource in kubernetes.
 
         Args:
@@ -192,9 +192,9 @@ class NginxIngressCharm(CharmBase):
 
     def _cleanup_resources(
         self,
-        controller: ResourceController[ResourceType],
+        controller: ResourceController[AnyResource],
         namespace: str,
-        exclude: Optional[ResourceType] = None,
+        exclude: Optional[AnyResource] = None,
     ) -> None:
         """Remove unused resources.
 

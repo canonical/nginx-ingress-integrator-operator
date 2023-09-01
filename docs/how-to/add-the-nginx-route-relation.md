@@ -1,7 +1,7 @@
-# How to add the Ingress relation.
+# How to add the Nginx-route relation.
 
-The ingress relation is preferred over the nginx-route relation if you want to use generic features. If you need
-something nginx-specific such as owasp-modsecurity-crs, then please follow the [nginx-route relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) tutorial instead.
+The nginx-route relation is preferred over the ingress relation if you want to use nginx-specific features, such as owasp-modsecurity-crs. If you need
+something more generic then please follow the [ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-ingress-relation) tutorial instead.
 
 ## Requirements
 
@@ -65,30 +65,29 @@ So we now have a working charm, great! However, what we don't currently have is 
 
 Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't yet have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
 
-## Add the Ingress relation
+## Add the Nginx-route relation
 
 First of all, let's grab the [relation library](https://charmhub.io/nginx-ingress-integrator/libraries/ingress). We can do this by running this:
 ```
-charmcraft fetch-lib charms.nginx_ingress_integrator.v0.ingress
+charmcraft fetch-lib charms.nginx_ingress_integrator.v0.nginx_route
 ```
-This has downloaded `lib/charms/nginx_ingress_integrator/v0/ingress.py`. Now we just need to update `src/charm.py`.
+This has downloaded `lib/charms/nginx_ingress_integrator/v0/nginx_route.py`. Now we just need to update `src/charm.py`.
 
 Add the following just after `import logging`:
 ```
 # Add this just after `import logging`.
-from charms.nginx_ingress_integrator.v0.ingress import IngressRequires
+from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 ```
 Then add the following to the end of your charm's `__init__` method:
 ```
-self.ingress = IngressRequires(self, {"service-hostname": self.config["external-hostname"] or self.app.name,
-                                      "service-name": self.app.name,
-                                      "service-port": 80})
+require_nginx_route(
+    charm=self,
+    service_hostname=self.config["external-hostname"] or self.app.name,
+    service_name=self.app.name,
+    service_port=8080 # assuming your app listens in port 8080
+)
 ```
-And now add the following to top of the `_on_config_changed` method:
-```
-self.ingress.update_config({"service-hostname": self.config["external-hostname"] or self.app.name})
-```
-As you can see, we're adding support for a configuration option of `external-hostname` that will be used when configuring ingress. Let's update `config.yaml` to enable this. Add the following the end of that file:
+As you can see, we're adding support for a configuration option of `external-hostname` that will be used when configuring nginx-route. Let's update `config.yaml` to enable this. Add the following the end of that file:
 ```
   external-hostname:
     description: |
@@ -100,8 +99,8 @@ As you can see, we're adding support for a configuration option of `external-hos
 Now we just need to add the relation definition to `metadata.yaml`. Add the following to the end of that file:
 ```
 requires:
-  ingress:
-    interface: ingress
+  nginx-route:
+    interface: nginx-route
 ```
 Now let's rebuild our charm and run a charm upgrade.
 ```
@@ -133,13 +132,15 @@ Rules:
   Host        Path  Backends
   ----        ----  --------
   my-charm    
-              /   my-charm-service:80 (10.1.129.140:80)
-Annotations:  nginx.ingress.kubernetes.io/proxy-body-size: 20m
+              /   my-charm-service:8080 (10.1.194.49:8080)
+Annotations:  nginx.ingress.kubernetes.io/backend-protocol: HTTP
+              nginx.ingress.kubernetes.io/proxy-body-size: 20m
+              nginx.ingress.kubernetes.io/proxy-read-timeout: 60
               nginx.ingress.kubernetes.io/rewrite-target: /
               nginx.ingress.kubernetes.io/ssl-redirect: false
 Events:
   Type    Reason  Age                   From                      Message
   ----    ------  ----                  ----                      -------
-  Normal  Sync    3m30s (x2 over 4m6s)  nginx-ingress-controller  Scheduled for sync
+  Normal  Sync    4m3s (x2 over 4m22s)  nginx-ingress-controller  Scheduled for sync
 ```
 Congratulations! You've configured your charm to have a relation to the Nginx Ingress Integrator Operator, and are ready to deploy your charm into a production Kubernetes cluster and easily make it available to external clients.

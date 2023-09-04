@@ -8,22 +8,22 @@
 import functools
 import logging
 import time
-from typing import Any, List, Optional
+from typing import Any, List, Optional, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops.charm import CharmBase
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
+from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
 
 from consts import CREATED_BY_LABEL
 from controller import (
+    AnyResource,
     EndpointsController,
     EndpointSliceController,
     IngressController,
     ResourceController,
-    AnyResource,
     ServiceController,
 )
 from exceptions import InvalidIngressOptionError
@@ -33,7 +33,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class NginxIngressCharm(CharmBase):
-    """Charm the service."""
+    """The main charm class for the nginx-ingress-integrator charm."""
 
     _authed = False
 
@@ -64,19 +64,17 @@ class NginxIngressCharm(CharmBase):
         Returns:
             IngressOption instance based on the relation data, or None if no valid relation exists.
         """
-        if self.model.relations["nginx-route"]:
-            relation = self.model.relations["nginx-route"][0]
+        if self.model.get_relation("nginx-route") is not None:
+            relation = cast(Relation, self.model.get_relation("nginx-route"))
             if relation.app is None or not relation.data[relation.app]:
                 return None
-            option_essence = IngressOptionEssence.from_nginx_route(
-                self, self.model.relations["nginx-route"][0]
-            )
-        elif self.model.relations["ingress"]:
-            relation = self.model.relations["ingress"][0]
+            option_essence = IngressOptionEssence.from_nginx_route(self, relation=relation)
+        elif self.model.get_relation("ingress") is not None:
+            relation = cast(Relation, self.model.get_relation("ingress"))
             if relation.app is None or not relation.data[relation.app]:
                 return None
             option_essence = IngressOptionEssence.from_ingress(
-                self, self.model.relations["ingress"][0], self._ingress_provider
+                self, relation=relation, ingress_provider=self._ingress_provider
             )
         else:
             return None
@@ -177,14 +175,16 @@ class NginxIngressCharm(CharmBase):
                 body=body,
             )
             LOGGER.info(
-                f"{controller.name} updated in namespace %s with name %s",
+                "%s updated in namespace %s with name %s",
+                controller.name,
                 namespace,
                 body.metadata.name,
             )
         else:
             controller.create_resource(namespace=namespace, body=body)
             LOGGER.info(
-                f"{controller.name} created in namespace %s with name %s",
+                "%s created in namespace %s with name %s",
+                controller.name,
                 namespace,
                 body.metadata.name,
             )
@@ -210,7 +210,8 @@ class NginxIngressCharm(CharmBase):
                 continue
             controller.delete_resource(namespace=namespace, name=resource.metadata.name)
             LOGGER.info(
-                f"{controller.name} deleted in namespace %s with name %s",
+                "%s deleted in namespace %s with name %s",
+                controller.name,
                 namespace,
                 resource.metadata.name,
             )
@@ -228,9 +229,9 @@ class NginxIngressCharm(CharmBase):
                 "please remove the additional units "
                 f"using `juju scale-application {self.app.name} 1`"
             )
-        nginx_route_relations = self.model.relations["nginx-route"]
-        ingress_relations = self.model.relations["ingress"]
-        if nginx_route_relations and ingress_relations:
+        nginx_route_relation = self.model.get_relation("nginx-route")
+        ingress_relation = self.model.get_relation("ingress")
+        if nginx_route_relation is not None and ingress_relation is not None:
             raise InvalidIngressOptionError(
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )

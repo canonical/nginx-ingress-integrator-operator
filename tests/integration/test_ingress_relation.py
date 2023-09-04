@@ -45,7 +45,9 @@ async def test_ingress_relation(
     )
 
     src_overwrite = {
-        "ingress.py": pathlib.Path("tests/integration/lib/ingress").read_text(encoding="utf-8"),
+        "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
+            encoding="utf-8"
+        ),
         "any_charm.py": any_charm_py,
     }
 

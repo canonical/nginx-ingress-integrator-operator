@@ -133,7 +133,8 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
                     addresses=[
                         kubernetes.client.V1EndpointAddress(ip=endpoint)
                         for endpoint in options.upstream_endpoints
-                    ]
+                    ],
+                    ports=[kubernetes.client.CoreV1EndpointPort(port=options.service_port)],
                 )
             ],
         )

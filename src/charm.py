@@ -253,7 +253,7 @@ class NginxIngressCharm(CharmBase):
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
 
-    def _reconcile(self, definition: IngressDefinition) -> Optional[kubernetes.client.V1Ingress]:
+    def _reconcile(self, definition: IngressDefinition) -> kubernetes.client.V1Ingress:
         """Reconcile ingress related resources based on the provided definition.
 
         Args:
@@ -310,12 +310,10 @@ class NginxIngressCharm(CharmBase):
                 return
             definition = self._get_definition_from_relation(relation)
             ingress = self._reconcile(definition)
-            if ingress is not None:
-                self.unit.status = WaitingStatus("Waiting for ingress IP availability")
-                ingress_ips = self._report_ingress_ips(ingress)
-                self.unit.status = ActiveStatus(
-                    f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
-                )
+            self.unit.status = WaitingStatus("Waiting for ingress IP availability")
+            ingress_ips = self._report_ingress_ips(ingress)
+            message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
+            self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
         except kubernetes.client.exceptions.ApiException as exception:

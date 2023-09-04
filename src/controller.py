@@ -217,7 +217,6 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         """
         address_type = options.upstream_endpoint_type
         return kubernetes.client.V1EndpointSlice(
-            api_version="discovery.k8s.io/v1",
             kind="EndpointSlice",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=options.k8s_endpoint_slice_name,

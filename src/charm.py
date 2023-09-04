@@ -5,6 +5,7 @@
 # pylint: disable=protected-access,too-few-public-methods,too-many-lines
 
 """Nginx-ingress-integrator charm file."""
+
 import functools
 import logging
 import time
@@ -26,8 +27,8 @@ from controller import (
     ResourceController,
     ServiceController,
 )
-from exceptions import InvalidIngressOptionError
-from options import IngressOption, IngressOptionEssence
+from exceptions import InvalidIngressError
+from ingress_definition import IngressDefinition, IngressDefinitionEssence
 
 LOGGER = logging.getLogger(__name__)
 
@@ -58,28 +59,44 @@ class NginxIngressCharm(CharmBase):
             on_nginx_route_broken=self._on_nginx_route_broken,
         )
 
-    def _get_ingress_options(self) -> Optional[IngressOption]:
-        """Retrieve the ingress options based on established relations.
+    def _get_relation(self) -> Optional[Relation]:
+        """Get the current effective relation.
 
         Returns:
-            IngressOption instance based on the relation data, or None if no valid relation exists.
+            The current effective relation object, None if there are no relation.
         """
         if self.model.get_relation("nginx-route") is not None:
             relation = cast(Relation, self.model.get_relation("nginx-route"))
-            if relation.app is None or not relation.data[relation.app]:
-                return None
-            option_essence = IngressOptionEssence.from_nginx_route(self, relation=relation)
+            if not (relation.app is None or not relation.data[relation.app]):
+                return relation
         elif self.model.get_relation("ingress") is not None:
             relation = cast(Relation, self.model.get_relation("ingress"))
-            if relation.app is None or not relation.data[relation.app]:
-                return None
-            option_essence = IngressOptionEssence.from_ingress(
-                self, relation=relation, ingress_provider=self._ingress_provider
+            if not (relation.app is None or not relation.data[relation.app]):
+                return relation
+        return None
+
+    def _get_definition_from_relation(self, relation: Relation) -> IngressDefinition:
+        """Get the IngressDefinition from the given relation.
+
+        Args:
+            relation: The source relation object.
+
+        Return:
+            The IngressDefinition corresponding to the provided relation.
+        """
+        if relation.name == "nginx-route":
+            definition_essence = IngressDefinitionEssence(
+                model=self.model, config=self.config, relation=relation
             )
         else:
-            return None
-        ingress_option = IngressOption.from_essence(option_essence)
-        return ingress_option
+            definition_essence = IngressDefinitionEssence(
+                model=self.model,
+                config=self.config,
+                relation=relation,
+                ingress_provider=self._ingress_provider,
+            )
+        ingress_definition = IngressDefinition.from_essence(definition_essence)
+        return ingress_definition
 
     def _k8s_auth(self) -> None:
         """Authenticate to kubernetes."""
@@ -151,14 +168,14 @@ class NginxIngressCharm(CharmBase):
         self,
         controller: ResourceController[AnyResource],
         namespace: str,
-        options: IngressOption,
+        definition: IngressDefinition,
     ) -> AnyResource:
         """Create or update a resource in kubernetes.
 
         Args:
             controller: The controller for the resource type.
             namespace: The namespace for the resource to reside in.
-            options: The ingress option
+            definition: The ingress definition
 
         Returns:
             The name of the created or modified resource, None if no resource is
@@ -167,7 +184,7 @@ class NginxIngressCharm(CharmBase):
         resource_list = controller.list_resource(
             namespace=namespace, label_selector=self._label_selector
         )
-        body = controller.gen_resource_from_options(options)
+        body = controller.gen_resource_from_definition(definition)
         if body.metadata.name in [r.metadata.name for r in resource_list]:
             controller.patch_resource(
                 name=body.metadata.name,
@@ -220,11 +237,11 @@ class NginxIngressCharm(CharmBase):
         """Check the precondition of the charm.
 
         Raises:
-            InvalidIngressOptionError: If both "nginx-route" and "ingress" relations are present
-                or some options are invalid.
+            InvalidIngressError: If both "nginx-route" and "ingress" relations are present
+                or some definition are invalid.
         """
         if not self.unit.is_leader():
-            raise InvalidIngressOptionError(
+            raise InvalidIngressError(
                 "this charm only supports a single unit, "
                 "please remove the additional units "
                 f"using `juju scale-application {self.app.name} 1`"
@@ -232,18 +249,16 @@ class NginxIngressCharm(CharmBase):
         nginx_route_relation = self.model.get_relation("nginx-route")
         ingress_relation = self.model.get_relation("ingress")
         if nginx_route_relation is not None and ingress_relation is not None:
-            raise InvalidIngressOptionError(
+            raise InvalidIngressError(
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
 
-    def _reconcile_ingress(
-        self, options: Optional[IngressOption]
-    ) -> Optional[kubernetes.client.V1Ingress]:
-        """Reconcile ingress related resources based on the provided options.
+    def _reconcile(self, definition: IngressDefinition) -> Optional[kubernetes.client.V1Ingress]:
+        """Reconcile ingress related resources based on the provided definition.
 
         Args:
-            options: Configuration options for the ingress. If not provided, no resources will be
-                created but the cleanup will still run.
+            definition: Configuration definition for the ingress. If not provided, no resources
+                will be created but the cleanup will still run.
 
         Returns:
             The created or modified ingress resource, None if no ingress resource was created or
@@ -253,24 +268,31 @@ class NginxIngressCharm(CharmBase):
         endpoint_slice_controller = self._endpoint_slice_controller
         service_controller = self._service_controller
         ingress_controller = self._ingress_controller
-        namespace = options.service_namespace if options is not None else self.model.name
+        namespace = definition.service_namespace if definition is not None else self.model.name
         endpoints = None
         endpoint_slice = None
-        service = None
-        ingress = None
         define_resource = functools.partial(self._define_resource, namespace=namespace)
         cleanup_resources = functools.partial(self._cleanup_resources, namespace=namespace)
-        if options is not None and options.use_endpoint_slice:
-            endpoints = define_resource(controller=endpoints_controller, options=options)
-            endpoint_slice = define_resource(controller=endpoint_slice_controller, options=options)
-        if options is not None:
-            service = define_resource(controller=service_controller, options=options)
-            ingress = define_resource(controller=ingress_controller, options=options)
+        if definition.use_endpoint_slice:
+            endpoints = define_resource(controller=endpoints_controller, definition=definition)
+            endpoint_slice = define_resource(
+                controller=endpoint_slice_controller, definition=definition
+            )
+        service = define_resource(controller=service_controller, definition=definition)
+        ingress = define_resource(controller=ingress_controller, definition=definition)
         cleanup_resources(controller=endpoints_controller, exclude=endpoints)
         cleanup_resources(controller=endpoint_slice_controller, exclude=endpoint_slice)
         cleanup_resources(controller=service_controller, exclude=service)
         cleanup_resources(controller=ingress_controller, exclude=ingress)
         return ingress
+
+    def _cleanup(self) -> None:
+        """Cleanup all resources managed by the charm."""
+        cleanup_resources = functools.partial(self._cleanup_resources, namespace=self.model.name)
+        cleanup_resources(controller=self._endpoints_controller)
+        cleanup_resources(controller=self._endpoint_slice_controller)
+        cleanup_resources(controller=self._service_controller)
+        cleanup_resources(controller=self._ingress_controller)
 
     def _update_ingress(self) -> None:
         """Handle the config changed event.
@@ -278,21 +300,24 @@ class NginxIngressCharm(CharmBase):
         Raises:
             ApiException: if kubernetes API error happens.
         """
+        self.unit.set_workload_version(kubernetes.__version__)
         try:
             self._check_precondition()
-            options = self._get_ingress_options()
-        except InvalidIngressOptionError as exc:
-            self.unit.status = BlockedStatus(exc.msg)
-            return
-        msg = ""
-        try:
-            msgs = []
-            ingress = self._reconcile_ingress(options)
+            relation = self._get_relation()
+            if relation is None:
+                self._cleanup()
+                self.unit.status = WaitingStatus("waiting for relation")
+                return
+            definition = self._get_definition_from_relation(relation)
+            ingress = self._reconcile(definition)
             if ingress is not None:
                 self.unit.status = WaitingStatus("Waiting for ingress IP availability")
                 ingress_ips = self._report_ingress_ips(ingress)
-                if ingress_ips:
-                    msgs.append(f"Ingress IP(s): {', '.join(ingress_ips)}")
+                self.unit.status = ActiveStatus(
+                    f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
+                )
+        except InvalidIngressError as exc:
+            self.unit.status = BlockedStatus(exc.msg)
         except kubernetes.client.exceptions.ApiException as exception:
             if exception.status == 403:
                 LOGGER.error(
@@ -303,13 +328,8 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = BlockedStatus(
                     f"Insufficient permissions, try: `{juju_trust_cmd}`"
                 )
-                return
-            raise
-        self.unit.set_workload_version(kubernetes.__version__)
-        if ingress is None:
-            self.unit.status = WaitingStatus("waiting for relation")
-        else:
-            self.unit.status = ActiveStatus(msg)
+            else:
+                raise
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

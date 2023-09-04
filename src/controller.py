@@ -10,7 +10,7 @@ import typing
 import kubernetes.client
 
 from consts import CREATED_BY_LABEL
-from options import IngressOption
+from ingress_definition import IngressDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,11 @@ class ResourceController(typing.Protocol[AnyResource]):
         """
 
     @abc.abstractmethod
-    def gen_resource_from_options(self, options: IngressOption) -> AnyResource:
-        """Abstract method to generate a resource from ingress options.
+    def gen_resource_from_definition(self, definition: IngressDefinition) -> AnyResource:
+        """Abstract method to generate a resource from ingress definition.
 
         Args:
-            options: Ingress options to use for generating the resource.
+            definition: Ingress definition to use for generating the resource.
 
         Returns:
             Generated resource.
@@ -109,11 +109,13 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         """
         return "endpoints"
 
-    def gen_resource_from_options(self, options: IngressOption) -> kubernetes.client.V1Endpoints:
-        """Generate an endpoints resource from ingress options.
+    def gen_resource_from_definition(
+        self, definition: IngressDefinition
+    ) -> kubernetes.client.V1Endpoints:
+        """Generate an endpoints resource from ingress definition.
 
         Args:
-            options: Ingress options to use for generating the V1Endpoints resource.
+            definition: Ingress definition to use for generating the V1Endpoints resource.
 
         Returns:
             Generated endpoints resource.
@@ -122,19 +124,19 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
             api_version="v1",
             kind="Endpoints",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=options.k8s_service_name,
+                name=definition.k8s_service_name,
                 labels={
                     CREATED_BY_LABEL: self._label,
                 },
-                namespace=options.service_namespace,
+                namespace=definition.service_namespace,
             ),
             subsets=[
                 kubernetes.client.V1EndpointSubset(
                     addresses=[
                         kubernetes.client.V1EndpointAddress(ip=endpoint)
-                        for endpoint in options.upstream_endpoints
+                        for endpoint in definition.upstream_endpoints
                     ],
-                    ports=[kubernetes.client.CoreV1EndpointPort(port=options.service_port)],
+                    ports=[kubernetes.client.CoreV1EndpointPort(port=definition.service_port)],
                 )
             ],
         )
@@ -204,39 +206,39 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         """Returns "endpoint slice"."""
         return "endpoint slice"
 
-    def gen_resource_from_options(
-        self, options: IngressOption
+    def gen_resource_from_definition(
+        self, definition: IngressDefinition
     ) -> kubernetes.client.V1EndpointSlice:
-        """Generate a V1EndpointSlice resource from ingress options.
+        """Generate a V1EndpointSlice resource from ingress definition.
 
         Args:
-            options: Ingress options to use for generating the V1EndpointSlice resource.
+            definition: Ingress definition to use for generating the V1EndpointSlice resource.
 
         Returns:
             The generated V1EndpointSlice resource.
         """
-        address_type = options.upstream_endpoint_type
+        address_type = definition.upstream_endpoint_type
         return kubernetes.client.V1EndpointSlice(
             api_version="discovery.k8s.io/v1",
             kind="EndpointSlice",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=options.k8s_endpoint_slice_name,
-                namespace=options.service_namespace,
+                name=definition.k8s_endpoint_slice_name,
+                namespace=definition.service_namespace,
                 labels={
                     CREATED_BY_LABEL: self._label,
-                    "kubernetes.io/service-name": options.k8s_service_name,
+                    "kubernetes.io/service-name": definition.k8s_service_name,
                 },
             ),
             address_type=address_type,
             ports=[
                 kubernetes.client.DiscoveryV1EndpointPort(
-                    name=f"endpoint-tcp-{options.service_port}",
-                    port=options.service_port,
+                    name=f"endpoint-tcp-{definition.service_port}",
+                    port=definition.service_port,
                 )
             ],
             endpoints=[
                 kubernetes.client.V1Endpoint(
-                    addresses=options.upstream_endpoints,
+                    addresses=definition.upstream_endpoints,
                     conditions=kubernetes.client.V1EndpointConditions(ready=True, serving=True),
                 )
             ],
@@ -307,11 +309,13 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         """Returns "service"."""
         return "service"
 
-    def gen_resource_from_options(self, options: IngressOption) -> kubernetes.client.V1Service:
-        """Generate a V1Service resource from ingress options.
+    def gen_resource_from_definition(
+        self, definition: IngressDefinition
+    ) -> kubernetes.client.V1Service:
+        """Generate a V1Service resource from ingress definition.
 
         Args:
-            options: Ingress options to use for generating the V1Service resource.
+            definition: Ingress definition to use for generating the V1Service resource.
 
         Returns:
             The generated V1Service resource.
@@ -319,23 +323,23 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         spec = kubernetes.client.V1ServiceSpec(
             ports=[
                 kubernetes.client.V1ServicePort(
-                    name=f"tcp-{options.service_port}",
-                    port=options.service_port,
-                    target_port=options.service_port,
+                    name=f"tcp-{definition.service_port}",
+                    port=definition.service_port,
+                    target_port=definition.service_port,
                 )
             ],
         )
-        if not options.use_endpoint_slice:
-            spec.selector = {"app.kubernetes.io/name": options.service_name}
+        if not definition.use_endpoint_slice:
+            spec.selector = {"app.kubernetes.io/name": definition.service_name}
         else:
             spec.cluster_ip = "None"
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=options.k8s_service_name,
+                name=definition.k8s_service_name,
                 labels={CREATED_BY_LABEL: self._label},
-                namespace=options.service_namespace,
+                namespace=definition.service_namespace,
             ),
             spec=spec,
         )
@@ -443,14 +447,16 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
 
         body.spec.ingress_class_name = ingress_class
 
-    def gen_resource_from_options(self, options: IngressOption) -> kubernetes.client.V1Ingress:
-        """Generate a V1Ingress resource from ingress options.
+    def gen_resource_from_definition(
+        self, definition: IngressDefinition
+    ) -> kubernetes.client.V1Ingress:
+        """Generate a V1Ingress resource from ingress definition.
 
         Args:
-            options: Ingress options to use for generating the V1Ingress resource.
+            definition: Ingress definition to use for generating the V1Ingress resource.
 
         Returns:
-            A V1Ingress resource based on provided options.
+            A V1Ingress resource based on provided definition.
         """
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
@@ -458,18 +464,18 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
                 path_type="Prefix",
                 backend=kubernetes.client.V1IngressBackend(
                     service=kubernetes.client.V1IngressServiceBackend(
-                        name=options.k8s_service_name,
+                        name=definition.k8s_service_name,
                         port=kubernetes.client.V1ServiceBackendPort(
-                            number=int(options.service_port),
+                            number=int(definition.service_port),
                         ),
                     ),
                 ),
             )
-            for path in options.path_routes
+            for path in definition.path_routes
         ]
 
-        hostnames = [options.service_hostname]
-        hostnames.extend(options.additional_hostnames)
+        hostnames = [definition.service_hostname]
+        hostnames.extend(definition.additional_hostnames)
         ingress_rules = [
             kubernetes.client.V1IngressRule(
                 host=hostname,
@@ -480,65 +486,67 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
         spec = kubernetes.client.V1IngressSpec(rules=ingress_rules)
 
         annotations = {
-            "nginx.ingress.kubernetes.io/proxy-body-size": options.max_body_size,
-            "nginx.ingress.kubernetes.io/proxy-read-timeout": options.proxy_read_timeout,
-            "nginx.ingress.kubernetes.io/backend-protocol": options.backend_protocol,
+            "nginx.ingress.kubernetes.io/proxy-body-size": definition.max_body_size,
+            "nginx.ingress.kubernetes.io/proxy-read-timeout": definition.proxy_read_timeout,
+            "nginx.ingress.kubernetes.io/backend-protocol": definition.backend_protocol,
         }
-        if options.limit_rps:
-            annotations["nginx.ingress.kubernetes.io/limit-rps"] = options.limit_rps
-            if options.limit_whitelist:
+        if definition.limit_rps:
+            annotations["nginx.ingress.kubernetes.io/limit-rps"] = definition.limit_rps
+            if definition.limit_whitelist:
                 annotations[
                     "nginx.ingress.kubernetes.io/limit-whitelist"
-                ] = options.limit_whitelist
-        if options.owasp_modsecurity_crs:
+                ] = definition.limit_whitelist
+        if definition.owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
             annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
-            sec_rule_engine = f"SecRuleEngine On\n{options.owasp_modsecurity_custom_rules}"
+            sec_rule_engine = f"SecRuleEngine On\n{definition.owasp_modsecurity_custom_rules}"
             nginx_modsec_file = "/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
             annotations[
                 "nginx.ingress.kubernetes.io/modsecurity-snippet"
             ] = f"{sec_rule_engine}\nInclude {nginx_modsec_file}"
-        if options.retry_errors:
-            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = options.retry_errors
-        if options.rewrite_enabled:
-            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = options.rewrite_target
-        if options.session_cookie_max_age:
+        if definition.retry_errors:
+            annotations[
+                "nginx.ingress.kubernetes.io/proxy-next-upstream"
+            ] = definition.retry_errors
+        if definition.rewrite_enabled:
+            annotations["nginx.ingress.kubernetes.io/rewrite-target"] = definition.rewrite_target
+        if definition.session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"
             annotations["nginx.ingress.kubernetes.io/session-cookie-change-on-failure"] = "true"
             annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = str(
-                options.session_cookie_max_age
+                definition.session_cookie_max_age
             )
             annotations[
                 "nginx.ingress.kubernetes.io/session-cookie-name"
-            ] = f"{options.service_name.upper()}_AFFINITY"
+            ] = f"{definition.service_name.upper()}_AFFINITY"
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
-        if options.tls_secret_name:
+        if definition.tls_secret_name:
             spec.tls = [
                 kubernetes.client.V1IngressTLS(
-                    hosts=[options.service_hostname],
-                    secret_name=options.tls_secret_name,
+                    hosts=[definition.service_hostname],
+                    secret_name=definition.tls_secret_name,
                 ),
             ]
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
-        if options.whitelist_source_range:
+        if definition.whitelist_source_range:
             annotations[
                 "nginx.ingress.kubernetes.io/whitelist-source-range"
-            ] = options.whitelist_source_range
+            ] = definition.whitelist_source_range
 
         ingress = kubernetes.client.V1Ingress(
             api_version="networking.k8s.io/v1",
             kind="Ingress",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=options.k8s_ingress_name,
-                namespace=options.service_namespace,
+                name=definition.k8s_ingress_name,
+                namespace=definition.service_namespace,
                 annotations=annotations,
                 labels={CREATED_BY_LABEL: self._label},
             ),
             spec=spec,
         )
-        self._look_up_and_set_ingress_class(ingress_class=options.ingress_class, body=ingress)
+        self._look_up_and_set_ingress_class(ingress_class=definition.ingress_class, body=ingress)
         return ingress
 
     def create_resource(self, namespace: str, body: kubernetes.client.V1Ingress) -> None:

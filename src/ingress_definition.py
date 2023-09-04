@@ -1,7 +1,8 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""nginx-ingress-integrator ingress option."""
+"""nginx-ingress-integrator ingress definition."""
+
 import dataclasses
 import ipaddress
 import re
@@ -12,30 +13,32 @@ from charms.traefik_k8s.v2.ingress import DataValidationError, IngressPerAppProv
 from ops.model import Application, ConfigData, Model, Relation
 
 from consts import BOOLEAN_CONFIG_FIELDS
-from exceptions import InvalidIngressOptionError
+from exceptions import InvalidIngressError
 
 
-class IngressOptionEssence:  # pylint: disable=too-many-public-methods
+class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
     """Class containing data from the Charm configuration, or from a relation."""
 
     @classmethod
-    def from_nginx_route(cls, charm: ops.CharmBase, relation: Relation) -> "IngressOptionEssence":
-        """Create an ingress option essence object for nginx-route relation.
+    def from_nginx_route(
+        cls, charm: ops.CharmBase, relation: Relation
+    ) -> "IngressDefinitionEssence":
+        """Create an ingress definition essence object for nginx-route relation.
 
         Args:
             charm: The charm object.
             relation: The nginx-route relation
 
         Returns:
-            The created ingress option essence object.
+            The created ingress definition essence object.
         """
         return cls(model=charm.model, config=charm.config, relation=relation)
 
     @classmethod
     def from_ingress(
         cls, charm: ops.CharmBase, relation: Relation, ingress_provider: IngressPerAppProvider
-    ) -> "IngressOptionEssence":
-        """Create an ingress option essence object for ingress relation.
+    ) -> "IngressDefinitionEssence":
+        """Create an ingress definition essence object for ingress relation.
 
         Args:
             charm: The charm object.
@@ -43,7 +46,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
             ingress_provider: The ingress provider object from ingress charm library.
 
         Returns:
-            The created ingress option essence object.
+            The created ingress definition essence object.
         """
         return cls(
             model=charm.model,
@@ -163,7 +166,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         hostnames = [h.strip() for h in additional_hostnames.split(",")]
         for hostname in hostnames:
             if not self._is_valid_hostname(hostname):
-                raise InvalidIngressOptionError(
+                raise InvalidIngressError(
                     "invalid ingress additional-hostname, "
                     "the hostname must consist of lower case alphanumeric characters, '-' or '.'"
                 )
@@ -176,7 +179,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
             str, self._get_config_or_relation_data("backend-protocol", "HTTP")
         ).upper()
         if backend_protocol not in ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI"):
-            raise InvalidIngressOptionError(
+            raise InvalidIngressError(
                 f"invalid backend protocol {backend_protocol!r}, "
                 f"valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
             )
@@ -268,7 +271,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                     .app.model
                 )
             except DataValidationError as exc:
-                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         return cast(str, self._get_config_or_relation_data("service-namespace", self.model.name))
 
     @property
@@ -321,15 +324,15 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
         service_hostname = cast(str, self._get_config_or_relation_data("service-hostname", ""))
         if not service_hostname:
             if self.is_ingress_relation:
-                raise InvalidIngressOptionError(
+                raise InvalidIngressError(
                     "service-hostname is not set for the ingress relation, "
                     "configure it using `juju config`"
                 )
-            raise InvalidIngressOptionError(
-                "service-hostname option is missing, verify the relation or configuration"
+            raise InvalidIngressError(
+                "service-hostname definition is missing, verify the relation or configuration"
             )
         if not self._is_valid_hostname(service_hostname):
-            raise InvalidIngressOptionError(
+            raise InvalidIngressError(
                 "invalid ingress service-hostname, "
                 "the hostname must consist of lower case alphanumeric characters, '-' or '.'"
             )
@@ -346,7 +349,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                     .app.name
                 )
             except DataValidationError as exc:
-                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             service_name = cast(str, self._get_relation_data_or_config("service-name", ""))
         return service_name
@@ -362,7 +365,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                     .app.port
                 )
             except DataValidationError as exc:
-                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         else:
             port = self._get_relation_data_or_config("service-port", 0)
         return int(cast(Union[str, int], port))
@@ -387,9 +390,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
             return 0
         if isinstance(session_cookie_max_age, str):
             if not session_cookie_max_age.isdigit():
-                raise InvalidIngressOptionError(
-                    "session-cookie-max-age is invalid: not an integer"
-                )
+                raise InvalidIngressError("session-cookie-max-age is invalid: not an integer")
             return int(session_cookie_max_age)
         return 0
 
@@ -400,7 +401,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def whitelist_source_range(self) -> str:
-        """Return the whitelist-source-range config option."""
+        """Return the whitelist-source-range config definition."""
         return cast(str, self._get_config("whitelist-source-range"))
 
     @property
@@ -416,9 +417,9 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                     .units
                 ]
             except DataValidationError as exc:
-                raise InvalidIngressOptionError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         if self.use_endpoint_slice and not endpoints:
-            raise InvalidIngressOptionError("no endpoints are provided in ingress relation")
+            raise InvalidIngressError("no endpoints are provided in ingress relation")
         return endpoints
 
     @property
@@ -439,7 +440,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
             IPv4 or IPv6.
 
         Raises:
-            InvalidIngressOptionError: if the upstream endpoints are invalid.
+            InvalidIngressError: if the upstream endpoints are invalid.
             ValueError: if there are no upstream endpoint.
         """
         if not self.upstream_endpoints:
@@ -461,9 +462,7 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
                 pass
             address_types.append("UNKNOWN")
         if not all(t == "IPv4" for t in address_types) or all(t == "IPv6" for t in address_types):
-            raise InvalidIngressOptionError(
-                "invalid ingress relation data, mixed or unknown IP types"
-            )
+            raise InvalidIngressError("invalid ingress relation data, mixed or unknown IP types")
         return address_types[0]
 
     @property
@@ -473,8 +472,8 @@ class IngressOptionEssence:  # pylint: disable=too-many-public-methods
 
 
 @dataclasses.dataclass
-class IngressOption:  # pylint: disable=too-many-public-methods,too-many-instance-attributes
-    """Class containing ingress options collected from the Charm configuration or relation.
+class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-instance-attributes
+    """Class containing ingress definition collected from the Charm configuration or relation.
 
     See config.yaml for descriptions of each property.
     """
@@ -508,17 +507,17 @@ class IngressOption:  # pylint: disable=too-many-public-methods,too-many-instanc
     whitelist_source_range: str
 
     @classmethod
-    def from_essence(cls, essence: IngressOptionEssence) -> "IngressOption":
-        """Create an IngressOption object from the given IngressOptionEssence instance.
+    def from_essence(cls, essence: IngressDefinitionEssence) -> "IngressDefinition":
+        """Create an IngressDefinition object from the given IngressDefinitionEssence instance.
 
-        This method attempts to convert the provided essence into a valid IngressOption.
-        If the conversion encounters an invalid state, it raises an InvalidIngressOptionError.
+        This method attempts to convert the provided essence into a valid IngressDefinition.
+        If the conversion encounters an invalid state, it raises an InvalidIngressError.
 
         Args:
             essence: The precursor IngressObjectEssence object.
 
         Returns:
-            IngressOption: A validated IngressOption object.
+            IngressDefinition: A validated IngressOption object.
         """
         return cls(
             additional_hostnames=essence.additional_hostnames,

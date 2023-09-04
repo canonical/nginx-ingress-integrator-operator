@@ -4,15 +4,15 @@
 """Exceptions used by the nginx-ingress-integrator charm."""
 
 
-class InvalidIngressOptionError(Exception):
-    """Custom error that indicates invalid ingress option.
+class InvalidIngressError(Exception):
+    """Custom error that indicates invalid ingress definition.
 
     Args:
         msg: error message.
     """
 
     def __init__(self, msg: str):
-        """Construct the InvalidIngressOptionError object.
+        """Construct the InvalidIngressError object.
 
         Args:
             msg: error message.

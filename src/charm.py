@@ -271,15 +271,15 @@ class NginxIngressCharm(CharmBase):
         namespace = definition.service_namespace if definition is not None else self.model.name
         endpoints = None
         endpoint_slice = None
-        define_resource = functools.partial(self._define_resource, namespace=namespace)
+        define_resource = functools.partial(
+            self._define_resource, namespace=namespace, definition=definition
+        )
         cleanup_resources = functools.partial(self._cleanup_resources, namespace=namespace)
         if definition.use_endpoint_slice:
-            endpoints = define_resource(controller=endpoints_controller, definition=definition)
-            endpoint_slice = define_resource(
-                controller=endpoint_slice_controller, definition=definition
-            )
-        service = define_resource(controller=service_controller, definition=definition)
-        ingress = define_resource(controller=ingress_controller, definition=definition)
+            endpoints = define_resource(controller=endpoints_controller)
+            endpoint_slice = define_resource(controller=endpoint_slice_controller)
+        service = define_resource(controller=service_controller)
+        ingress = define_resource(controller=ingress_controller)
         cleanup_resources(controller=endpoints_controller, exclude=endpoints)
         cleanup_resources(controller=endpoint_slice_controller, exclude=endpoint_slice)
         cleanup_resources(controller=service_controller, exclude=service)

@@ -23,7 +23,7 @@ AnyResource = typing.TypeVar(  # pylint: disable=invalid-name
 )
 
 
-class ResourceController(abc.ABC, typing.Generic[AnyResource]):
+class ResourceController(typing.Protocol[AnyResource]):
     """Abstract base class for a generic Kubernetes resource controller."""
 
     @property

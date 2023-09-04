@@ -71,7 +71,7 @@ First of all, let's grab the [relation library](https://charmhub.io/nginx-ingres
 ```
 charmcraft fetch-lib charms.nginx_ingress_integrator.v0.ingress
 ```
-This has downloaded `lib/charms/nginx_ingress_integrator/v0/ingress.py`. Now we just need to update `/charm.py`.
+This has downloaded `lib/charms/nginx_ingress_integrator/v0/ingress.py`. Now we just need to update `src/charm.py`.
 
 Add the following just after `import logging`:
 ```

@@ -251,7 +251,14 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             namespace: The namespace in which to create the V1EndpointSlice resource.
             body: The V1EndpointSlice resource object to create.
         """
-        self._client.create_namespaced_endpoint_slice(namespace=namespace, body=body)
+        try:
+            self._client.create_namespaced_endpoint_slice(namespace=namespace, body=body)
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status == 404:
+                body.api_version = "discovery.k8s.io/v1beta1"
+                self._client.create_namespaced_endpoint_slice(namespace=namespace, body=body)
+            else:
+                raise
 
     def patch_resource(
         self, namespace: str, name: str, body: kubernetes.client.V1EndpointSlice
@@ -263,7 +270,16 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             name: The name of the V1EndpointSlice resource to patch.
             body: The modified V1EndpointSlice resource object.
         """
-        self._client.patch_namespaced_endpoint_slice(namespace=namespace, name=name, body=body)
+        try:
+            self._client.patch_namespaced_endpoint_slice(namespace=namespace, name=name, body=body)
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status == 404:
+                body.api_version = "discovery.k8s.io/v1beta1"
+                self._client.patch_namespaced_endpoint_slice(
+                    namespace=namespace, name=name, body=body
+                )
+            else:
+                raise
 
     def list_resource(
         self, namespace: str, label_selector: str

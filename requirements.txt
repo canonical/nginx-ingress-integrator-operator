@@ -1,2 +1,2 @@
-kubernetes == 20.13.0
+kubernetes == 21.7.0
 ops

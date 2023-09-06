@@ -260,7 +260,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
                 name=definition.k8s_endpoint_slice_name,
                 namespace=definition.service_namespace,
                 labels={
-                    CREATED_BY_LABEL: self._labels,
+                    **self._labels,
                     "kubernetes.io/service-name": definition.k8s_service_name,
                 },
             ),

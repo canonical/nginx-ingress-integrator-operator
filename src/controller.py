@@ -4,12 +4,14 @@
 """nginx-ingress-integrator k8s resource controllers."""
 
 import abc
+import functools
 import logging
 import typing
 
 import kubernetes.client
 
 from consts import CREATED_BY_LABEL
+from exceptions import InvalidIngressError
 from ingress_definition import IngressDefinition
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,36 @@ AnyResource = typing.TypeVar(  # pylint: disable=invalid-name
     kubernetes.client.V1Service,
     kubernetes.client.V1Ingress,
 )
+
+
+def _map_k8s_auth_exception(func: typing.Callable) -> typing.Callable:
+    """Remap the kubernetes 403 ApiException to InvalidIngressError.
+
+    Args:
+        func: function to be wrapped.
+
+    Returns:
+        A wrapped function.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
+        """Remap the kubernetes 403 ApiException to InvalidIngressError."""
+        try:
+            return func(*args, **kwargs)
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status == 403:
+                logger.error(
+                    "Insufficient permissions to create the k8s service, "
+                    "will request `juju trust` to be run"
+                )
+                juju_trust_cmd = "juju trust <nginx-ingress-integrator> --scope=cluster"
+                raise InvalidIngressError(
+                    f"Insufficient permissions, try: `{juju_trust_cmd}`"
+                ) from exc
+            raise
+
+    return wrapper
 
 
 class ResourceController(typing.Protocol[AnyResource]):
@@ -90,15 +122,14 @@ class ResourceController(typing.Protocol[AnyResource]):
 class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
     """Kubernetes Endpoints resource controller."""
 
-    def __init__(self, client: kubernetes.client.CoreV1Api, label: str) -> None:
+    def __init__(self, labels: typing.Dict[str, str]) -> None:
         """Initialize the EndpointsController.
 
         Args:
-            client: Kubernetes API client.
-            label: Label to be added to created resources.
+            labels: Labels to be added to created resources.
         """
-        self._client = client
-        self._label = label
+        self._client = kubernetes.client.CoreV1Api()
+        self._labels = labels
 
     @property
     def name(self) -> str:
@@ -109,6 +140,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         """
         return "endpoints"
 
+    @_map_k8s_auth_exception
     def gen_resource_from_definition(
         self, definition: IngressDefinition
     ) -> kubernetes.client.V1Endpoints:
@@ -125,9 +157,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
             kind="Endpoints",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=definition.k8s_service_name,
-                labels={
-                    CREATED_BY_LABEL: self._label,
-                },
+                labels=self._labels,
                 namespace=definition.service_namespace,
             ),
             subsets=[
@@ -141,6 +171,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
             ],
         )
 
+    @_map_k8s_auth_exception
     def create_resource(self, namespace: str, body: kubernetes.client.V1Endpoints) -> None:
         """Create a new V1Endpoints resource in a given namespace.
 
@@ -150,6 +181,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         """
         self._client.create_namespaced_endpoints(namespace=namespace, body=body)
 
+    @_map_k8s_auth_exception
     def patch_resource(
         self, namespace: str, name: str, body: kubernetes.client.V1Endpoints
     ) -> None:
@@ -162,6 +194,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         """
         self._client.patch_namespaced_endpoints(namespace=namespace, name=name, body=body)
 
+    @_map_k8s_auth_exception
     def list_resource(
         self, namespace: str, label_selector: str
     ) -> typing.List[kubernetes.client.V1Endpoints]:
@@ -178,6 +211,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
             namespace=namespace, label_selector=label_selector
         ).items
 
+    @_map_k8s_auth_exception
     def delete_resource(self, namespace: str, name: str) -> None:
         """Delete a V1Endpoints resource from a given namespace.
 
@@ -191,21 +225,22 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
 class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSlice]):
     """Kubernetes EndpointSlice resource controller."""
 
-    def __init__(self, client: kubernetes.client.DiscoveryV1Api, label: str) -> None:
+    def __init__(self, labels: typing.Dict[str, str]) -> None:
         """Initialize the EndpointSliceController.
 
         Args:
-            client: Kubernetes DiscoveryV1Api client.
-            label: Label to be added to created resources.
+            labels: Label to be added to created resources.
         """
-        self._client = client
-        self._label = label
+        self._labels = labels
+        self._client = kubernetes.client.DiscoveryV1Api()
+        self._beta_client = kubernetes.client.DiscoveryV1beta1Api()
 
     @property
     def name(self) -> str:
         """Returns "endpoint slice"."""
         return "endpoint slice"
 
+    @_map_k8s_auth_exception
     def gen_resource_from_definition(
         self, definition: IngressDefinition
     ) -> kubernetes.client.V1EndpointSlice:
@@ -225,7 +260,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
                 name=definition.k8s_endpoint_slice_name,
                 namespace=definition.service_namespace,
                 labels={
-                    CREATED_BY_LABEL: self._label,
+                    CREATED_BY_LABEL: self._labels,
                     "kubernetes.io/service-name": definition.k8s_service_name,
                 },
             ),
@@ -244,6 +279,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             ],
         )
 
+    @_map_k8s_auth_exception
     def create_resource(self, namespace: str, body: kubernetes.client.V1EndpointSlice) -> None:
         """Create a new V1EndpointSlice resource in a given namespace.
 
@@ -256,10 +292,11 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         except kubernetes.client.exceptions.ApiException as exc:
             if exc.status == 404:
                 body.api_version = "discovery.k8s.io/v1beta1"
-                self._client.create_namespaced_endpoint_slice(namespace=namespace, body=body)
+                self._beta_client.create_namespaced_endpoint_slice(namespace=namespace, body=body)
             else:
                 raise
 
+    @_map_k8s_auth_exception
     def patch_resource(
         self, namespace: str, name: str, body: kubernetes.client.V1EndpointSlice
     ) -> None:
@@ -275,12 +312,13 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         except kubernetes.client.exceptions.ApiException as exc:
             if exc.status == 404:
                 body.api_version = "discovery.k8s.io/v1beta1"
-                self._client.patch_namespaced_endpoint_slice(
+                self._beta_client.patch_namespaced_endpoint_slice(
                     namespace=namespace, name=name, body=body
                 )
             else:
                 raise
 
+    @_map_k8s_auth_exception
     def list_resource(
         self, namespace: str, label_selector: str
     ) -> typing.List[kubernetes.client.V1EndpointSlice]:
@@ -293,10 +331,18 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         Returns:
             A list of matched V1EndpointSlice resources.
         """
-        return self._client.list_namespaced_endpoint_slice(
-            namespace=namespace, label_selector=label_selector
-        ).items
+        try:
+            return self._client.list_namespaced_endpoint_slice(
+                namespace=namespace, label_selector=label_selector
+            ).items
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status == 404:
+                return self._beta_client.list_namespaced_endpoint_slice(
+                    namespace=namespace, label_selector=label_selector
+                ).items
+            raise
 
+    @_map_k8s_auth_exception
     def delete_resource(self, namespace: str, name: str) -> None:
         """Delete a V1EndpointSlice resource from a given namespace.
 
@@ -304,27 +350,33 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             namespace: The namespace from which to delete the V1EndpointSlice resource.
             name: The name of the V1EndpointSlice resource to delete.
         """
-        self._client.delete_namespaced_endpoint_slice(namespace=namespace, name=name)
+        try:
+            self._client.delete_namespaced_endpoint_slice(namespace=namespace, name=name)
+        except kubernetes.client.exceptions.ApiException as exc:
+            if exc.status == 404:
+                self._beta_client.delete_namespaced_endpoint_slice(namespace=namespace, name=name)
+            else:
+                raise
 
 
 class ServiceController(ResourceController[kubernetes.client.V1Service]):
     """Kubernetes Service resource controller."""
 
-    def __init__(self, client: kubernetes.client.CoreV1Api, label: str) -> None:
+    def __init__(self, labels: typing.Dict[str, str]) -> None:
         """Initialize the ServiceController.
 
         Args:
-            client: Kubernetes CoreV1Api client.
-            label: Label to be added to created resources.
+            labels: Labels to be added to created resources.
         """
-        self._client = client
-        self._label = label
+        self._client = kubernetes.client.CoreV1Api()
+        self._labels = labels
 
     @property
     def name(self) -> str:
         """Returns "service"."""
         return "service"
 
+    @_map_k8s_auth_exception
     def gen_resource_from_definition(
         self, definition: IngressDefinition
     ) -> kubernetes.client.V1Service:
@@ -354,12 +406,13 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
             kind="Service",
             metadata=kubernetes.client.V1ObjectMeta(
                 name=definition.k8s_service_name,
-                labels={CREATED_BY_LABEL: self._label},
+                labels=self._labels,
                 namespace=definition.service_namespace,
             ),
             spec=spec,
         )
 
+    @_map_k8s_auth_exception
     def create_resource(self, namespace: str, body: kubernetes.client.V1Service) -> None:
         """Create a new V1Service resource in a given namespace.
 
@@ -369,6 +422,7 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         """
         self._client.create_namespaced_service(namespace=namespace, body=body)
 
+    @_map_k8s_auth_exception
     def patch_resource(self, namespace: str, name: str, body: kubernetes.client.V1Service) -> None:
         """Patch an existing V1Service resource in a given namespace.
 
@@ -379,6 +433,7 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         """
         self._client.patch_namespaced_service(namespace=namespace, name=name, body=body)
 
+    @_map_k8s_auth_exception
     def list_resource(
         self, namespace: str, label_selector: str
     ) -> typing.List[kubernetes.client.V1Service]:
@@ -395,6 +450,7 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
             namespace=namespace, label_selector=label_selector
         ).items
 
+    @_map_k8s_auth_exception
     def delete_resource(self, namespace: str, name: str) -> None:
         """Delete a V1Service resource from a given namespace.
 
@@ -410,17 +466,15 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
 
     def __init__(
         self,
-        client: kubernetes.client.NetworkingV1Api,
-        label: str,
+        labels: typing.Dict[str, str],
     ) -> None:
         """Initialize the IngressController.
 
         Args:
-            client: Kubernetes Networking API client.
-            label: Label to be added to created resources.
+            labels: Label to be added to created resources.
         """
-        self._client = client
-        self._label = label
+        self._client = kubernetes.client.NetworkingV1Api()
+        self._labels = labels
 
     @property
     def name(self) -> str:
@@ -463,6 +517,7 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
 
         body.spec.ingress_class_name = ingress_class
 
+    @_map_k8s_auth_exception
     def gen_resource_from_definition(
         self, definition: IngressDefinition
     ) -> kubernetes.client.V1Ingress:
@@ -558,13 +613,14 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
                 name=definition.k8s_ingress_name,
                 namespace=definition.service_namespace,
                 annotations=annotations,
-                labels={CREATED_BY_LABEL: self._label},
+                labels=self._labels,
             ),
             spec=spec,
         )
         self._look_up_and_set_ingress_class(ingress_class=definition.ingress_class, body=ingress)
         return ingress
 
+    @_map_k8s_auth_exception
     def create_resource(self, namespace: str, body: kubernetes.client.V1Ingress) -> None:
         """Create a new V1Ingress resource in a given namespace.
 
@@ -574,6 +630,7 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
         """
         self._client.create_namespaced_ingress(namespace=namespace, body=body)
 
+    @_map_k8s_auth_exception
     def patch_resource(self, namespace: str, name: str, body: kubernetes.client.V1Ingress) -> None:
         """Replace an existing V1Ingress resource in a given namespace.
 
@@ -584,6 +641,7 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
         """
         self._client.replace_namespaced_ingress(namespace=namespace, name=name, body=body)
 
+    @_map_k8s_auth_exception
     def list_resource(
         self, namespace: str, label_selector: str
     ) -> typing.List[kubernetes.client.V1Ingress]:
@@ -600,6 +658,7 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
             namespace=namespace, label_selector=label_selector
         ).items
 
+    @_map_k8s_auth_exception
     def delete_resource(self, namespace: str, name: str) -> None:
         """Delete a V1Ingress resource from a given namespace.
 

@@ -260,12 +260,17 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
         "kubernetes.client.NetworkingV1Api.list_ingress_class",
         lambda _: kubernetes.client.V1IngressClassList(items=stub.ingress_classes),
     )
-    monkeypatch.setattr("kubernetes.config.load_incluster_config", lambda: None)
     return stub
 
 
+@pytest.fixture(name="patch_load_incluster_config")
+def patch_load_incluster_config_fixture(monkeypatch):
+    """Patch kubernetes.config.load_incluster_config."""
+    monkeypatch.setattr("kubernetes.config.load_incluster_config", lambda: None)
+
+
 @pytest.fixture(name="harness")
-def harness_fixture() -> ops.testing.Harness:
+def harness_fixture(patch_load_incluster_config) -> ops.testing.Harness:
     """Create and prepare the ops testing harness."""
     harness = ops.testing.Harness(NginxIngressCharm)
     harness.set_model_name("test")

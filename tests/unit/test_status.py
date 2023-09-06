@@ -10,6 +10,7 @@ from tests.unit.conftest import K8sStub
 from tests.unit.constants import TEST_NAMESPACE
 
 
+@pytest.mark.usefixtures("patch_load_incluster_config")
 def test_follower():
     """
     arrange: set up test harness in a follower unit.
@@ -106,7 +107,7 @@ def test_no_permission(harness: Harness, k8s_stub: K8sStub, ingress_relation):
     assert harness.charm.unit.status.name == "blocked"
     assert (
         harness.charm.unit.status.message
-        == "Insufficient permissions, try: `juju trust nginx-ingress-integrator --scope=cluster`"
+        == "Insufficient permissions, try: `juju trust <nginx-ingress-integrator> --scope=cluster`"
     )
 
 

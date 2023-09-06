@@ -9,6 +9,7 @@
 import functools
 import logging
 import time
+import typing
 from typing import Any, List, Optional, cast
 
 import kubernetes.client
@@ -45,6 +46,13 @@ class NginxIngressCharm(CharmBase):
             args: Variable list of positional arguments passed to the parent constructor.
         """
         super().__init__(*args)
+        kubernetes.config.load_incluster_config()
+
+        self._endpoints_controller = EndpointsController(labels=self._labels)
+        self._endpoint_slice_controller = EndpointSliceController(labels=self._labels)
+        self._service_controller = ServiceController(labels=self._labels)
+        self._ingress_controller = IngressController(labels=self._labels)
+
         self._ingress_provider = IngressPerAppProvider(charm=self)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -67,11 +75,11 @@ class NginxIngressCharm(CharmBase):
         """
         if self.model.get_relation("nginx-route") is not None:
             relation = cast(Relation, self.model.get_relation("nginx-route"))
-            if not (relation.app is None or not relation.data[relation.app]):
+            if relation.app is not None and relation.data[relation.app]:
                 return relation
         elif self.model.get_relation("ingress") is not None:
             relation = cast(Relation, self.model.get_relation("ingress"))
-            if not (relation.app is None or not relation.data[relation.app]):
+            if relation.app is not None and relation.data[relation.app]:
                 return relation
         return None
 
@@ -97,39 +105,6 @@ class NginxIngressCharm(CharmBase):
             )
         ingress_definition = IngressDefinition.from_essence(definition_essence)
         return ingress_definition
-
-    def _k8s_auth(self) -> None:
-        """Authenticate to kubernetes."""
-        if self._authed:
-            return
-
-        kubernetes.config.load_incluster_config()
-
-        self._authed = True
-
-    @property
-    def _endpoints_controller(self) -> EndpointsController:
-        self._k8s_auth()
-        api = kubernetes.client.CoreV1Api()
-        return EndpointsController(client=api, label=self.app.name)
-
-    @property
-    def _endpoint_slice_controller(self) -> EndpointSliceController:
-        self._k8s_auth()
-        api = kubernetes.client.DiscoveryV1Api()
-        return EndpointSliceController(client=api, label=self.app.name)
-
-    @property
-    def _service_controller(self) -> ServiceController:
-        self._k8s_auth()
-        api = kubernetes.client.CoreV1Api()
-        return ServiceController(client=api, label=self.app.name)
-
-    @property
-    def _ingress_controller(self) -> IngressController:
-        self._k8s_auth()
-        api = kubernetes.client.NetworkingV1Api()
-        return IngressController(client=api, label=self.app.name)
 
     def _report_ingress_ips(self, ingress: kubernetes.client.V1Ingress) -> List[str]:
         """Report on ingress IP(s) and return a list of them.
@@ -163,6 +138,11 @@ class NginxIngressCharm(CharmBase):
     def _label_selector(self) -> str:
         """Get the label selector to select resources created by this app."""
         return f"{CREATED_BY_LABEL}={self.app.name}"
+
+    @property
+    def _labels(self) -> typing.Dict[str, str]:
+        """Get labels assigned to resources created by this app."""
+        return {CREATED_BY_LABEL: self.app.name}
 
     def _define_resource(
         self,
@@ -295,11 +275,7 @@ class NginxIngressCharm(CharmBase):
         cleanup_resources(controller=self._ingress_controller)
 
     def _update_ingress(self) -> None:
-        """Handle the config changed event.
-
-        Raises:
-            ApiException: if kubernetes API error happens.
-        """
+        """Handle the config changed event."""
         self.unit.set_workload_version(kubernetes.__version__)
         try:
             self._check_precondition()
@@ -316,18 +292,6 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
-        except kubernetes.client.exceptions.ApiException as exception:
-            if exception.status == 403:
-                LOGGER.error(
-                    "Insufficient permissions to create the k8s service, "
-                    "will request `juju trust` to be run"
-                )
-                juju_trust_cmd = f"juju trust {self.app.name} --scope=cluster"
-                self.unit.status = BlockedStatus(
-                    f"Insufficient permissions, try: `{juju_trust_cmd}`"
-                )
-            else:
-                raise
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

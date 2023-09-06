@@ -58,3 +58,16 @@ def test_route_path(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     harness.update_config({"service-hostname": "example.com"})
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
     assert ingress.spec.rules[0].http.paths[0].path == "/test-app"
+
+
+def test_legacy_k8s(legacy_k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation and simulate Kubernetes 1.20 API.
+    act: update the ingress relation with basic data.
+    assert: service should contain correct path configurations.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+    assert len(legacy_k8s_stub.get_endpoint_slices(TEST_NAMESPACE)) == 1

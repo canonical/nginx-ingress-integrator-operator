@@ -5,6 +5,7 @@
 
 
 import copy
+import unittest.mock
 from collections import defaultdict
 from functools import partial
 from typing import Any, Dict, List, Union
@@ -25,6 +26,7 @@ class K8sStub:
             lambda: {"ingress": {}, "service": {}, "endpoint_slice": {}, "endpoints": {}}
         )
         self.auth = True
+        self.legacy_mode = False
         self.ingress_classes = [
             kubernetes.client.V1IngressClass(
                 metadata=kubernetes.client.V1ObjectMeta(
@@ -261,6 +263,21 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
         lambda _: kubernetes.client.V1IngressClassList(items=stub.ingress_classes),
     )
     return stub
+
+
+@pytest.fixture
+def legacy_k8s_stub(monkeypatch: pytest.MonkeyPatch, k8s_stub: K8sStub):
+    """Pytest fixture for creating a stub for Kubernetes 1.20 API."""
+    for action in ("create", "patch", "list", "delete"):
+        monkeypatch.setattr(
+            f"kubernetes.client.DiscoveryV1Api.{action}_namespaced_endpoint_slice",
+            unittest.mock.MagicMock(side_effect=kubernetes.client.ApiException(status=404)),
+        )
+        monkeypatch.setattr(
+            f"kubernetes.client.DiscoveryV1beta1Api.{action}_namespaced_endpoint_slice",
+            partial(getattr(k8s_stub, f"{action}_namespaced_resource"), "endpoint_slice"),
+        )
+    return k8s_stub
 
 
 @pytest.fixture(name="patch_load_incluster_config")

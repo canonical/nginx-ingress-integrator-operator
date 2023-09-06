@@ -10,7 +10,6 @@ import typing
 
 import kubernetes.client
 
-from consts import CREATED_BY_LABEL
 from exceptions import InvalidIngressError
 from ingress_definition import IngressDefinition
 

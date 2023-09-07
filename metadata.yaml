@@ -31,3 +31,9 @@ provides:
     interface: ingress
   nginx-route:
     interface: nginx-route
+requires:
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    description: |
+      Requires certificates-generating charm for TLS

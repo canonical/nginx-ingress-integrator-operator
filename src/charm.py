@@ -21,11 +21,20 @@ from charms.nginx_ingress_integrator.v0.ingress import (
     IngressProvides,
 )
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from ops.charm import CharmBase, HookEvent, StartEvent
+from charms.tls_certificates_interface.v2.tls_certificates import (
+    AllCertificatesInvalidatedEvent,
+    CertificateAvailableEvent,
+    CertificateExpiringEvent,
+    CertificateInvalidatedEvent,
+    TLSCertificatesRequiresV2,
+    generate_csr,
+    generate_private_key,
+)
+from ops.charm import CharmBase, HookEvent, StartEvent, RelationJoinedEvent
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, ConfigData, Model, Relation, WaitingStatus
 
-from helpers import invalid_hostname_check, is_backend_protocol_valid
+from helpers import invalid_hostname_check, is_backend_protocol_valid, generate_password
 
 LOGGER = logging.getLogger(__name__)
 _INGRESS_SUB_REGEX = re.compile("[^0-9a-zA-Z]")
@@ -339,7 +348,10 @@ class _ConfigOrRelation:
     @property
     def _tls_secret_name(self) -> Any:
         """Return the tls-secret-name to use for k8s ingress (if any)."""
-        return self._get_config_or_relation_data("tls-secret-name", "")
+        if self._get_config_or_relation_data("tls-secret-name", ""):
+            return self._get_config_or_relation_data("tls-secret-name", "")
+        if self.model.get_relation("certificates"):
+            return "cert-tls-secret"
 
     @property
     def _whitelist_source_range(self) -> Any:
@@ -491,11 +503,23 @@ class NginxIngressCharm(CharmBase):
         self.framework.observe(self.on.ingress_available, self._on_config_changed_with_warning)
         self.framework.observe(self.on.ingress_broken, self._on_ingress_broken)
 
+        self.certificates = TLSCertificatesRequiresV2(self, "certificates")
+        self.framework.observe(self.on.certificates_relation_joined, self._on_certificates_relation_joined)
+        self.framework.observe(self.certificates.on.certificate_available, self._on_certificate_available)
+        self.framework.observe(self.certificates.on.certificate_expiring, self._on_certificate_expiring)
+        self.framework.observe(self.certificates.on.certificate_invalidated, self._on_certificate_invalidated)
+        self.framework.observe(self.certificates.on.all_certificates_invalidated,self._on_all_certificates_invalidated)
+
+        self.cert_subject = self.app.name
+
+
         provide_nginx_route(
             charm=self,
             on_nginx_route_available=self._on_config_changed,
             on_nginx_route_broken=self._on_ingress_broken,
         )
+
+    
 
     def _on_config_changed_with_warning(self, event: Any) -> None:
         """Handle the ingress relation available event.
@@ -698,6 +722,40 @@ class NginxIngressCharm(CharmBase):
             LOGGER.info("Sleeping for %s seconds to wait for ingress IP", interval)
             time.sleep(interval)
         return ips
+    
+    def _create_secret(self, tls_cert: str, tls_key: str) -> None:
+        """Create a kubernetes secret for TLS.
+        
+        Args:
+            tls_cert: TLS certificate
+            tls_key: TLS private_key
+        """
+        api = self._core_v1_api()
+        namespace = self._namespace
+        metadata = {'name': 'cert-tls-secret', 'namespace': self._namespace}
+        data=  {'tls.crt': tls_cert, 'tls.key': tls_key}
+        api_version = 'v1'
+        kind = 'Secret'
+        body = kubernetes.client.V1Secret(api_version, data , kind, metadata, 
+        type='kubernetes.io/tls')
+        secrets = api.list_namespaced_secret(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
+        if 'cert-tls-secret' in [x.metadata.name for x in secrets.items]:
+            api.replace_namespaced_secret(namespace, body)
+            return
+        api.create_namespaced_secret(namespace, body)
+    
+    def _delete_secret(self) -> None:
+        """Delete kubernetes secret for TLS."""
+        api = self._core_v1_api()
+        namespace = self._namespace
+        secrets = api.list_namespaced_secret(  # type: ignore[attr-defined]
+            namespace=self._namespace
+        )
+        if 'cert-tls-secret' in [x.metadata.name for x in secrets.items]:
+            api.delete_namespaced_secret('cert-tls-secret', namespace)
+            return
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation) -> bool:
         """Check if the given config or relation has the required fields set.
@@ -1100,7 +1158,7 @@ class NginxIngressCharm(CharmBase):
             svc_hostnames.extend(additional_hostname)
         self._delete_unused_ingresses(svc_hostnames)
 
-    def _on_config_changed(self, _: HookEvent) -> None:
+    def _on_config_changed(self, event: HookEvent) -> None:
         """Handle the config changed event.
 
         Raises:
@@ -1113,6 +1171,19 @@ class NginxIngressCharm(CharmBase):
         # We only want to do anything here if we're the leader to avoid
         # collision if we've scaled out this application.
         svc_names = [conf_or_rel._service_name for conf_or_rel in self._all_config_or_relations]
+        private_key_password = generate_password().encode()
+        private_key = generate_private_key(password=private_key_password)
+        private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
+        secret = self.app.add_secret(content=private_key_dict, label="private-key")
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        tls_certificates_relation.data[self.app].update(
+            {"private_key_password": private_key_password.decode(), "private_key": private_key.decode()}
+        )
+
         if self.unit.is_leader() and any(svc_names):
             try:
                 self._define_services()
@@ -1216,7 +1287,110 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = BlockedStatus(INVALID_BACKEND_PROTOCOL_MSG)
                 return
         self.unit.status = ActiveStatus()
+    
 
+    def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        secret = self.model.get_secret(label="private-key")
+        secret.grant(tls_certificates_relation)
+        csr = generate_csr(
+            private_key=secret.get_content()["key"].encode(),
+            private_key_password=secret.get_content()["password"].encode(),
+            subject=self.cert_subject,
+        )
+        tls_certificates_relation.data[self.app].update({"csr": csr.decode()})
+        self.certificates.request_certificate_creation(certificate_signing_request=csr)
+
+    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        tls_certificates_relation.data[self.app].update({"certificate": event.certificate})
+        tls_certificates_relation.data[self.app].update({"ca": event.ca})
+        tls_certificates_relation.data[self.app].update({"chain": event.chain})
+        secret = self.model.get_secret(label="private-key").get_content()
+        self._create_secret(event.certificate, secret["key"].encode())
+        self._define_ingresses()
+        self.unit.status = ActiveStatus()
+    
+    def _on_certificate_expiring(
+        self, event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent]
+    ) -> None:
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        old_csr = tls_certificates_relation.data[self.app].get("csr")
+        secret = self.model.get_secret(label="private-key").get_content()
+        new_csr = generate_csr(
+            private_key=secret["key"].encode(),
+            private_key_password=secret["password"].encode(),
+            subject=self.cert_subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr,
+            new_certificate_signing_request=new_csr,
+        )
+        tls_certificates_relation.data[self.app].update({"csr": new_csr.decode()})
+
+    def _certificate_revoked(self, event, tls_certificates_relation) -> None:
+        old_csr = tls_certificates_relation.data[self.app].get("csr")
+        secret = self.model.get_secret(label="private-key")
+        secret.remove_all_revisions()
+        private_key_password = generate_password().encode()
+        private_key = generate_private_key(password=private_key_password)
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        private_key_dict = {"private_key_password": private_key_password, "private_key": private_key.decode()}
+        tls_certificates_relation.data[self.app].update(private_key_dict)
+        new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
+        new_secret.grant(unit=self.unit)
+
+        new_csr = generate_csr(
+            private_key=secret["key"].encode(),
+            private_key_password=secret["password"].encode(),
+            subject=self.cert_subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr,
+            new_certificate_signing_request=new_csr,
+        )
+        tls_certificates_relation.data[self.app].update({"csr": new_csr.decode()})
+        tls_certificates_relation.data[self.app].pop("certificate")
+        tls_certificates_relation.data[self.app].pop("ca")
+        tls_certificates_relation.data[self.app].pop("chain")
+        self.unit.status = WaitingStatus("Waiting for new certificate")
+    
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        if event.reason == "revoked":
+            self._certificate_revoked(tls_certificates_relation)
+        if event.reason == "expired":
+            self._on_certificate_expiring(event)
+    
+    def _on_all_certificates_invalidated(self, event: AllCertificatesInvalidatedEvent) -> None:
+        tls_certificates_relation = self.model.get_relation("certificates")
+        secret = self.model.get_secret(label="private-key")
+        secret.remove_all_revisions()
+        tls_certificates_relation.data[self.app].pop("certificate")
+        tls_certificates_relation.data[self.app].pop("ca")
+        tls_certificates_relation.data[self.app].pop("chain")
+        tls_certificates_relation.data[self.app].pop("csr")
+        self._delete_secret()
 
 if __name__ == "__main__":  # pragma: no cover
     main(NginxIngressCharm)

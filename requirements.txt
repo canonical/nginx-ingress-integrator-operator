@@ -1,2 +1,4 @@
 kubernetes == 25.3.0
 ops
+jsonschema
+cryptography

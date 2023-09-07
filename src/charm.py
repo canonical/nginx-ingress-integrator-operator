@@ -6,7 +6,6 @@
 
 """Nginx-ingress-integrator charm file."""
 
-import functools
 import logging
 import time
 import typing
@@ -21,11 +20,9 @@ from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
 
 from consts import CREATED_BY_LABEL
 from controller import (
-    AnyResource,
     EndpointsController,
     EndpointSliceController,
     IngressController,
-    ResourceController,
     ServiceController,
 )
 from exceptions import InvalidIngressError
@@ -48,11 +45,6 @@ class NginxIngressCharm(CharmBase):
         super().__init__(*args)
         kubernetes.config.load_incluster_config()
 
-        self._endpoints_controller = EndpointsController(labels=self._labels)
-        self._endpoint_slice_controller = EndpointSliceController(labels=self._labels)
-        self._service_controller = ServiceController(labels=self._labels)
-        self._ingress_controller = IngressController(labels=self._labels)
-
         self._ingress_provider = IngressPerAppProvider(charm=self)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -66,6 +58,50 @@ class NginxIngressCharm(CharmBase):
             on_nginx_route_available=self._on_nginx_route_available,
             on_nginx_route_broken=self._on_nginx_route_broken,
         )
+
+    def _get_endpoints_controller(self, namespace: str) -> EndpointsController:
+        """Create an endpoints controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            An EndpointsController instance.
+        """
+        return EndpointsController(namespace=namespace, labels=self._labels)
+
+    def _get_endpoint_slice_controller(self, namespace: str) -> EndpointSliceController:
+        """Create an endpoint slice controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            An EndpointSliceController instance.
+        """
+        return EndpointSliceController(namespace=namespace, labels=self._labels)
+
+    def _get_service_controller(self, namespace: str) -> ServiceController:
+        """Create a service controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            A ServiceController instance.
+        """
+        return ServiceController(namespace=namespace, labels=self._labels)
+
+    def _get_ingress_controller(self, namespace: str) -> IngressController:
+        """Create an ingress controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            An IngressController instance.
+        """
+        return IngressController(namespace=namespace, labels=self._labels)
 
     def _get_relation(self) -> Optional[Relation]:
         """Get the current effective relation.
@@ -115,14 +151,12 @@ class NginxIngressCharm(CharmBase):
         Returns:
             A list of Ingress IPs.
         """
-        controller = self._ingress_controller
+        controller = self._get_ingress_controller(namespace=ingress.metadata.namespace)
         # Wait up to `interval * count` seconds for ingress IPs.
         count, interval = 100, 1
         ips = []
         for _ in range(count):
-            ingresses = controller.list_resource(
-                namespace=ingress.metadata.namespace, label_selector=self._label_selector
-            )
+            ingresses = controller.list_resource()
             try:
                 ips = [x.status.load_balancer.ingress[0].ip for x in ingresses]
             except TypeError:
@@ -143,75 +177,6 @@ class NginxIngressCharm(CharmBase):
     def _labels(self) -> typing.Dict[str, str]:
         """Get labels assigned to resources created by this app."""
         return {CREATED_BY_LABEL: self.app.name}
-
-    def _define_resource(
-        self,
-        controller: ResourceController[AnyResource],
-        namespace: str,
-        definition: IngressDefinition,
-    ) -> AnyResource:
-        """Create or update a resource in kubernetes.
-
-        Args:
-            controller: The controller for the resource type.
-            namespace: The namespace for the resource to reside in.
-            definition: The ingress definition
-
-        Returns:
-            The name of the created or modified resource, None if no resource is
-            modified or created.
-        """
-        resource_list = controller.list_resource(
-            namespace=namespace, label_selector=self._label_selector
-        )
-        body = controller.gen_resource_from_definition(definition)
-        if body.metadata.name in [r.metadata.name for r in resource_list]:
-            controller.patch_resource(
-                name=body.metadata.name,
-                namespace=namespace,
-                body=body,
-            )
-            LOGGER.info(
-                "%s updated in namespace %s with name %s",
-                controller.name,
-                namespace,
-                body.metadata.name,
-            )
-        else:
-            controller.create_resource(namespace=namespace, body=body)
-            LOGGER.info(
-                "%s created in namespace %s with name %s",
-                controller.name,
-                namespace,
-                body.metadata.name,
-            )
-        return body
-
-    def _cleanup_resources(
-        self,
-        controller: ResourceController[AnyResource],
-        namespace: str,
-        exclude: Optional[AnyResource] = None,
-    ) -> None:
-        """Remove unused resources.
-
-        Args:
-            controller: The controller for the resource type.
-            namespace: The namespace of resources.
-            exclude: The name of resource to be excluded from the cleanup.
-        """
-        for resource in controller.list_resource(
-            namespace=namespace, label_selector=self._label_selector
-        ):
-            if exclude is not None and resource.metadata.name == exclude.metadata.name:
-                continue
-            controller.delete_resource(namespace=namespace, name=resource.metadata.name)
-            LOGGER.info(
-                "%s deleted in namespace %s with name %s",
-                controller.name,
-                namespace,
-                resource.metadata.name,
-            )
 
     def _check_precondition(self) -> None:
         """Check the precondition of the charm.
@@ -244,35 +209,34 @@ class NginxIngressCharm(CharmBase):
             The created or modified ingress resource, None if no ingress resource was created or
                 modified.
         """
-        endpoints_controller = self._endpoints_controller
-        endpoint_slice_controller = self._endpoint_slice_controller
-        service_controller = self._service_controller
-        ingress_controller = self._ingress_controller
         namespace = definition.service_namespace if definition is not None else self.model.name
+        endpoints_controller = self._get_endpoints_controller(namespace=namespace)
+        endpoint_slice_controller = self._get_endpoint_slice_controller(namespace=namespace)
+        service_controller = self._get_service_controller(namespace=namespace)
+        ingress_controller = self._get_ingress_controller(namespace=namespace)
         endpoints = None
         endpoint_slice = None
-        define_resource = functools.partial(
-            self._define_resource, namespace=namespace, definition=definition
-        )
-        cleanup_resources = functools.partial(self._cleanup_resources, namespace=namespace)
         if definition.use_endpoint_slice:
-            endpoints = define_resource(controller=endpoints_controller)
-            endpoint_slice = define_resource(controller=endpoint_slice_controller)
-        service = define_resource(controller=service_controller)
-        ingress = define_resource(controller=ingress_controller)
-        cleanup_resources(controller=endpoints_controller, exclude=endpoints)
-        cleanup_resources(controller=endpoint_slice_controller, exclude=endpoint_slice)
-        cleanup_resources(controller=service_controller, exclude=service)
-        cleanup_resources(controller=ingress_controller, exclude=ingress)
+            endpoints = endpoints_controller.define_resource(definition=definition)
+            endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
+        service = service_controller.define_resource(definition=definition)
+        ingress = ingress_controller.define_resource(definition=definition)
+        endpoints_controller.cleanup_resources(exclude=endpoints)
+        endpoint_slice_controller.cleanup_resources(exclude=endpoint_slice)
+        service_controller.cleanup_resources(exclude=service)
+        ingress_controller.cleanup_resources(exclude=ingress)
         return ingress
 
     def _cleanup(self) -> None:
         """Cleanup all resources managed by the charm."""
-        cleanup_resources = functools.partial(self._cleanup_resources, namespace=self.model.name)
-        cleanup_resources(controller=self._endpoints_controller)
-        cleanup_resources(controller=self._endpoint_slice_controller)
-        cleanup_resources(controller=self._service_controller)
-        cleanup_resources(controller=self._ingress_controller)
+        endpoints_controller = self._get_endpoints_controller(namespace=self.model.name)
+        endpoint_slice_controller = self._get_endpoint_slice_controller(namespace=self.model.name)
+        service_controller = self._get_service_controller(namespace=self.model.name)
+        ingress_controller = self._get_ingress_controller(namespace=self.model.name)
+        endpoints_controller.cleanup_resources()
+        endpoint_slice_controller.cleanup_resources()
+        service_controller.cleanup_resources()
+        ingress_controller.cleanup_resources()
 
     def _update_ingress(self) -> None:
         """Handle the config changed event."""

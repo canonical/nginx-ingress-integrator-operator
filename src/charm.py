@@ -7,9 +7,8 @@
 """Nginx-ingress-integrator charm file."""
 
 import logging
-import time
 import typing
-from typing import Any, List, Optional, cast
+from typing import Any, Optional, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
@@ -142,32 +141,6 @@ class NginxIngressCharm(CharmBase):
         ingress_definition = IngressDefinition.from_essence(definition_essence)
         return ingress_definition
 
-    def _report_ingress_ips(self, ingress: kubernetes.client.V1Ingress) -> List[str]:
-        """Report on ingress IP(s) and return a list of them.
-
-        Args:
-            ingress: the target ingress.
-
-        Returns:
-            A list of Ingress IPs.
-        """
-        controller = self._get_ingress_controller(namespace=ingress.metadata.namespace)
-        # Wait up to `interval * count` seconds for ingress IPs.
-        count, interval = 100, 1
-        ips = []
-        for _ in range(count):
-            ingresses = controller.list_resource()
-            try:
-                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses]
-            except TypeError:
-                # We have no IPs yet.
-                pass
-            if ips:
-                break
-            LOGGER.info("Sleeping for %s seconds to wait for ingress IP", interval)
-            time.sleep(interval)
-        return ips
-
     @property
     def _label_selector(self) -> str:
         """Get the label selector to select resources created by this app."""
@@ -198,16 +171,12 @@ class NginxIngressCharm(CharmBase):
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
 
-    def _reconcile(self, definition: IngressDefinition) -> kubernetes.client.V1Ingress:
+    def _reconcile(self, definition: IngressDefinition) -> None:
         """Reconcile ingress related resources based on the provided definition.
 
         Args:
             definition: Configuration definition for the ingress. If not provided, no resources
                 will be created but the cleanup will still run.
-
-        Returns:
-            The created or modified ingress resource, None if no ingress resource was created or
-                modified.
         """
         namespace = definition.service_namespace if definition is not None else self.model.name
         endpoints_controller = self._get_endpoints_controller(namespace=namespace)
@@ -225,18 +194,13 @@ class NginxIngressCharm(CharmBase):
         endpoint_slice_controller.cleanup_resources(exclude=endpoint_slice)
         service_controller.cleanup_resources(exclude=service)
         ingress_controller.cleanup_resources(exclude=ingress)
-        return ingress
 
     def _cleanup(self) -> None:
         """Cleanup all resources managed by the charm."""
-        endpoints_controller = self._get_endpoints_controller(namespace=self.model.name)
-        endpoint_slice_controller = self._get_endpoint_slice_controller(namespace=self.model.name)
-        service_controller = self._get_service_controller(namespace=self.model.name)
-        ingress_controller = self._get_ingress_controller(namespace=self.model.name)
-        endpoints_controller.cleanup_resources()
-        endpoint_slice_controller.cleanup_resources()
-        service_controller.cleanup_resources()
-        ingress_controller.cleanup_resources()
+        self._get_endpoints_controller(namespace=self.model.name).cleanup_resources()
+        self._get_endpoint_slice_controller(namespace=self.model.name).cleanup_resources()
+        self._get_service_controller(namespace=self.model.name).cleanup_resources()
+        self._get_ingress_controller(namespace=self.model.name).cleanup_resources()
 
     def _update_ingress(self) -> None:
         """Handle the config changed event."""
@@ -249,9 +213,11 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
             definition = self._get_definition_from_relation(relation)
-            ingress = self._reconcile(definition)
+            self._reconcile(definition)
             self.unit.status = WaitingStatus("Waiting for ingress IP availability")
-            ingress_ips = self._report_ingress_ips(ingress)
+            namespace = definition.service_namespace if definition is not None else self.model.name
+            ingress_controller = self._get_ingress_controller(namespace)
+            ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:

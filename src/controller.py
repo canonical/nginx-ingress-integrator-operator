@@ -6,6 +6,7 @@
 import abc
 import functools
 import logging
+import time
 import typing
 
 import kubernetes.client
@@ -759,15 +760,6 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
         ).items
 
     @_map_k8s_auth_exception
-    def list_resource(self) -> typing.List[kubernetes.client.V1Ingress]:
-        """List V1Ingress resources in a given namespace based on a label selector.
-
-        Returns:
-            A list of matched V1Ingress resources.
-        """
-        return self._list_resource()
-
-    @_map_k8s_auth_exception
     def _delete_resource(self, name: str) -> None:
         """Delete a V1Ingress resource from a given namespace.
 
@@ -775,3 +767,24 @@ class IngressController(ResourceController[kubernetes.client.V1Ingress]):
             name: The name of the V1Ingress resource to delete.
         """
         self._client.delete_namespaced_ingress(namespace=self._namespace, name=name)
+
+    def get_ingress_ips(self) -> typing.List[str]:
+        """Return IP addresses of ingresses.
+
+        Returns:
+            A list of Ingress IPs.
+        """
+        deadline = time.time() + 100
+        ips = []
+        while time.time() < deadline:
+            ingresses = self._list_resource()
+            try:
+                ips = [x.status.load_balancer.ingress[0].ip for x in ingresses]
+            except TypeError:
+                # We have no IPs yet.
+                pass
+            if ips:
+                break
+            logger.info("Sleeping for %s seconds to wait for ingress IP", 1)
+            time.sleep(1)
+        return ips

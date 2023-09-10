@@ -126,18 +126,23 @@ class NginxIngressCharm(CharmBase):
 
         Return:
             The IngressDefinition corresponding to the provided relation.
+
+        Raises:
+            ValueError: unknown relation name.
         """
         if relation.name == "nginx-route":
             definition_essence = IngressDefinitionEssence(
                 model=self.model, config=self.config, relation=relation
             )
-        else:
+        elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
                 model=self.model,
                 config=self.config,
                 relation=relation,
                 ingress_provider=self._ingress_provider,
             )
+        else:
+            raise ValueError(f"Invalid relation: {relation.name}")
         ingress_definition = IngressDefinition.from_essence(definition_essence)
         return ingress_definition
 

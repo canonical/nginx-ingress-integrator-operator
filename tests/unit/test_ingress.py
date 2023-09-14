@@ -64,10 +64,54 @@ def test_legacy_k8s(legacy_k8s_stub: K8sStub, harness: Harness, ingress_relation
     """
     arrange: set up test harness and ingress relation and simulate Kubernetes 1.20 API.
     act: update the ingress relation with basic data.
-    assert: service should contain correct path configurations.
+    assert: endpoint slice should be set up correctly in the simulated cluster.
     """
     harness.begin()
     ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
     harness.update_config({"service-hostname": "example.com"})
     assert len(legacy_k8s_stub.get_endpoint_slices(TEST_NAMESPACE)) == 1
+
+    unit_data = ingress_relation.gen_example_unit_data()
+    unit_data["ip"] = '"10.0.0.2"'
+    ingress_relation.update_unit_data(unit_data)
+    endpoint_slice = legacy_k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0]
+    assert endpoint_slice.endpoints[0].addresses == ["10.0.0.2"]
+
+    ingress_relation.remove_relation()
+    # test harness doesn't handle relation-broken properly
+    harness.charm.model._relations._invalidate(ingress_relation.relation.name)
+    harness.charm._on_data_removed(None)
+
+    assert legacy_k8s_stub.get_endpoints(TEST_NAMESPACE) == []
+    assert legacy_k8s_stub.get_endpoint_slices(TEST_NAMESPACE) == []
+    assert legacy_k8s_stub.get_services(TEST_NAMESPACE) == []
+    assert legacy_k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+
+
+def test_update_ingress_ip(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data and update the ingress again with new ip.
+    assert: endpoint slice should contain correct ip addresses after the update.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+    assert k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0].endpoints[0].addresses == ["10.0.0.1"]
+
+    unit_data = ingress_relation.gen_example_unit_data()
+    unit_data["ip"] = '"10.0.0.2"'
+    ingress_relation.update_unit_data(unit_data)
+    assert k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0].endpoints[0].addresses == ["10.0.0.2"]
+
+    ingress_relation.remove_relation()
+    # test harness doesn't handle relation-broken properly
+    harness.charm.model._relations._invalidate(ingress_relation.relation.name)
+    harness.charm._on_data_removed(None)
+
+    assert k8s_stub.get_endpoints(TEST_NAMESPACE) == []
+    assert k8s_stub.get_endpoint_slices(TEST_NAMESPACE) == []
+    assert k8s_stub.get_services(TEST_NAMESPACE) == []
+    assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []

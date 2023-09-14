@@ -16,7 +16,7 @@ from ingress_definition import IngressDefinition
 
 logger = logging.getLogger(__name__)
 
-AnyResource = typing.TypeVar(  # pylint: disable=invalid-name
+AnyResource = typing.TypeVar(
     "AnyResource",
     kubernetes.client.V1Endpoints,
     kubernetes.client.V1EndpointSlice,
@@ -37,7 +37,15 @@ def _map_k8s_auth_exception(func: typing.Callable) -> typing.Callable:
 
     @functools.wraps(func)
     def wrapper(*args: typing.Any, **kwargs: typing.Any) -> typing.Any:
-        """Remap the kubernetes 403 ApiException to InvalidIngressError."""
+        """Remap the kubernetes 403 ApiException to InvalidIngressError.
+
+        Args:
+            args: function arguments.
+            kwargs: function keyword arguments.
+
+        Returns:
+            The function return value.
+        """
         try:
             return func(*args, **kwargs)
         except kubernetes.client.exceptions.ApiException as exc:

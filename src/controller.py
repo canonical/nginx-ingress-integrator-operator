@@ -45,6 +45,10 @@ def _map_k8s_auth_exception(func: typing.Callable) -> typing.Callable:
 
         Returns:
             The function return value.
+
+        Raises:
+            ApiException: if the Python kubernetes raised an unknown ApiException
+            InvalidIngressError: if the Python kubernetes raised a permission error
         """
         try:
             return func(*args, **kwargs)
@@ -372,6 +376,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
 
         Args:
             body: The V1EndpointSlice resource object to create.
+
+        Raises:
+            ApiException: if the Python kubernetes raised an unknown ApiException
         """
         try:
             self._client.create_namespaced_endpoint_slice(namespace=self._namespace, body=body)
@@ -391,6 +398,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         Args:
             name: The name of the V1EndpointSlice resource to patch.
             body: The modified V1EndpointSlice resource object.
+
+        Raises:
+            ApiException: if the Python kubernetes raised an unknown ApiException
         """
         try:
             self._client.patch_namespaced_endpoint_slice(
@@ -411,6 +421,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
 
         Returns:
             A list of matched V1EndpointSlice resources.
+
+        Raises:
+            ApiException: if the Python kubernetes raised an unknown ApiException
         """
         label_selector = ",".join(f"{k}={v}" for k, v in self._labels.items())
         try:
@@ -430,6 +443,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
 
         Args:
             name: The name of the V1EndpointSlice resource to delete.
+
+        Raises:
+            ApiException: if the Python kubernetes raised an unknown ApiException
         """
         try:
             self._client.delete_namespaced_endpoint_slice(namespace=self._namespace, name=name)

@@ -15,6 +15,8 @@ from charm import (
     CREATED_BY_LABEL,
     INVALID_BACKEND_PROTOCOL_MSG,
     INVALID_HOSTNAME_MSG,
+    TYPE_CLUSTERIP,
+    TYPE_EXTERNAL_NAME,
     ConflictingAnnotationsError,
     ConflictingRoutesError,
     InvalidBackendProtocolError,
@@ -1273,6 +1275,7 @@ class TestCharm(unittest.TestCase):
                 name="gunicorn-service", labels={CREATED_BY_LABEL: self.harness.charm.app.name}
             ),
             spec=kubernetes.client.V1ServiceSpec(
+                type=TYPE_CLUSTERIP,
                 selector={"app.kubernetes.io/name": "gunicorn"},
                 ports=[
                     kubernetes.client.V1ServicePort(
@@ -1283,6 +1286,13 @@ class TestCharm(unittest.TestCase):
                 ],
             ),
         )
+        conf_or_rel = self.harness.charm._all_config_or_relations[0]
+        self.assertEqual(conf_or_rel._get_k8s_service(label=self.harness.charm.app.name), expected)
+
+        # Check that the type will be ExternalName if the external-name config is set.
+        self.harness.update_config({"external-name": "foo.lish"})
+        expected.spec.type = TYPE_EXTERNAL_NAME
+        expected.spec.external_name = "foo.lish"
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._get_k8s_service(label=self.harness.charm.app.name), expected)
 
@@ -1814,6 +1824,37 @@ class TestCharmMultipleRelations(unittest.TestCase):
         _delete_unused_ingresses.assert_called_once()
         mock_create_ingress.assert_not_called()
         mock_replace_ingress.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._all_config_or_relations", new_callable=mock.PropertyMock)
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    def test_report_service_ips(
+        self,
+        mock_api,
+        mock_all_config_or_rel,
+    ):
+        """
+        arrange: given the harnessed charm
+        act: when we execute _report_service_ips()
+        assert: this test will check that the charm will return an appropriate values
+        for the services found.
+        """
+        services = mock_api.return_value.list_namespaced_service.return_value
+        services.items = [mock.Mock(), mock.Mock(), mock.Mock()]
+        services.items[0].metadata.name = mock.sentinel.wanted
+        services.items[0].spec.cluster_ip = mock.sentinel.cluster_ip
+        services.items[1].metadata.name = mock.sentinel.other_svc
+        services.items[2].metadata.name = mock.sentinel.external
+        services.items[2].spec.cluster_ip = None
+
+        mock_all_config_or_rel.return_value = [
+            mock.Mock(_k8s_service_name=mock.sentinel.wanted),
+            mock.Mock(_k8s_service_name=mock.sentinel.external),
+        ]
+
+        result = NginxIngressCharm._report_service_ips(NginxIngressCharm)  # type: ignore[arg-type]
+
+        expected_result = [mock.sentinel.cluster_ip]
+        self.assertEqual(expected_result, result)
 
     @patch("charm.NginxIngressCharm._report_service_ips")
     @patch("charm.NginxIngressCharm.k8s_auth")

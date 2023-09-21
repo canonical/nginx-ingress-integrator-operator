@@ -12,6 +12,7 @@ Import `IngressRequires` in your charm, with two required options:
 `config_dict` accepts the following keys:
 - additional-hostnames
 - backend-protocol
+- external-name
 - limit-rps
 - limit-whitelist
 - max-body-size
@@ -89,7 +90,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 17
+LIBPATCH = 18
 
 LOGGER = logging.getLogger(__name__)
 
@@ -98,6 +99,7 @@ REQUIRED_INGRESS_RELATION_FIELDS = {"service-hostname", "service-name", "service
 OPTIONAL_INGRESS_RELATION_FIELDS = {
     "additional-hostnames",
     "backend-protocol",
+    "external-hostname",
     "limit-rps",
     "limit-whitelist",
     "max-body-size",

@@ -94,6 +94,12 @@ options:
     default: ""
     description: The path to rewrite requests to. If not set, rewrite-target will be "/".
     type: string
+  external-name:
+    default: ""
+    description: |
+      The external name of the service to create an ingress for.
+      The charm will create a Kubernetes ExternalName Service instead of a ClusterIP, allowing kubedns or equivalent to return it as a CNAME record.
+    type: string
   service-hostname:
     default: ""
     description: The hostname of the service to create an ingress for.

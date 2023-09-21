@@ -41,6 +41,8 @@ INVALID_HOSTNAME_MSG = (
 INVALID_BACKEND_PROTOCOL_MSG = (
     "Invalid backend protocol. Valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
 )
+TYPE_CLUSTERIP = "ClusterIP"
+TYPE_EXTERNAL_NAME = "ExternalName"
 
 
 def _report_interval_count() -> int:
@@ -302,6 +304,11 @@ class _ConfigOrRelation:
         return self._get_config_or_relation_data("service-hostname", "")
 
     @property
+    def _external_name(self) -> Any:
+        """Return the external name for the service we're connecting to."""
+        return self._get_config_or_relation_data("external-name", None)
+
+    @property
     def _service_name(self) -> Any:
         """Return the name of the service we're connecting to."""
         # NOTE: If the charm has multiple relations, use the service name given by the relation
@@ -355,6 +362,10 @@ class _ConfigOrRelation:
         Returns:
             A k8s service definition.
         """
+        # If the external-name is given, the Kubernetes Service type should be
+        # ExternalName instead of the default ClusterIP.
+        ext_name = self._external_name
+        svc_type = TYPE_EXTERNAL_NAME if ext_name else TYPE_CLUSTERIP
         return kubernetes.client.V1Service(
             api_version="v1",
             kind="Service",
@@ -362,6 +373,8 @@ class _ConfigOrRelation:
                 name=self._k8s_service_name, labels={CREATED_BY_LABEL: label}
             ),
             spec=kubernetes.client.V1ServiceSpec(
+                type=svc_type,
+                external_name=ext_name,
                 selector={"app.kubernetes.io/name": self._service_name},
                 ports=[
                     kubernetes.client.V1ServicePort(
@@ -671,8 +684,11 @@ class NginxIngressCharm(CharmBase):
             namespace=self._namespace
         )
         all_k8s_service_names = [rel._k8s_service_name for rel in self._all_config_or_relations]
+        # ExternalName services do not have a Cluster IP.
         return [
-            x.spec.cluster_ip for x in services.items if x.metadata.name in all_k8s_service_names
+            x.spec.cluster_ip
+            for x in services.items
+            if x.metadata.name in all_k8s_service_names and x.spec.cluster_ip
         ]
 
     def _report_ingress_ips(self) -> List[str]:

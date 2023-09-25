@@ -456,6 +456,7 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo-bar.internal")
 
+    @patch("charm.NginxIngressCharm._networking_v1_api")
     @patch("charm.NginxIngressCharm._core_v1_api")
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._delete_unused_ingresses")
@@ -472,6 +473,7 @@ class TestCharm(unittest.TestCase):
         _delete_unused_ingresses,
         _remove_ingress,
         _core_v1_api,
+        _net_v1_api
     ):
         """
         arrange: existing service not used anymore
@@ -486,6 +488,8 @@ class TestCharm(unittest.TestCase):
         mock_service.metadata.name = "to-be-removed"
         mock_services = _core_v1_api.return_value.list_namespaced_service.return_value
         mock_services.items = [mock_service]
+        mock_ingresses = _net_v1_api.return_value.list_namespaced_service.return_value
+        mock_ingresses.items = []
         self.harness.update_config({"service-name": "foo"})
         self.assertTrue(
             self.harness.charm.unit.status,
@@ -1518,9 +1522,11 @@ class TestCharmMultipleRelations(unittest.TestCase):
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._core_v1_api")
+    @patch("charm.NginxIngressCharm._networking_v1_api")
     def test_services_for_multiple_relations(
         self,
-        mock_api,
+        mock_net_api,
+        mock_core_api,
         mock_define_ingress,
         mock_remove_ingress,
         mock_report_ips,
@@ -1539,7 +1545,9 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         mock_report_ips.return_value = ["10.0.1.12"]
         mock_ingress_ips.return_value = ""
-        mock_list_services = mock_api.return_value.list_namespaced_service
+        mock_ingresses = mock_net_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.return_value.items = []
+        mock_list_services = mock_core_api.return_value.list_namespaced_service
         # We'll consider we don't have any service set yet.
         mock_list_services.return_value.items = []
 
@@ -1552,7 +1560,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self._add_ingress_relation("gunicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        mock_create_service = mock_api.return_value.create_namespaced_service
+        mock_create_service = mock_core_api.return_value.create_namespaced_service
         mock_create_service.assert_called_once_with(
             namespace=self.harness.charm._namespace,
             body=conf_or_rels[0]._get_k8s_service(label=self.harness.charm.app.name),
@@ -1573,7 +1581,7 @@ class TestCharmMultipleRelations(unittest.TestCase):
         self._add_ingress_relation("funicorn", rel_data)
 
         conf_or_rels = self.harness.charm._all_config_or_relations
-        mock_patch_service = mock_api.return_value.patch_namespaced_service
+        mock_patch_service = mock_core_api.return_value.patch_namespaced_service
         mock_patch_service.assert_called_once_with(
             name=conf_or_rels[0]._k8s_service_name,
             namespace=self.harness.charm._namespace,

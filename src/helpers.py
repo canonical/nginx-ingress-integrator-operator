@@ -8,6 +8,7 @@ import re
 import secrets
 import string
 
+
 def invalid_hostname_check(hostname: str) -> bool:
     """Check if the hostname is valid according to RFC 1123.
 
@@ -43,10 +44,10 @@ def is_backend_protocol_valid(backend_protocol: str) -> bool:
 
 
 def generate_password() -> str:
-    """Generates a random 12 character password.
+    """Generate a random 12 character password.
 
     Returns:
-        str: Private key
+        str: Private key string.
     """
     chars = string.ascii_letters + string.digits
     return "".join(secrets.choice(chars) for _ in range(12))

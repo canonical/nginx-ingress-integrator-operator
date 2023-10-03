@@ -2,3 +2,5 @@
 # See LICENSE file for licensing details.
 describe-ingresses:
   description: Describe ingresses configured in this charm's namespace. Intended for debugging purposes.
+get-certificate:
+  description: Returns the TLS Certificate. Intended for testing and debugging purposes.

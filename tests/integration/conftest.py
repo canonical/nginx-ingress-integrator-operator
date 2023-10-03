@@ -16,7 +16,7 @@ from ops.model import ActiveStatus
 from pytest import fixture
 from pytest_operator.plugin import OpsTest
 
-# Mype can't recognize the name as a string type, so we should skip the type check.
+# Mypy can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name  # type: ignore[has-type]
 ANY_APP_NAME = "any"
 INGRESS_APP_NAME = "ingress"

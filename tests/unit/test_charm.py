@@ -8,6 +8,10 @@ from unittest.mock import MagicMock, patch
 import kubernetes
 import kubernetes.client
 import pytest
+from charms.tls_certificates_interface.v2.tls_certificates import (
+    CertificateAvailableEvent,
+    CertificateInvalidatedEvent,
+)
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.testing import Harness
 
@@ -21,7 +25,7 @@ from charm import (
     InvalidHostnameError,
     NginxIngressCharm,
 )
-from helpers import invalid_hostname_check
+from helpers import generate_password, invalid_hostname_check
 
 
 class TestCharm(unittest.TestCase):
@@ -456,7 +460,6 @@ class TestCharm(unittest.TestCase):
         conf_or_rel = self.harness.charm._all_config_or_relations[0]
         self.assertEqual(conf_or_rel._service_hostname, "foo-bar.internal")
 
-    @patch("charm.NginxIngressCharm._networking_v1_api")
     @patch("charm.NginxIngressCharm._core_v1_api")
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._delete_unused_ingresses")
@@ -473,7 +476,6 @@ class TestCharm(unittest.TestCase):
         _delete_unused_ingresses,
         _remove_ingress,
         _core_v1_api,
-        _net_v1_api
     ):
         """
         arrange: existing service not used anymore
@@ -488,8 +490,6 @@ class TestCharm(unittest.TestCase):
         mock_service.metadata.name = "to-be-removed"
         mock_services = _core_v1_api.return_value.list_namespaced_service.return_value
         mock_services.items = [mock_service]
-        mock_ingresses = _net_v1_api.return_value.list_namespaced_service.return_value
-        mock_ingresses.items = []
         self.harness.update_config({"service-name": "foo"})
         self.assertTrue(
             self.harness.charm.unit.status,
@@ -1522,10 +1522,8 @@ class TestCharmMultipleRelations(unittest.TestCase):
     @patch("charm.NginxIngressCharm._remove_ingress")
     @patch("charm.NginxIngressCharm._define_ingress")
     @patch("charm.NginxIngressCharm._core_v1_api")
-    @patch("charm.NginxIngressCharm._networking_v1_api")
     def test_services_for_multiple_relations(
         self,
-        mock_net_api,
         mock_core_api,
         mock_define_ingress,
         mock_remove_ingress,
@@ -1545,8 +1543,6 @@ class TestCharmMultipleRelations(unittest.TestCase):
 
         mock_report_ips.return_value = ["10.0.1.12"]
         mock_ingress_ips.return_value = ""
-        mock_ingresses = mock_net_api.return_value.list_namespaced_ingress.return_value
-        mock_ingresses.return_value.items = []
         mock_list_services = mock_core_api.return_value.list_namespaced_service
         # We'll consider we don't have any service set yet.
         mock_list_services.return_value.items = []
@@ -2252,6 +2248,11 @@ class TestHelpers:
     def test_invalid_hostname_check(self, hostname, expected):
         assert invalid_hostname_check(hostname) == expected
 
+    def test_generate_password(self):
+        password = generate_password()
+        assert type(password) == str
+        assert len(password) == 12
+
 
 class TestZeroDowntime(unittest.TestCase):
     """Unit test cause for the zero downtime upgrade from ingress relation to nginx-route."""
@@ -2315,3 +2316,385 @@ class TestZeroDowntime(unittest.TestCase):
         )
         self.harness.begin()
         self.assertEqual(len(self.harness.charm._deduped_relations()), 2)
+
+
+class TestCertificatesRelation(unittest.TestCase):
+    """Unit test cause for the certificates relation."""
+
+    def setUp(self):
+        """Setup the harness object."""
+        self.harness = Harness(NginxIngressCharm)
+        self.addCleanup(self.harness.cleanup)
+        self.harness.begin()
+
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    def test_replace_secret(self, mock_core_api):
+        mock_secret = MagicMock()
+        mock_secret.metadata.name = "cert-tls-secret"
+        mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
+        mock_replace_secret = mock_core_api.return_value.replace_namespaced_secret
+        mock_create_secret = mock_core_api.return_value.create_namespaced_secret
+        namespace = self.harness.charm._namespace
+        metadata = {"name": "cert-tls-secret", "namespace": namespace}
+        data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
+        api_version = "v1"
+        kind = "Secret"
+        body = kubernetes.client.V1Secret(
+            api_version=api_version,
+            string_data=data,
+            kind=kind,
+            metadata=metadata,
+            type="kubernetes.io/tls",
+        )
+        self.harness.charm._create_secret("tls-cert", "tls-key")
+        mock_replace_secret.assert_called_once_with("cert-tls-secret", namespace, body)
+        mock_create_secret.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    def test_create_secret(self, mock_core_api):
+        mock_secret = MagicMock()
+        mock_secret.metadata.name = "cert-tls-secret-other"
+        mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
+        mock_create_secret = mock_core_api.return_value.create_namespaced_secret
+        mock_replace_secret = mock_core_api.return_value.replace_namespaced_secret
+        namespace = self.harness.charm._namespace
+        metadata = {"name": "cert-tls-secret", "namespace": namespace}
+        data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
+        api_version = "v1"
+        kind = "Secret"
+        body = kubernetes.client.V1Secret(
+            api_version=api_version,
+            string_data=data,
+            kind=kind,
+            metadata=metadata,
+            type="kubernetes.io/tls",
+        )
+        self.harness.charm._create_secret("tls-cert", "tls-key")
+        mock_create_secret.assert_called_once_with(namespace, body)
+        mock_replace_secret.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    def test_delete_secret(self, mock_core_api):
+        mock_secret = MagicMock()
+        mock_secret.metadata.name = "cert-tls-secret"
+        mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
+        mock_delete_secret = mock_core_api.return_value.delete_namespaced_secret
+        namespace = self.harness.charm._namespace
+        self.harness.charm._delete_secret()
+        mock_delete_secret.assert_called_once_with("cert-tls-secret", namespace)
+
+    @patch("charm.NginxIngressCharm._core_v1_api")
+    def test_delete_secret_no_deletion(self, mock_core_api):
+        mock_secret = MagicMock()
+        mock_secret.metadata.name = "cert-tls-secret-other"
+        mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
+        mock_delete_secret = mock_core_api.return_value.delete_namespaced_secret
+        self.harness.charm._delete_secret()
+        mock_delete_secret.assert_not_called()
+
+    @patch("charm.generate_password")
+    @patch("charm.generate_csr")
+    @patch("ops.model.Model.get_secret")
+    def test_cert_relation(self, mock_get_secret, mock_gen_csr, mock_gen_pass):
+        mock_gen_pass.return_value = "123456789101"
+        mock_gen_csr.return_value = b"csr"
+        self.harness.add_relation(
+            "certificates",
+            "self-signed-certificates",
+            unit_data={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        mock_gen_pass.assert_called_once()
+        mock_gen_csr.assert_called_once()
+        assert mock_get_secret.call_count == 2
+
+    @patch("charm.generate_password")
+    @patch("charm.generate_csr")
+    @patch("ops.model.Model.get_secret")
+    def test_create_or_update_cert_key_and_pass_no_relation(
+        self, mock_get_secret, mock_gen_csr, mock_gen_pass
+    ):
+        self.harness.charm._create_or_update_cert_key_and_pass(MagicMock())
+        mock_gen_pass.assert_not_called()
+        mock_gen_csr.assert_not_called()
+        mock_get_secret.assert_not_called()
+
+    @patch("ops.model.Model.get_secret")
+    @patch("charm.NginxIngressCharm._delete_secret")
+    def test_all_certificates_invalidated(self, mock_delete_secret, mock_get_secret):
+        self.harness.charm._on_all_certificates_invalidated(MagicMock())
+        mock_get_secret.assert_called_once()
+        mock_delete_secret.assert_called_once()
+
+    @patch("charm.NginxIngressCharm._certificate_revoked")
+    def test_on_certificate_invalidated_revoke(self, mock_cert_revoked):
+        self.harness.add_relation("certificates", "certificates")
+        event = CertificateInvalidatedEvent(
+            reason="revoked",
+            certificate="",
+            certificate_signing_request="",
+            ca="",
+            chain="",
+            handle=None,
+        )
+        self.harness.charm._on_certificate_invalidated(event)
+        mock_cert_revoked.assert_called_once()
+
+    @patch("charm.NginxIngressCharm._on_certificate_expiring")
+    def test_on_certificate_invalidated_expire(self, mock_cert_expired):
+        self.harness.add_relation("certificates", "certificates")
+        event = CertificateInvalidatedEvent(
+            reason="expired",
+            certificate="",
+            certificate_signing_request="",
+            ca="",
+            chain="",
+            handle=None,
+        )
+        self.harness.charm._on_certificate_invalidated(event)
+        mock_cert_expired.assert_called_once()
+
+    @patch("charm.NginxIngressCharm._on_certificate_expiring")
+    @patch("charm.NginxIngressCharm._certificate_revoked")
+    def test_on_certificate_invalidated_blocked(self, mock_cert_revoked, mock_cert_expired):
+        event = CertificateInvalidatedEvent(
+            reason="expired",
+            certificate="",
+            certificate_signing_request="",
+            ca="",
+            chain="",
+            handle=None,
+        )
+        self.harness.charm._on_certificate_invalidated(event)
+        mock_cert_expired.assert_not_called()
+        mock_cert_revoked.assert_not_called()
+
+    @patch("charm.generate_password")
+    @patch("charm.generate_csr")
+    @patch("charm.generate_private_key")
+    @patch("ops.model.Model.get_secret")
+    @patch("charm.NginxIngressCharm._create_or_update_cert_key_and_pass")
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    def test_certificate_revoked(
+        self,
+        mock_cert_renewal,
+        mock_cert_create,
+        mock_get_secret,
+        mock_gen_key,
+        mock_gen_csr,
+        mock_gen_password,
+    ):
+        mock_gen_csr.return_value = b"csr"
+        mock_gen_key.return_value = b"key"
+        mock_gen_password.return_value = "password"
+        relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        self.harness.charm._certificate_revoked()
+        mock_cert_renewal.assert_called_once()
+        mock_get_secret.assert_called_once()
+        mock_gen_csr.assert_called_once()
+        mock_gen_key.assert_called_once()
+        mock_gen_password.assert_called_once()
+
+    @patch("charm.generate_password")
+    @patch("charm.generate_csr")
+    @patch("charm.generate_private_key")
+    @patch("ops.model.Model.get_secret")
+    @patch("charm.NginxIngressCharm._create_or_update_cert_key_and_pass")
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    def test_certificate_revoked_no_relation(
+        self,
+        mock_cert_renewal,
+        mock_cert_create,
+        mock_get_secret,
+        mock_gen_key,
+        mock_gen_csr,
+        mock_gen_password,
+    ):
+        self.harness.charm._certificate_revoked()
+        mock_cert_renewal.assert_not_called()
+        mock_get_secret.assert_not_called()
+        mock_gen_csr.assert_not_called()
+        mock_gen_key.assert_not_called()
+        mock_gen_password.assert_not_called()
+
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    def test_certificate_expiring(self, mock_cert_renewal):
+        self.harness.add_relation(
+            "certificates",
+            "self-signed-certificates",
+            unit_data={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        event = CertificateInvalidatedEvent(
+            reason="expired",
+            certificate="",
+            certificate_signing_request="",
+            ca="",
+            chain="",
+            handle=None,
+        )
+        self.harness.charm._on_certificate_expiring(event)
+        mock_cert_renewal.assert_called_once()
+
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    def test_certificate_expiring_no_relation(self, mock_cert_renewal):
+        event = CertificateInvalidatedEvent(
+            reason="expired",
+            certificate="",
+            certificate_signing_request="",
+            ca="",
+            chain="",
+            handle=None,
+        )
+        self.harness.charm._on_certificate_expiring(event)
+        mock_cert_renewal.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._define_ingresses")
+    @patch("charm.NginxIngressCharm._create_secret")
+    def test_certificate_available_no_relation(self, mock_create_secret, mock_define_ingresses):
+        event = CertificateAvailableEvent(
+            certificate="", certificate_signing_request="", ca="", chain="", handle=None
+        )
+        self.harness.charm._on_certificate_available(event)
+        mock_create_secret.assert_not_called()
+        mock_define_ingresses.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._define_ingresses")
+    @patch("charm.NginxIngressCharm._create_secret")
+    def test_certificate_available(self, mock_create_secret, mock_define_ingresses):
+        self.harness.add_relation(
+            "certificates",
+            "self-signed-certificates",
+            unit_data={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        event = CertificateAvailableEvent(
+            certificate="", certificate_signing_request="", ca="", chain=["whatever"], handle=None
+        )
+        self.harness.charm._on_certificate_available(event)
+        mock_create_secret.assert_called_once()
+        mock_define_ingresses.assert_called_once()
+
+    @patch("charm.generate_csr")
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_creation"
+    )
+    def test_certificate_relation_joined_no_relation(self, mock_create_cert, mock_gen_csr):
+        self.harness.charm._on_certificates_relation_joined(MagicMock())
+        mock_create_cert.assert_not_called()
+        mock_gen_csr.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._certificate_revoked")
+    def test_config_changed_cert_relation_no_update(self, mock_cert_revoked, _networking_v1_api):
+        """
+        arrange: given the harnessed charm
+        act: when we change the service name, port and hostname config
+        assert: _define_ingress and define_service are only called when changing
+        the hostname to a non-empty string, and the status message is appropriate.
+        """
+        self.harness.set_leader(False)
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress]
+        cert_relation_id = self.harness.add_relation("certificates", "certificates")
+        ingress_relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(ingress_relation_id, "gunicorn/0")
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "to-be-removed.local",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(ingress_relation_id, "gunicorn", relations_data)
+        self.harness.update_relation_data(
+            relation_id=cert_relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        self.harness.update_config({"service-hostname": "to-be-removed.local"})
+        mock_cert_revoked.assert_not_called()
+
+    @patch("charm.NginxIngressCharm._networking_v1_api")
+    @patch("charm.NginxIngressCharm._certificate_revoked")
+    def test_config_changed_cert_relation_update(self, mock_cert_revoked, _networking_v1_api):
+        """
+        arrange: given the harnessed charm
+        act: when we change the service name, port and hostname config
+        assert: _define_ingress and define_service are only called when changing
+        the hostname to a non-empty string, and the status message is appropriate.
+        """
+        self.harness.set_leader(False)
+        mock_ingress = mock.Mock()
+        mock_ingress.spec.rules = [
+            kubernetes.client.V1IngressRule(
+                host="to-be-removed.local",
+            )
+        ]
+        mock_ingresses = _networking_v1_api.return_value.list_namespaced_ingress.return_value
+        mock_ingresses.items = [mock_ingress]
+        cert_relation_id = self.harness.add_relation("certificates", "certificates")
+        ingress_relation_id = self.harness.add_relation("ingress", "gunicorn")
+        self.harness.add_relation_unit(ingress_relation_id, "gunicorn/0")
+        relations_data = {
+            "service-name": "gunicorn",
+            "service-hostname": "to-be-removed.local",
+            "service-port": "80",
+        }
+        self.harness.update_relation_data(ingress_relation_id, "gunicorn", relations_data)
+        self.harness.update_relation_data(
+            relation_id=cert_relation_id,
+            app_or_unit=self.harness.charm.unit.name,
+            key_values={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+            },
+        )
+        self.harness.update_config({"service-hostname": "to-be-removed.local2"})
+        mock_cert_revoked.assert_called_once()

@@ -189,7 +189,9 @@ class ResourceController(typing.Protocol[AnyResource]):
             )
 
 
-class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
+class EndpointsController(
+    ResourceController[kubernetes.client.V1Endpoints]
+):  # pylint: disable=inherit-non-class
     """Kubernetes Endpoints resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
@@ -302,7 +304,9 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         self._client.delete_namespaced_endpoints(namespace=self._namespace, name=name)
 
 
-class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSlice]):
+class EndpointSliceController(
+    ResourceController[kubernetes.client.V1EndpointSlice]
+):  # pylint: disable=inherit-non-class
     """Kubernetes EndpointSlice resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
@@ -315,7 +319,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         self._ns = namespace
         self._labels = labels
         self._client = kubernetes.client.DiscoveryV1Api()
-        self._beta_client = kubernetes.client.DiscoveryV1beta1Api()
+        self._beta_client = kubernetes.client.DiscoveryV1beta1Api()  # pylint: disable=no-member
 
     @property
     def _name(self) -> str:
@@ -458,7 +462,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
                 raise
 
 
-class ServiceController(ResourceController[kubernetes.client.V1Service]):
+class ServiceController(
+    ResourceController[kubernetes.client.V1Service]
+):  # pylint: disable=inherit-non-class
     """Kubernetes Service resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
@@ -572,7 +578,9 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         self._client.delete_namespaced_service(namespace=self._namespace, name=name)
 
 
-class IngressController(ResourceController[kubernetes.client.V1Ingress]):
+class IngressController(
+    ResourceController[kubernetes.client.V1Ingress]
+):  # pylint: disable=inherit-non-class
     """Kubernetes Ingress resource controller."""
 
     def __init__(

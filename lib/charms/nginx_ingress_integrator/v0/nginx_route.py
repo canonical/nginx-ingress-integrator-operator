@@ -172,7 +172,7 @@ class _NginxRouteRequirer(ops.framework.Object):
 
 # C901 is ignored since the method has too many ifs but wouldn't be
 # necessarily good to reduce to smaller methods.
-def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches # noqa: C901
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches, too-many-arguments # noqa: C901, E501
     *,
     charm: ops.charm.CharmBase,
     service_hostname: str,

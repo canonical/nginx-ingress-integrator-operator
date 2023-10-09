@@ -33,3 +33,9 @@ provides:
   nginx-route:
     interface: nginx-route
     limit: 1
+requires:
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    description: |
+      Requires certificates-generating charm for TLS

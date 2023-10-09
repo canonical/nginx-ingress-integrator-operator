@@ -8,14 +8,30 @@
 
 import logging
 import typing
-from typing import Any, Optional, cast
+from typing import Any, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
+from charms.tls_certificates_interface.v2.tls_certificates import (
+    AllCertificatesInvalidatedEvent,
+    CertificateAvailableEvent,
+    CertificateExpiringEvent,
+    CertificateInvalidatedEvent,
+    TLSCertificatesRequiresV2,
+    generate_csr,
+    generate_private_key,
+)
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
-from ops.charm import CharmBase
+from ops.charm import ActionEvent, CharmBase, RelationCreatedEvent, RelationJoinedEvent
 from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
+from ops.model import (
+    ActiveStatus,
+    BlockedStatus,
+    MaintenanceStatus,
+    ModelError,
+    Relation,
+    WaitingStatus,
+)
 
 from consts import CREATED_BY_LABEL
 from controller import (
@@ -26,6 +42,7 @@ from controller import (
 )
 from exceptions import InvalidIngressError
 from ingress_definition import IngressDefinition, IngressDefinitionEssence
+from tls_relation import TLSRelationService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,12 +62,34 @@ class NginxIngressCharm(CharmBase):
         kubernetes.config.load_incluster_config()
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
+        self._tls = TLSRelationService()
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
 
         self.framework.observe(self._ingress_provider.on.data_provided, self._on_data_provided)
         self.framework.observe(self._ingress_provider.on.data_removed, self._on_data_removed)
+        self.certificates = TLSCertificatesRequiresV2(self, "certificates")
+        self.framework.observe(
+            self.on.certificates_relation_created, self._on_certificates_relation_created
+        )
+        self.framework.observe(
+            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_available, self._on_certificate_available
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_expiring, self._on_certificate_expiring
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
+        )
+        self.framework.observe(
+            self.certificates.on.all_certificates_invalidated,
+            self._on_all_certificates_invalidated,
+        )
+        self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
         provide_nginx_route(
             charm=self,
@@ -218,6 +257,15 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
             definition = self._get_definition_from_relation(relation)
+            tls_certificates_relation = self.model.get_relation("certificates")
+            unit_name = self.unit
+            if self._tls.update_cert_on_service_hostname_change(
+                definition.service_hostname,
+                tls_certificates_relation,
+                definition.service_namespace,
+                unit_name,
+            ):
+                self._certificate_revoked()
             self._reconcile(definition)
             self.unit.status = WaitingStatus("Waiting for ingress IP availability")
             namespace = definition.service_namespace if definition is not None else self.model.name
@@ -251,6 +299,212 @@ class NginxIngressCharm(CharmBase):
     def _on_nginx_route_broken(self, _: Any) -> None:
         """Handle the nginx-route-broken event."""
         self._update_ingress()
+
+    def _on_get_certificate_action(self, event: ActionEvent) -> None:
+        """Triggered when users run the `get-certificate` Juju action.
+
+        Args:
+            event: Juju event
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            event.fail("Certificates relation not created.")
+            return
+        if tls_certificates_relation.data[self.unit]["certificate"]:
+            event.set_results(
+                {
+                    "certificate": tls_certificates_relation.data[self.unit]["certificate"],
+                    "ca": tls_certificates_relation.data[self.unit]["ca"],
+                    "chain": tls_certificates_relation.data[self.unit]["chain"],
+                }
+            )
+        else:
+            event.fail("Certificate not available")
+
+    def _on_certificates_relation_created(self, event: RelationCreatedEvent) -> None:
+        """Handle the TLS Certificate relation created event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        private_key_password = self._tls.generate_password().encode()
+        private_key = generate_private_key(password=private_key_password)
+        private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
+        try:
+            secret = self.model.get_secret(label="private-key")
+            secret.set_content(private_key_dict)
+        except ModelError:
+            secret = self.app.add_secret(content=private_key_dict, label="private-key")
+        tls_certificates_relation.data[self.unit].update(
+            {
+                "private_key_password": private_key_password.decode(),
+                "private_key": private_key.decode(),
+            }
+        )
+
+    def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+        """Handle the TLS Certificate relation joined event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+
+        secret = self.model.get_secret(label="private-key")
+        secret.grant(tls_certificates_relation)
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
+        definition = self._get_definition_from_relation(relation)
+        subject = definition.service_hostname if definition is not None else self.model.name
+        csr = generate_csr(
+            private_key=secret.get_content()["key"].encode(),
+            private_key_password=secret.get_content()["password"].encode(),
+            subject=subject,
+        )
+        tls_certificates_relation.data[self.unit].update({"csr": csr.decode()})
+        self.certificates.request_certificate_creation(certificate_signing_request=csr)
+
+    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
+        """Handle the TLS Certificate available event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        tls_certificates_relation.data[self.unit].update({"certificate": event.certificate})
+        tls_certificates_relation.data[self.unit].update({"ca": event.ca})
+        tls_certificates_relation.data[self.unit].update({"chain": str(event.chain[0])})
+        secret = self.model.get_secret(label="private-key").get_content()
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
+        definition = self._get_definition_from_relation(relation)
+        namespace = definition.service_namespace if definition is not None else self.model.name
+        self._tls.create_secret(event.certificate, secret["key"], namespace)
+        self._update_ingress()
+        self.unit.status = ActiveStatus()
+
+    def _on_certificate_expiring(
+        self, event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent]
+    ) -> None:
+        """Handle the TLS Certificate expiring event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        old_csr = tls_certificates_relation.data[self.unit].get("csr")
+        secret = self.model.get_secret(label="private-key").get_content()
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
+        definition = self._get_definition_from_relation(relation)
+        subject = definition.service_hostname if definition is not None else self.model.name
+        new_csr = generate_csr(
+            private_key=secret["key"].encode(),
+            private_key_password=secret["password"].encode(),
+            subject=subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr.encode(),
+            new_certificate_signing_request=new_csr,
+        )
+        tls_certificates_relation.data[self.unit].update({"csr": new_csr.decode()})
+
+    def _certificate_revoked(self) -> None:
+        """Handle TLS Certificate revocation."""
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            return
+        old_csr = tls_certificates_relation.data[self.unit].get("csr")
+        secret = self.model.get_secret(label="private-key")
+        secret.remove_all_revisions()
+        private_key_password = self._tls.generate_password().encode()
+        private_key = generate_private_key(password=private_key_password)
+        private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
+        tls_certificates_relation.data[self.unit].update(private_key_dict)
+        new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
+        new_secret.grant(tls_certificates_relation)
+        new_secret_data = new_secret.get_content()
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
+        definition = self._get_definition_from_relation(relation)
+        subject = definition.service_hostname if definition is not None else self.model.name
+        new_csr = generate_csr(
+            private_key=new_secret_data["key"].encode(),
+            private_key_password=new_secret_data["password"].encode(),
+            subject=subject,
+        )
+        self.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr.encode(),
+            new_certificate_signing_request=new_csr,
+        )
+        tls_certificates_relation.data[self.unit].update({"csr": new_csr.decode()})
+        tls_certificates_relation.data[self.unit].pop("certificate")
+        tls_certificates_relation.data[self.unit].pop("ca")
+        tls_certificates_relation.data[self.unit].pop("chain")
+
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
+        """Handle the TLS Certificate invalidation event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.model.get_relation("certificates")
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for peer relation to be created")
+            event.defer()
+            return
+        if event.reason == "revoked":
+            self._certificate_revoked()
+        if event.reason == "expired":
+            self._on_certificate_expiring(event)
+        self.unit.status = MaintenanceStatus("Waiting for new certificate")
+
+    def _on_all_certificates_invalidated(self, _: AllCertificatesInvalidatedEvent) -> None:
+        """Handle the TLS Certificate relation broken event.
+
+        Args:
+            _: The event that fires this method.
+        """
+        secret = self.model.get_secret(label="private-key")
+        secret.remove_all_revisions()
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
+        definition = self._get_definition_from_relation(relation)
+        namespace = definition.service_namespace if definition is not None else self.model.name
+        self._tls.delete_secret(namespace)
 
 
 if __name__ == "__main__":  # pragma: no cover

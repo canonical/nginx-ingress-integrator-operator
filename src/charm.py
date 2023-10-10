@@ -38,6 +38,7 @@ from controller import (
     EndpointsController,
     EndpointSliceController,
     IngressController,
+    SecretController,
     ServiceController,
 )
 from exceptions import InvalidIngressError
@@ -63,6 +64,8 @@ class NginxIngressCharm(CharmBase):
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
         self._tls = TLSRelationService()
+        self._tls_cert: Union[str, None] = None
+        self._tls_key: Union[str, None] = None
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
@@ -130,6 +133,17 @@ class NginxIngressCharm(CharmBase):
         """
         return ServiceController(namespace=namespace, labels=self._labels)
 
+    def _get_secret_controller(self, namespace: str) -> SecretController:
+        """Create a service controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            A ServiceController instance.
+        """
+        return SecretController(namespace=namespace, labels=self._labels)
+
     def _get_ingress_controller(self, namespace: str) -> IngressController:
         """Create an ingress controller.
 
@@ -171,7 +185,11 @@ class NginxIngressCharm(CharmBase):
         """
         if relation.name == "nginx-route":
             definition_essence = IngressDefinitionEssence(
-                model=self.model, config=self.config, relation=relation
+                model=self.model,
+                config=self.config,
+                relation=relation,
+                tls_cert=self._tls_cert,
+                tls_key=self._tls_key,
             )
         elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
@@ -179,6 +197,8 @@ class NginxIngressCharm(CharmBase):
                 config=self.config,
                 relation=relation,
                 ingress_provider=self._ingress_provider,
+                tls_cert=self._tls_cert,
+                tls_key=self._tls_key,
             )
         else:
             raise ValueError(f"Invalid relation: {relation.name}")
@@ -226,17 +246,22 @@ class NginxIngressCharm(CharmBase):
         endpoints_controller = self._get_endpoints_controller(namespace=namespace)
         endpoint_slice_controller = self._get_endpoint_slice_controller(namespace=namespace)
         service_controller = self._get_service_controller(namespace=namespace)
+        secret_controller = self._get_secret_controller(namespace=namespace)
         ingress_controller = self._get_ingress_controller(namespace=namespace)
         endpoints = None
         endpoint_slice = None
         if definition.use_endpoint_slice:
             endpoints = endpoints_controller.define_resource(definition=definition)
             endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
+        if not definition.tls_secret_name:
+            secret = secret_controller.define_resource(definition=definition)
         service = service_controller.define_resource(definition=definition)
         ingress = ingress_controller.define_resource(definition=definition)
         endpoints_controller.cleanup_resources(exclude=endpoints)
         endpoint_slice_controller.cleanup_resources(exclude=endpoint_slice)
         service_controller.cleanup_resources(exclude=service)
+        if not definition.tls_secret_name:
+            secret_controller.cleanup_resources(exclude=secret)
         ingress_controller.cleanup_resources(exclude=ingress)
 
     def _cleanup(self) -> None:
@@ -244,6 +269,7 @@ class NginxIngressCharm(CharmBase):
         self._get_endpoints_controller(namespace=self.model.name).cleanup_resources()
         self._get_endpoint_slice_controller(namespace=self.model.name).cleanup_resources()
         self._get_service_controller(namespace=self.model.name).cleanup_resources()
+        # self._get_secret_controller(namespace=self.model.name).cleanup_resources()
         self._get_ingress_controller(namespace=self.model.name).cleanup_resources()
 
     def _update_ingress(self) -> None:
@@ -391,14 +417,8 @@ class NginxIngressCharm(CharmBase):
         tls_certificates_relation.data[self.unit].update({"ca": event.ca})
         tls_certificates_relation.data[self.unit].update({"chain": str(event.chain[0])})
         secret = self.model.get_secret(label="private-key").get_content()
-        relation = self._get_relation()
-        if relation is None:
-            self._cleanup()
-            self.unit.status = WaitingStatus("waiting for relation")
-            return
-        definition = self._get_definition_from_relation(relation)
-        namespace = definition.service_namespace if definition is not None else self.model.name
-        self._tls.create_secret(event.certificate, secret["key"], namespace)
+        self._tls_cert = event.certificate
+        self._tls_key = secret["key"]
         self._update_ingress()
         self.unit.status = ActiveStatus()
 
@@ -497,14 +517,6 @@ class NginxIngressCharm(CharmBase):
         """
         secret = self.model.get_secret(label="private-key")
         secret.remove_all_revisions()
-        relation = self._get_relation()
-        if relation is None:
-            self._cleanup()
-            self.unit.status = WaitingStatus("waiting for relation")
-            return
-        definition = self._get_definition_from_relation(relation)
-        namespace = definition.service_namespace if definition is not None else self.model.name
-        self._tls.delete_secret(namespace)
 
 
 if __name__ == "__main__":  # pragma: no cover

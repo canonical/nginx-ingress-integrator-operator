@@ -94,76 +94,6 @@ class TestCertificatesRelation(unittest.TestCase):
         assert type(password) == str
         assert len(password) == 12
 
-    @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_replace_secret(self):
-        with mock.patch.object(kubernetes.client, "CoreV1Api") as mock_core_api:
-            tls_rel = TLSRelationService()
-            mock_secret = MagicMock()
-            mock_secret.metadata.name = "cert-tls-secret"
-            mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
-            mock_patch_secret = mock_core_api.return_value.patch_namespaced_secret
-            mock_create_secret = mock_core_api.return_value.create_namespaced_secret
-            metadata = {"name": "cert-tls-secret", "namespace": TEST_NAMESPACE}
-            data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
-            api_version = "v1"
-            kind = "Secret"
-            body = kubernetes.client.V1Secret(
-                api_version=api_version,
-                string_data=data,
-                kind=kind,
-                metadata=metadata,
-                type="kubernetes.io/tls",
-            )
-            tls_rel.create_secret("tls-cert", "tls-key", TEST_NAMESPACE)
-            mock_patch_secret.assert_called_once_with("cert-tls-secret", TEST_NAMESPACE, body)
-            mock_create_secret.assert_not_called()
-
-    @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_create_secret(self):
-        with mock.patch.object(kubernetes.client, "CoreV1Api") as mock_core_api:
-            tls_rel = TLSRelationService()
-            mock_secret = MagicMock()
-            mock_secret.metadata.name = "cert-tls-secret-other"
-            mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
-            mock_patch_secret = mock_core_api.return_value.patch_namespaced_secret
-            mock_create_secret = mock_core_api.return_value.create_namespaced_secret
-            metadata = {"name": "cert-tls-secret", "namespace": TEST_NAMESPACE}
-            data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
-            api_version = "v1"
-            kind = "Secret"
-            body = kubernetes.client.V1Secret(
-                api_version=api_version,
-                string_data=data,
-                kind=kind,
-                metadata=metadata,
-                type="kubernetes.io/tls",
-            )
-            tls_rel.create_secret("tls-cert", "tls-key", TEST_NAMESPACE)
-            mock_create_secret.assert_called_once_with(TEST_NAMESPACE, body)
-            mock_patch_secret.assert_not_called()
-
-    @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_delete_secret(self):
-        with mock.patch.object(kubernetes.client, "CoreV1Api") as mock_core_api:
-            tls_rel = TLSRelationService()
-            mock_secret = MagicMock()
-            mock_secret.metadata.name = "cert-tls-secret"
-            mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
-            mock_delete_secret = mock_core_api.return_value.delete_namespaced_secret
-            tls_rel.delete_secret(TEST_NAMESPACE)
-            mock_delete_secret.assert_called_once_with("cert-tls-secret", TEST_NAMESPACE)
-
-    @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_delete_secret_no_deletion(self):
-        with mock.patch.object(kubernetes.client, "CoreV1Api") as mock_core_api:
-            tls_rel = TLSRelationService()
-            mock_secret = MagicMock()
-            mock_secret.metadata.name = "cert-tls-secret-other"
-            mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
-            mock_delete_secret = mock_core_api.return_value.delete_namespaced_secret
-            tls_rel.delete_secret(TEST_NAMESPACE)
-            mock_delete_secret.assert_not_called()
-
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("charm.generate_csr")
     @patch("ops.model.Model.get_secret")
@@ -190,27 +120,10 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("ops.model.Model.get_secret")
-    @patch("tls_relation.TLSRelationService.delete_secret")
-    def test_all_certificates_invalidated(self, mock_delete_secret, mock_get_secret):
+    def test_all_certificates_invalidated(self, mock_get_secret):
         self.set_up_nginx_relation()
         self.harness.charm._on_all_certificates_invalidated(MagicMock())
         mock_get_secret.assert_called_once()
-        mock_delete_secret.assert_called_once()
-
-    @pytest.mark.usefixtures("patch_load_incluster_config")
-    @patch("ops.model.Model.get_secret")
-    @patch("tls_relation.TLSRelationService.delete_secret")
-    @patch("charm.NginxIngressCharm._cleanup")
-    def test_all_certificates_invalidated_no_relation(
-        self, mock_cleanup, mock_delete_secret, mock_get_secret
-    ):
-        mock_cleanup.return_value = None
-        self.harness.charm._on_all_certificates_invalidated(MagicMock())
-        mock_cleanup.assert_called_once()
-        mock_get_secret.assert_called_once()
-        mock_delete_secret.assert_not_called()
-        assert self.harness.charm.unit.status.name == "waiting"
-        assert self.harness.charm.unit.status.message.startswith("waiting for relation")
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._certificate_revoked")
@@ -362,25 +275,21 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._update_ingress")
-    @patch("tls_relation.TLSRelationService.create_secret")
-    def test_certificate_available_no_relation(self, mock_create_secret, mock_update):
+    def test_certificate_available_no_relation(self, mock_update):
         event = CertificateAvailableEvent(
             certificate="", certificate_signing_request="", ca="", chain="", handle=None
         )
         self.harness.charm._on_certificate_available(event)
-        mock_create_secret.assert_not_called()
         mock_update.assert_not_called()
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._update_ingress")
-    @patch("tls_relation.TLSRelationService.create_secret")
-    def test_certificate_available(self, mock_create_secret, mock_update):
+    def test_certificate_available(self, mock_update):
         self.set_up_all_relations()
         event = CertificateAvailableEvent(
             certificate="", certificate_signing_request="", ca="", chain=["whatever"], handle=None
         )
         self.harness.charm._on_certificate_available(event)
-        mock_create_secret.assert_called_once()
         mock_update.assert_called_once()
 
     @pytest.mark.usefixtures("patch_load_incluster_config")

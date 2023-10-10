@@ -76,7 +76,7 @@ class K8sStub:
         """
         return list(self._get_resource_dict("service", namespace=namespace).values())
 
-    def get_secrets(self, namespace: str) -> List[kubernetes.client.V1Service]:
+    def get_secrets(self, namespace: str) -> List[kubernetes.client.V1Secret]:
         """Get service resources for the specified namespace.
 
         Args:
@@ -277,7 +277,7 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
         )
         monkeypatch.setattr(
             f"kubernetes.client.CoreV1Api.{action}_namespaced_secret",
-            partial(getattr(stub, f"{action}_namespaced_resource"), "service"),
+            partial(getattr(stub, f"{action}_namespaced_resource"), "secret"),
         )
         ingress_action = action.replace("patch", "replace")
         monkeypatch.setattr(

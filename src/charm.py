@@ -542,8 +542,6 @@ class NginxIngressCharm(CharmBase):
         )
         self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
-        self.cert_subject = "canonical.erya.dev"
-
         provide_nginx_route(
             charm=self,
             on_nginx_route_available=self._on_config_changed,
@@ -759,9 +757,10 @@ class NginxIngressCharm(CharmBase):
             tls_cert: TLS certificate
             tls_key: TLS private_key
         """
+        name = f"{self.app.name}-cert-tls-secret"
         api = self._core_v1_api()
         namespace = self._namespace
-        metadata = {"name": "cert-tls-secret", "namespace": namespace}
+        metadata = {"name": name, "namespace": namespace}
         data = {"tls.crt": tls_cert, "tls.key": tls_key}
         api_version = "v1"
         kind = "Secret"
@@ -773,20 +772,21 @@ class NginxIngressCharm(CharmBase):
             type="kubernetes.io/tls",
         )
         secrets = api.list_namespaced_secret(namespace=namespace)  # type: ignore[attr-defined]
-        if "cert-tls-secret" in [x.metadata.name for x in secrets.items]:
-            api.replace_namespaced_secret("cert-tls-secret", namespace, body)
+        if name in [x.metadata.name for x in secrets.items]:
+            api.patch_namespaced_secret(name, namespace, body)
             return
         api.create_namespaced_secret(namespace, body)
 
     def _delete_secret(self) -> None:
         """Delete kubernetes secret for TLS."""
+        name = f"{self.app.name}-cert-tls-secret"
         api = self._core_v1_api()
         namespace = self._namespace
         secrets = api.list_namespaced_secret(  # type: ignore[attr-defined]
             namespace=self._namespace
         )
-        if "cert-tls-secret" in [x.metadata.name for x in secrets.items]:
-            api.delete_namespaced_secret("cert-tls-secret", namespace)
+        if name in [x.metadata.name for x in secrets.items]:
+            api.delete_namespaced_secret(name, namespace)
             return
 
     def _has_required_fields(self, conf_or_rel: _ConfigOrRelation) -> bool:
@@ -1384,7 +1384,7 @@ class NginxIngressCharm(CharmBase):
         csr = generate_csr(
             private_key=secret.get_content()["key"].encode(),
             private_key_password=secret.get_content()["password"].encode(),
-            subject=self.cert_subject,
+            subject=self.config.get("service-hostname", self.app.name),
         )
         tls_certificates_relation.data[self.unit].update({"csr": csr.decode()})
         self.certificates.request_certificate_creation(certificate_signing_request=csr)
@@ -1426,7 +1426,7 @@ class NginxIngressCharm(CharmBase):
         new_csr = generate_csr(
             private_key=secret["key"].encode(),
             private_key_password=secret["password"].encode(),
-            subject=self.cert_subject,
+            subject=self.config.get("service-hostname", self.app.name),
         )
         self.certificates.request_certificate_renewal(
             old_certificate_signing_request=old_csr.encode(),
@@ -1453,7 +1453,7 @@ class NginxIngressCharm(CharmBase):
         new_csr = generate_csr(
             private_key=new_secret_data["key"].encode(),
             private_key_password=new_secret_data["password"].encode(),
-            subject=self.cert_subject,
+            subject=self.config.get("service-hostname", self.app.name),
         )
         self.certificates.request_certificate_renewal(
             old_certificate_signing_request=old_csr.encode(),

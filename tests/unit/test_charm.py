@@ -2328,14 +2328,17 @@ class TestCertificatesRelation(unittest.TestCase):
         self.harness.begin()
 
     @patch("charm.NginxIngressCharm._core_v1_api")
-    def test_replace_secret(self, mock_core_api):
+    def test_patch_secret(self, mock_core_api):
         mock_secret = MagicMock()
-        mock_secret.metadata.name = "cert-tls-secret"
+        mock_secret.metadata.name = f"{self.harness.charm.app.name}-cert-tls-secret"
         mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
-        mock_replace_secret = mock_core_api.return_value.replace_namespaced_secret
+        mock_patch_secret = mock_core_api.return_value.patch_namespaced_secret
         mock_create_secret = mock_core_api.return_value.create_namespaced_secret
         namespace = self.harness.charm._namespace
-        metadata = {"name": "cert-tls-secret", "namespace": namespace}
+        metadata = {
+            "name": f"{self.harness.charm.app.name}-cert-tls-secret",
+            "namespace": namespace,
+        }
         data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
         api_version = "v1"
         kind = "Secret"
@@ -2347,7 +2350,9 @@ class TestCertificatesRelation(unittest.TestCase):
             type="kubernetes.io/tls",
         )
         self.harness.charm._create_secret("tls-cert", "tls-key")
-        mock_replace_secret.assert_called_once_with("cert-tls-secret", namespace, body)
+        mock_patch_secret.assert_called_once_with(
+            f"{self.harness.charm.app.name}-cert-tls-secret", namespace, body
+        )
         mock_create_secret.assert_not_called()
 
     @patch("charm.NginxIngressCharm._core_v1_api")
@@ -2356,9 +2361,12 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_secret.metadata.name = "cert-tls-secret-other"
         mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
         mock_create_secret = mock_core_api.return_value.create_namespaced_secret
-        mock_replace_secret = mock_core_api.return_value.replace_namespaced_secret
+        mock_patch_secret = mock_core_api.return_value.patch_namespaced_secret
         namespace = self.harness.charm._namespace
-        metadata = {"name": "cert-tls-secret", "namespace": namespace}
+        metadata = {
+            "name": f"{self.harness.charm.app.name}-cert-tls-secret",
+            "namespace": namespace,
+        }
         data = {"tls.crt": "tls-cert", "tls.key": "tls-key"}
         api_version = "v1"
         kind = "Secret"
@@ -2371,17 +2379,19 @@ class TestCertificatesRelation(unittest.TestCase):
         )
         self.harness.charm._create_secret("tls-cert", "tls-key")
         mock_create_secret.assert_called_once_with(namespace, body)
-        mock_replace_secret.assert_not_called()
+        mock_patch_secret.assert_not_called()
 
     @patch("charm.NginxIngressCharm._core_v1_api")
     def test_delete_secret(self, mock_core_api):
         mock_secret = MagicMock()
-        mock_secret.metadata.name = "cert-tls-secret"
+        mock_secret.metadata.name = f"{self.harness.charm.app.name}-cert-tls-secret"
         mock_core_api.return_value.list_namespaced_secret.return_value.items = [mock_secret]
         mock_delete_secret = mock_core_api.return_value.delete_namespaced_secret
         namespace = self.harness.charm._namespace
         self.harness.charm._delete_secret()
-        mock_delete_secret.assert_called_once_with("cert-tls-secret", namespace)
+        mock_delete_secret.assert_called_once_with(
+            f"{self.harness.charm.app.name}-cert-tls-secret", namespace
+        )
 
     @patch("charm.NginxIngressCharm._core_v1_api")
     def test_delete_secret_no_deletion(self, mock_core_api):

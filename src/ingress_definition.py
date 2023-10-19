@@ -415,6 +415,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                     for u in cast(IngressPerAppProvider, self.ingress_provider)
                     .get_data(self.relation)
                     .units
+                    if u.ip is not None
                 ]
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc

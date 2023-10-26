@@ -29,5 +29,7 @@ assumes:
 provides:
   ingress:
     interface: ingress
+    limit: 1
   nginx-route:
     interface: nginx-route
+    limit: 1

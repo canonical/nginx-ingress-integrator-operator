@@ -30,7 +30,7 @@ header:
     - 'CODEOWNERS'
     - 'icon.svg'
     - 'LICENSE'
-    - 'tests/provider_charm/**'
+    - 'tests/integration/provider_charm/**'
     - 'trivy.yaml'
     - 'zap_rules.tsv'
     - 'lib/**'

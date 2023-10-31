@@ -10,3 +10,4 @@ jobs:
     with:
       channel: "1.20/stable"
       modules: '["test_ingress_relation"]'
+      juju-channel: 3.1/stable

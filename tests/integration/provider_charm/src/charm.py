@@ -20,7 +20,7 @@ CA_COMMON_NAME = "pizza"
 logger = logging.getLogger(__name__)
 
 
-class DummyTLSCertificatesProviderCharm(CharmBase):
+class SampleTLSCertificatesProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
         self.certificates = TLSCertificatesProvidesV2(self, "certificates")
@@ -190,4 +190,4 @@ class DummyTLSCertificatesProviderCharm(CharmBase):
 
 
 if __name__ == "__main__":
-    main(DummyTLSCertificatesProviderCharm)
+    main(SampleTLSCertificatesProviderCharm)

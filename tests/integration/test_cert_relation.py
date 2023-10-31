@@ -105,7 +105,7 @@ async def test_given_charms_deployed_when_relate_then_status_is_active(
 ):
     """
     arrange: dummy certificate charm has been deployed.
-    act: integate the dummy certificate provider charm to the given charm.
+    act: integrate the dummy certificate provider charm to the given charm.
     assert: the integration is successful.
     """
     await model.add_relation(TLS_CERTIFICATES_PROVIDER_APP_NAME, "ingress:certificates")

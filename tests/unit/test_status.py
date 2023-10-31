@@ -63,7 +63,9 @@ TEST_INCOMPLETE_INGRESS_PARAMS = [
     ),
     pytest.param(["port"], "waiting", "waiting for relation", id="missing-port"),
     pytest.param(["name"], "waiting", "waiting for relation", id="missing-name"),
-    pytest.param(["ip"], "waiting", "waiting for relation", id="missing-ip"),
+    pytest.param(
+        ["ip"], "blocked", "no endpoints are provided in ingress relation", id="missing-ip"
+    ),
 ]
 
 
@@ -91,8 +93,8 @@ def test_incomplete_ingress(
     ingress_relation.update_app_data(app_data)
     ingress_relation.update_unit_data(unit_data)
 
-    assert harness.charm.unit.status.name == status
     assert harness.charm.unit.status.message == message
+    assert harness.charm.unit.status.name == status
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
 
 

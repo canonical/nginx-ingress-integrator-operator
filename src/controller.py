@@ -256,7 +256,11 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
                         kubernetes.client.V1EndpointAddress(ip=endpoint)
                         for endpoint in definition.upstream_endpoints
                     ],
-                    ports=[kubernetes.client.CoreV1EndpointPort(port=definition.service_port)],
+                    ports=[
+                        kubernetes.client.CoreV1EndpointPort(
+                            name=definition.port_name, port=definition.service_port
+                        )
+                    ],
                 )
             ],
         )
@@ -358,7 +362,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             address_type=address_type,
             ports=[
                 kubernetes.client.DiscoveryV1EndpointPort(
-                    name=f"endpoint-tcp-{definition.service_port}",
+                    name=definition.port_name,
                     port=definition.service_port,
                 )
             ],
@@ -510,7 +514,7 @@ class ServiceController(ResourceController[kubernetes.client.V1Service]):
         spec = kubernetes.client.V1ServiceSpec(
             ports=[
                 kubernetes.client.V1ServicePort(
-                    name=f"tcp-{definition.service_port}",
+                    name=definition.port_name,
                     port=definition.service_port,
                     target_port=definition.service_port,
                 )

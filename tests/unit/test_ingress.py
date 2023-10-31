@@ -115,3 +115,20 @@ def test_update_ingress_ip(k8s_stub: K8sStub, harness: Harness, ingress_relation
     assert k8s_stub.get_endpoint_slices(TEST_NAMESPACE) == []
     assert k8s_stub.get_services(TEST_NAMESPACE) == []
     assert k8s_stub.get_ingresses(TEST_NAMESPACE) == []
+
+
+def test_port_name(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: port names are the same across all ingress related objects.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+    assert (
+        k8s_stub.get_services(TEST_NAMESPACE)[0].spec.ports[0].name
+        == k8s_stub.get_endpoints(TEST_NAMESPACE)[0].subsets[0].ports[0].name
+        == k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0].ports[0].name
+    )

@@ -8,6 +8,5 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
-      channel: "1.20-strict/stable"
+      channel: "1.20/stable"
       modules: '["test_ingress_relation"]'
-      juju-channel: 3.1/stable

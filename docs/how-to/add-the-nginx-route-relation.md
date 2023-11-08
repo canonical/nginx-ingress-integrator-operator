@@ -42,12 +42,12 @@ charmcraft pack
 ```
 This will build the charm inside an LXC container for you. The output will tell you the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
-Now let's add a juju model and deploy our charm.
+Next, add a juju model and deploy the charm.
 ```
 juju add-model ingress-test
 juju deploy ./my-charm_ubuntu-22.04-amd64.charm --resource httpbin-image=kennethreitz/httpbin
 ```
-To inspect the deployment, let's run `juju status`. Once the application reaches a status of `active idle` our application has been deployed. We can visit it in a browser by getting the IP address of the unit and then going to `http://${ip_of_unit}`.
+To inspect the deployment, run `juju status`. Once the application reaches a status of `active idle` our application has been deployed. We can visit it in a browser by getting the IP address of the unit and then going to `http://${ip_of_unit}`.
 
 Note that `juju status` includes two IP addresses, one for the "Unit" and one for the "App". Here's an example:
 ```
@@ -62,8 +62,6 @@ my-charm/0*  active    idle   10.1.129.139
 ```
 
 So we now have a working charm, great! However, what we don't currently have is ingress for our application configured. MicroK8s sets up networking in such a way that you can reach the IPs of units directly, but in a production Kubernetes cluster things don't work in this way. Also, we're visiting a cluster-internal IP address directly, what if we want a real hostname/IP address for this? We'll need to configure Ingress for this to be possible.
-
-Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
 
 ## Add the Nginx-route relation
 

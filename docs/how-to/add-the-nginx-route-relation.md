@@ -40,7 +40,7 @@ Now let's deploy the charm just to confirm everything is working as expected wit
 ```
 charmcraft pack
 ```
-This will build the charm inside an LXC container for you. The output will tell you the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
+This will build the charm inside an LXC container. The output is the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
 Next, add a juju model and deploy the charm.
 ```

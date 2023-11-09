@@ -61,7 +61,7 @@ Unit         Workload  Agent  Address       Ports  Message
 my-charm/0*  active    idle   10.1.129.139         
 ```
 
-So we now have a working charm, great! However, what we don't currently have is ingress for our application configured. MicroK8s sets up networking in such a way that you can reach the IPs of units directly, but in a production Kubernetes cluster things don't work in this way. Also, we're visiting a cluster-internal IP address directly, what if we want a real hostname/IP address for this? We'll need to configure Ingress for this to be possible.
+The steps thus far don't include ingress for the application. MicroK8s sets up networking in a way that unit IPs can be reached directly, but in a production Kubernetes cluster this is not the case. To allow real hostnames/IP addresses, configure Ingress.
 
 ## Add the Nginx-route relation
 

@@ -47,7 +47,7 @@ Add a juju model and deploy the charm.
 juju add-model ingress-test
 juju deploy ./my-charm_ubuntu-22.04-amd64.charm --resource httpbin-image=kennethreitz/httpbin
 ```
-To inspect the deployment, run `juju status`. Once the application reaches a status of `active idle` our application has been deployed. We can visit it in a browser by getting the IP address of the unit and then going to `http://${ip_of_unit}`.
+To inspect the deployment, run `juju status`. Once the application reaches a status of `active idle` the application has been deployed. Visit it in a browser by getting the IP address of the unit and then going to `http://${ip_of_unit}`.
 
 Note that `juju status` includes two IP addresses, one for the "Unit" and one for the "App". Here's an example:
 ```

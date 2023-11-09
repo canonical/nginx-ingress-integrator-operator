@@ -42,7 +42,7 @@ charmcraft pack
 ```
 This will build the charm inside an LXC container. The output is the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
-Next, add a juju model and deploy the charm.
+Add a juju model and deploy the charm.
 ```
 juju add-model ingress-test
 juju deploy ./my-charm_ubuntu-22.04-amd64.charm --resource httpbin-image=kennethreitz/httpbin

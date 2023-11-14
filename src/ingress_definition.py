@@ -580,3 +580,8 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
             use_endpoint_slice=essence.use_endpoint_slice,
             whitelist_source_range=essence.whitelist_source_range,
         )
+
+    @property
+    def port_name(self) -> str:
+        """Return the port name for ingress related objects."""
+        return f"tcp-{self.service_port}"

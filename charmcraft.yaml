@@ -8,6 +8,10 @@ bases:
     run-on:
     - name: "ubuntu"
       channel: "20.04"
+      architectures:
+        - amd64
+        - aarch64
+        - arm64
 parts:
   charm:
     build-packages:

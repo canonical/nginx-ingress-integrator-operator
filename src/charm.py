@@ -336,12 +336,13 @@ class NginxIngressCharm(CharmBase):
         if not tls_certificates_relation:
             event.fail("Certificates relation not created.")
             return
-        if tls_certificates_relation.data[self.app]["certificate"]:
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        if tls_rel_data["certificate"]:
             event.set_results(
                 {
-                    "certificate": tls_certificates_relation.data[self.app]["certificate"],
-                    "ca": tls_certificates_relation.data[self.app]["ca"],
-                    "chain": tls_certificates_relation.data[self.app]["chain"],
+                    "certificate": tls_rel_data["certificate"],
+                    "ca": tls_rel_data["ca"],
+                    "chain": tls_rel_data["chain"],
                 }
             )
         else:
@@ -366,7 +367,8 @@ class NginxIngressCharm(CharmBase):
             secret.set_content(private_key_dict)
         except ModelError:
             secret = self.app.add_secret(content=private_key_dict, label="private-key")
-        tls_certificates_relation.data[self.app].update(
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        tls_rel_data.update(
             {
                 "private_key_password": private_key_password.decode(),
                 "private_key": private_key.decode(),
@@ -399,7 +401,8 @@ class NginxIngressCharm(CharmBase):
             private_key_password=secret.get_content()["password"].encode(),
             subject=subject,
         )
-        tls_certificates_relation.data[self.app].update({"csr": csr.decode()})
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        tls_rel_data.update({"csr": csr.decode()})
         self.certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
@@ -413,9 +416,10 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        tls_certificates_relation.data[self.app].update({"certificate": event.certificate})
-        tls_certificates_relation.data[self.app].update({"ca": event.ca})
-        tls_certificates_relation.data[self.app].update({"chain": str(event.chain[0])})
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        tls_rel_data.update({"certificate": event.certificate})
+        tls_rel_data.update({"ca": event.ca})
+        tls_rel_data.update({"chain": str(event.chain[0])})
         secret = self.model.get_secret(label="private-key").get_content()
         self._tls_cert = event.certificate
         self._tls_key = secret["key"]
@@ -435,7 +439,8 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        old_csr = tls_certificates_relation.data[self.app].get("csr")
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        old_csr = tls_rel_data.get("csr")
         secret = self.model.get_secret(label="private-key").get_content()
         relation = self._get_relation()
         if relation is None:
@@ -453,7 +458,8 @@ class NginxIngressCharm(CharmBase):
             old_certificate_signing_request=old_csr.encode(),
             new_certificate_signing_request=new_csr,
         )
-        tls_certificates_relation.data[self.app].update({"csr": new_csr.decode()})
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        tls_rel_data.update({"csr": new_csr.decode()})
 
     def _certificate_revoked(self) -> None:
         """Handle TLS Certificate revocation."""
@@ -461,13 +467,14 @@ class NginxIngressCharm(CharmBase):
         if not tls_certificates_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             return
-        old_csr = tls_certificates_relation.data[self.app].get("csr")
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        old_csr = tls_rel_data.get("csr")
         secret = self.model.get_secret(label="private-key")
         secret.remove_all_revisions()
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
-        tls_certificates_relation.data[self.app].update(private_key_dict)
+        tls_rel_data.update(private_key_dict)
         new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
         new_secret.grant(tls_certificates_relation)
         new_secret_data = new_secret.get_content()
@@ -487,10 +494,11 @@ class NginxIngressCharm(CharmBase):
             old_certificate_signing_request=old_csr.encode(),
             new_certificate_signing_request=new_csr,
         )
-        tls_certificates_relation.data[self.app].update({"csr": new_csr.decode()})
-        tls_certificates_relation.data[self.app].pop("certificate")
-        tls_certificates_relation.data[self.app].pop("ca")
-        tls_certificates_relation.data[self.app].pop("chain")
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        tls_rel_data.update({"csr": new_csr.decode()})
+        tls_rel_data.pop("certificate")
+        tls_rel_data.pop("ca")
+        tls_rel_data.pop("chain")
 
     def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
         """Handle the TLS Certificate invalidation event.

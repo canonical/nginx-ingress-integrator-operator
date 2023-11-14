@@ -96,11 +96,15 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("charm.generate_csr")
+    @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.model.Model.get_secret")
     @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_cert_relation(self, mock_get_secret, mock_gen_csr, mock_gen_pass):
+    def test_cert_relation(
+        self, mock_get_secret, mock_update_ingress, mock_gen_csr, mock_gen_pass
+    ):
         mock_gen_pass.return_value = "123456789101"
         mock_gen_csr.return_value = b"csr"
+        self.harness.set_leader(True)
         self.set_up_all_relations()
         mock_gen_pass.assert_called_once()
         mock_gen_csr.assert_called_once()
@@ -120,14 +124,18 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("ops.model.Model.get_secret")
-    def test_all_certificates_invalidated(self, mock_get_secret):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_all_certificates_invalidated(self, mock_ingress_update, mock_get_secret):
+        self.harness.set_leader(True)
         self.set_up_nginx_relation()
         self.harness.charm._on_all_certificates_invalidated(MagicMock())
         mock_get_secret.assert_called_once()
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._certificate_revoked")
-    def test_on_certificate_invalidated_revoke(self, mock_cert_revoked):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_on_certificate_invalidated_revoke(self, mock_update_ingress, mock_cert_revoked):
+        self.harness.set_leader(True)
         self.harness.add_relation("certificates", "certificates")
         event = CertificateInvalidatedEvent(
             reason="revoked",
@@ -142,7 +150,9 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._on_certificate_expiring")
-    def test_on_certificate_invalidated_expire(self, mock_cert_expired):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_on_certificate_invalidated_expire(self, mock_update_ingress, mock_cert_expired):
+        self.harness.set_leader(True)
         self.harness.add_relation("certificates", "certificates")
         event = CertificateInvalidatedEvent(
             reason="expired",
@@ -180,9 +190,11 @@ class TestCertificatesRelation(unittest.TestCase):
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_renewal"
     )
+    @patch("charm.NginxIngressCharm._update_ingress")
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_certificate_revoked(
         self,
+        mock_update_ingress,
         mock_cert_renewal,
         mock_cert_create,
         mock_get_secret,
@@ -193,11 +205,12 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_gen_csr.return_value = b"csr"
         mock_gen_key.return_value = b"key"
         mock_gen_password.return_value = "password"
+        self.harness.set_leader(True)
         self.set_up_nginx_relation()
         relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
         self.harness.update_relation_data(
             relation_id=relation_id,
-            app_or_unit=self.harness.charm.unit.name,
+            app_or_unit=self.harness.charm.app.name,
             key_values={
                 "csr": "whatever",
                 "certificate": "whatever",
@@ -243,7 +256,9 @@ class TestCertificatesRelation(unittest.TestCase):
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_renewal"
     )
-    def test_certificate_expiring(self, mock_cert_renewal):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_certificate_expiring(self, mock_ingress_update, mock_cert_renewal):
+        self.harness.set_leader(True)
         self.set_up_all_relations()
         event = CertificateInvalidatedEvent(
             reason="expired",
@@ -285,12 +300,13 @@ class TestCertificatesRelation(unittest.TestCase):
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_available(self, mock_update):
+        self.harness.set_leader(True)
         self.set_up_all_relations()
         event = CertificateAvailableEvent(
             certificate="", certificate_signing_request="", ca="", chain=["whatever"], handle=None
         )
         self.harness.charm._on_certificate_available(event)
-        mock_update.assert_called_once()
+        assert mock_update.call_count == 3
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.generate_csr")
@@ -298,11 +314,15 @@ class TestCertificatesRelation(unittest.TestCase):
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
     )
-    def test_certificate_relation_joined(self, mock_create_cert, mock_gen_csr):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_certificate_relation_joined(
+        self, mock_ingress_update, mock_create_cert, mock_gen_csr
+    ):
         mock_gen_csr.return_value = b"csr"
         event = CertificateAvailableEvent(
             certificate="", certificate_signing_request="", ca="", chain="", handle=None
         )
+        self.harness.set_leader(True)
         self.set_up_all_relations()
         self.harness.charm._on_certificates_relation_joined(event)
         assert mock_create_cert.call_count == 2
@@ -315,9 +335,11 @@ class TestCertificatesRelation(unittest.TestCase):
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
     )
+    @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_relation_joined_no_nginx_relation(
-        self, mock_create_cert, mock_gen_csr, mock_cleanup
+        self, mock_ingress_update, mock_create_cert, mock_gen_csr, mock_cleanup
     ):
+        self.harness.set_leader(True)
         self.set_up_cert_relation()
         self.harness.charm._on_certificates_relation_joined(MagicMock())
         mock_create_cert.assert_not_called()
@@ -342,7 +364,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._certificate_revoked")
-    def test_config_changed_cert_relation_no_update(self, mock_cert_revoked):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_config_changed_cert_relation_no_update(self, mock_update_ingress, mock_cert_revoked):
         """
         arrange: given the harnessed charm
         act: when we change the service name, port and hostname config
@@ -350,7 +373,7 @@ class TestCertificatesRelation(unittest.TestCase):
         the hostname to a non-empty string, and the status message is appropriate.
         """
         with mock.patch.object(kubernetes.client, "NetworkingV1Api") as mock_networking_v1_api:
-            self.harness.set_leader(False)
+            self.harness.set_leader(True)
             mock_ingress = mock.Mock()
             mock_ingress.spec.rules = [
                 kubernetes.client.V1IngressRule(
@@ -442,16 +465,18 @@ class TestCertificatesRelation(unittest.TestCase):
             assert not result
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
-    def test_get_certificate_action(self):
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_get_certificate_action(self, mock_update_ingress):
         """
         arrange: an email and a password
         act: when the _on_add_admin_action method is executed
         assert: the indico command to add the user is executed with the appropriate parameters.
         """
+        self.harness.set_leader(True)
         _, tls_rel_id = self.set_up_all_relations()
         self.harness.update_relation_data(
             relation_id=tls_rel_id,
-            app_or_unit=self.harness.charm.unit.name,
+            app_or_unit=self.harness.charm.app.name,
             key_values={
                 "csr": "whatever",
                 "certificate": "whatever",

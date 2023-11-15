@@ -12,6 +12,10 @@ from ops.model import Relation, Unit
 class TLSRelationService:
     """TLS Relation service class."""
 
+    def __init__(self):
+        self.cert: Union[str, None] = None
+        self.key: Union[str, None] = None
+
     def generate_password(self) -> str:
         """Generate a random 12 character password.
 

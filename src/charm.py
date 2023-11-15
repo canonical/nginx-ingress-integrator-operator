@@ -65,8 +65,6 @@ class NginxIngressCharm(CharmBase):
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
         self._tls = TLSRelationService()
-        self._tls_cert: Union[str, None] = None
-        self._tls_key: Union[str, None] = None
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
@@ -189,8 +187,8 @@ class NginxIngressCharm(CharmBase):
                 model=self.model,
                 config=self.config,
                 relation=relation,
-                tls_cert=self._tls_cert,
-                tls_key=self._tls_key,
+                tls_cert=self._tls.cert,
+                tls_key=self._tls.key,
             )
         elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
@@ -198,8 +196,8 @@ class NginxIngressCharm(CharmBase):
                 config=self.config,
                 relation=relation,
                 ingress_provider=self._ingress_provider,
-                tls_cert=self._tls_cert,
-                tls_key=self._tls_key,
+                tls_cert=self._tls.cert,
+                tls_key=self._tls.key,
             )
         else:
             raise ValueError(f"Invalid relation: {relation.name}")
@@ -368,12 +366,7 @@ class NginxIngressCharm(CharmBase):
                 secret.set_content(private_key_dict)
             except ModelError:
                 secret = self.app.add_secret(content=private_key_dict, label="private-key")
-        tls_rel_data.update(
-            {
-                "private_key_password": private_key_password.decode(),
-                "private_key": private_key.decode(),
-            }
-        )
+        tls_rel_data.update(private_key_dict)
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         """Handle the TLS Certificate relation joined event.
@@ -399,8 +392,8 @@ class NginxIngressCharm(CharmBase):
             private_key_dict["key"] = secret.get_content()["key"].encode()
             private_key_dict["password"] = secret.get_content()["password"].encode()
         else:
-            private_key_dict["key"] = tls_rel_data.get("private_key").encode()
-            private_key_dict["password"] = tls_rel_data.get("private_key_password").encode()
+            private_key_dict["key"] = tls_rel_data.get("key").encode()
+            private_key_dict["password"] = tls_rel_data.get("password").encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         csr = generate_csr(
@@ -431,9 +424,9 @@ class NginxIngressCharm(CharmBase):
             secret = self.model.get_secret(label="private-key")
             private_key = secret.get_content()["key"]
         else:
-            private_key = tls_rel_data.get("private_key")
-        self._tls_cert = event.certificate
-        self._tls_key = private_key
+            private_key = tls_rel_data.get("key")
+        self._tls.cert = event.certificate
+        self._tls.key = private_key
         self._update_ingress()
         self.unit.status = ActiveStatus()
 
@@ -464,8 +457,8 @@ class NginxIngressCharm(CharmBase):
             private_key_dict["key"] = secret.get_content()["key"].encode()
             private_key_dict["password"] = secret.get_content()["password"].encode()
         else:
-            private_key_dict["key"] = tls_rel_data.get("private_key").encode()
-            private_key_dict["password"] = tls_rel_data.get("private_key_password").encode()
+            private_key_dict["key"] = tls_rel_data.get("key").encode()
+            private_key_dict["password"] = tls_rel_data.get("password").encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         new_csr = generate_csr(

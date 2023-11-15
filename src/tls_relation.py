@@ -12,7 +12,8 @@ from ops.model import Relation, Unit
 class TLSRelationService:
     """TLS Relation service class."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Init method for the class."""
         self.cert: Union[str, None] = None
         self.key: Union[str, None] = None
 

@@ -23,6 +23,7 @@ from charms.tls_certificates_interface.v2.tls_certificates import (
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops.charm import ActionEvent, CharmBase, RelationCreatedEvent, RelationJoinedEvent
+from ops.jujuversion import JujuVersion
 from ops.main import main
 from ops.model import (
     ActiveStatus,
@@ -253,15 +254,13 @@ class NginxIngressCharm(CharmBase):
         if definition.use_endpoint_slice:
             endpoints = endpoints_controller.define_resource(definition=definition)
             endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
-        if not definition.tls_secret_name:
-            secret = secret_controller.define_resource(definition=definition)
+        secret = secret_controller.define_resource(definition=definition)
         service = service_controller.define_resource(definition=definition)
         ingress = ingress_controller.define_resource(definition=definition)
         endpoints_controller.cleanup_resources(exclude=endpoints)
         endpoint_slice_controller.cleanup_resources(exclude=endpoint_slice)
         service_controller.cleanup_resources(exclude=service)
-        if not definition.tls_secret_name:
-            secret_controller.cleanup_resources(exclude=secret)
+        secret_controller.cleanup_resources(exclude=secret)
         ingress_controller.cleanup_resources(exclude=ingress)
 
     def _cleanup(self) -> None:
@@ -269,7 +268,7 @@ class NginxIngressCharm(CharmBase):
         self._get_endpoints_controller(namespace=self.model.name).cleanup_resources()
         self._get_endpoint_slice_controller(namespace=self.model.name).cleanup_resources()
         self._get_service_controller(namespace=self.model.name).cleanup_resources()
-        # self._get_secret_controller(namespace=self.model.name).cleanup_resources()
+        self._get_secret_controller(namespace=self.model.name).cleanup_resources()
         self._get_ingress_controller(namespace=self.model.name).cleanup_resources()
 
     def _update_ingress(self) -> None:
@@ -362,12 +361,13 @@ class NginxIngressCharm(CharmBase):
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
-        try:
-            secret = self.model.get_secret(label="private-key")
-            secret.set_content(private_key_dict)
-        except ModelError:
-            secret = self.app.add_secret(content=private_key_dict, label="private-key")
         tls_rel_data = tls_certificates_relation.data[self.app]
+        if JujuVersion.from_environ().has_secrets:
+            try:
+                secret = self.model.get_secret(label="private-key")
+                secret.set_content(private_key_dict)
+            except ModelError:
+                secret = self.app.add_secret(content=private_key_dict, label="private-key")
         tls_rel_data.update(
             {
                 "private_key_password": private_key_password.decode(),
@@ -386,22 +386,28 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-
-        secret = self.model.get_secret(label="private-key")
-        secret.grant(tls_certificates_relation)
         relation = self._get_relation()
         if relation is None:
             self._cleanup()
             self.unit.status = WaitingStatus("waiting for relation")
             return
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        private_key_dict = {}
+        if JujuVersion.from_environ().has_secrets:
+            secret = self.model.get_secret(label="private-key")
+            secret.grant(tls_certificates_relation)
+            private_key_dict["key"] = secret.get_content()["key"].encode()
+            private_key_dict["password"] = secret.get_content()["password"].encode()
+        else:
+            private_key_dict["key"] = tls_rel_data.get("private_key").encode()
+            private_key_dict["password"] = tls_rel_data.get("private_key_password").encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         csr = generate_csr(
-            private_key=secret.get_content()["key"].encode(),
-            private_key_password=secret.get_content()["password"].encode(),
+            private_key=private_key_dict["key"],
+            private_key_password=private_key_dict["password"],
             subject=subject,
         )
-        tls_rel_data = tls_certificates_relation.data[self.app]
         tls_rel_data.update({"csr": csr.decode()})
         self.certificates.request_certificate_creation(certificate_signing_request=csr)
 
@@ -420,9 +426,14 @@ class NginxIngressCharm(CharmBase):
         tls_rel_data.update({"certificate": event.certificate})
         tls_rel_data.update({"ca": event.ca})
         tls_rel_data.update({"chain": str(event.chain[0])})
-        secret = self.model.get_secret(label="private-key").get_content()
+        private_key = ""
+        if JujuVersion.from_environ().has_secrets:
+            secret = self.model.get_secret(label="private-key")
+            private_key = secret.get_content()["key"]
+        else:
+            private_key = tls_rel_data.get("private_key")
         self._tls_cert = event.certificate
-        self._tls_key = secret["key"]
+        self._tls_key = private_key
         self._update_ingress()
         self.unit.status = ActiveStatus()
 
@@ -439,19 +450,27 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        old_csr = tls_rel_data.get("csr")
-        secret = self.model.get_secret(label="private-key").get_content()
         relation = self._get_relation()
         if relation is None:
             self._cleanup()
             self.unit.status = WaitingStatus("waiting for relation")
             return
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        old_csr = tls_rel_data.get("csr")
+        private_key_dict = {}
+        if JujuVersion.from_environ().has_secrets:
+            secret = self.model.get_secret(label="private-key")
+            secret.grant(tls_certificates_relation)
+            private_key_dict["key"] = secret.get_content()["key"].encode()
+            private_key_dict["password"] = secret.get_content()["password"].encode()
+        else:
+            private_key_dict["key"] = tls_rel_data.get("private_key").encode()
+            private_key_dict["password"] = tls_rel_data.get("private_key_password").encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         new_csr = generate_csr(
-            private_key=secret["key"].encode(),
-            private_key_password=secret["password"].encode(),
+            private_key=private_key_dict["key"],
+            private_key_password=private_key_dict["password"],
             subject=subject,
         )
         self.certificates.request_certificate_renewal(
@@ -467,10 +486,19 @@ class NginxIngressCharm(CharmBase):
         if not tls_certificates_relation:
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             return
+        relation = self._get_relation()
+        if relation is None:
+            self._cleanup()
+            self.unit.status = WaitingStatus("waiting for relation")
+            return
         tls_rel_data = tls_certificates_relation.data[self.app]
         old_csr = tls_rel_data.get("csr")
-        secret = self.model.get_secret(label="private-key")
-        secret.remove_all_revisions()
+        if JujuVersion.from_environ().has_secrets:
+            secret = self.model.get_secret(label="private-key")
+            secret.remove_all_revisions()
+        else:
+            tls_rel_data.pop("private_key")
+            tls_rel_data.pop("private_key_password")
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
@@ -478,11 +506,6 @@ class NginxIngressCharm(CharmBase):
         new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
         new_secret.grant(tls_certificates_relation)
         new_secret_data = new_secret.get_content()
-        relation = self._get_relation()
-        if relation is None:
-            self._cleanup()
-            self.unit.status = WaitingStatus("waiting for relation")
-            return
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         new_csr = generate_csr(
@@ -523,8 +546,9 @@ class NginxIngressCharm(CharmBase):
         Args:
             _: The event that fires this method.
         """
-        secret = self.model.get_secret(label="private-key")
-        secret.remove_all_revisions()
+        if JujuVersion.from_environ().has_secrets:
+            secret = self.model.get_secret(label="private-key")
+            secret.remove_all_revisions()
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -98,8 +98,26 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.generate_csr")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.model.Model.get_secret")
+    @patch("ops.JujuVersion.has_secrets")
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_cert_relation(
+        self, mock_has_secrets, mock_get_secret, mock_update_ingress, mock_gen_csr, mock_gen_pass
+    ):
+        mock_gen_pass.return_value = "123456789101"
+        mock_gen_csr.return_value = b"csr"
+        mock_has_secrets.return_value = True
+        self.harness.set_leader(True)
+        self.set_up_all_relations()
+        mock_gen_pass.assert_called_once()
+        mock_gen_csr.assert_called_once()
+        assert mock_get_secret.call_count == 2
+
+    @patch("tls_relation.TLSRelationService.generate_password")
+    @patch("charm.generate_csr")
+    @patch("charm.NginxIngressCharm._update_ingress")
+    @patch("ops.model.Model.get_secret")
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    def test_cert_relation_no_secrets(
         self, mock_get_secret, mock_update_ingress, mock_gen_csr, mock_gen_pass
     ):
         mock_gen_pass.return_value = "123456789101"
@@ -108,7 +126,7 @@ class TestCertificatesRelation(unittest.TestCase):
         self.set_up_all_relations()
         mock_gen_pass.assert_called_once()
         mock_gen_csr.assert_called_once()
-        assert mock_get_secret.call_count == 2
+        mock_get_secret.assert_not_called()
 
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("charm.generate_csr")
@@ -123,9 +141,29 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_secret.assert_not_called()
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_all_certificates_invalidated_no_secret(self, mock_ingress_update):
+        self.harness.set_leader(True)
+        self.set_up_nginx_relation()
+        relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={
+                "private_key": "whatever",
+                "private_key_password": "whatever",
+            },
+        )
+        self.harness.charm._on_all_certificates_invalidated(MagicMock())
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._update_ingress")
-    def test_all_certificates_invalidated(self, mock_ingress_update, mock_get_secret):
+    @patch("ops.JujuVersion.has_secrets")
+    def test_all_certificates_invalidated(
+        self, mock_has_secrets, mock_ingress_update, mock_get_secret
+    ):
+        mock_has_secrets.return_value = True
         self.harness.set_leader(True)
         self.set_up_nginx_relation()
         self.harness.charm._on_all_certificates_invalidated(MagicMock())
@@ -191,8 +229,57 @@ class TestCertificatesRelation(unittest.TestCase):
         ".TLSCertificatesRequiresV2.request_certificate_renewal"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
+    @patch("ops.JujuVersion.has_secrets")
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_certificate_revoked(
+        self,
+        mock_has_secrets,
+        mock_update_ingress,
+        mock_cert_renewal,
+        mock_cert_create,
+        mock_get_secret,
+        mock_gen_key,
+        mock_gen_csr,
+        mock_gen_password,
+    ):
+        mock_gen_csr.return_value = b"csr"
+        mock_gen_key.return_value = b"key"
+        mock_gen_password.return_value = "password"
+        mock_has_secrets.return_value = True
+        self.harness.set_leader(True)
+        self.set_up_nginx_relation()
+        relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+                "private_key": "whatever",
+                "private_key_password": "whatever",
+            },
+        )
+        self.harness.charm._certificate_revoked()
+        mock_cert_renewal.assert_called_once()
+        mock_get_secret.assert_called_once()
+        mock_gen_csr.assert_called_once()
+        mock_gen_key.assert_called_once()
+        mock_gen_password.assert_called_once()
+
+    @patch("tls_relation.TLSRelationService.generate_password")
+    @patch("charm.generate_csr")
+    @patch("charm.generate_private_key")
+    @patch("ops.model.Model.get_secret")
+    @patch("charm.NginxIngressCharm._on_certificates_relation_created")
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    @patch("charm.NginxIngressCharm._update_ingress")
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    def test_certificate_revoked_no_secrets(
         self,
         mock_update_ingress,
         mock_cert_renewal,
@@ -216,11 +303,13 @@ class TestCertificatesRelation(unittest.TestCase):
                 "certificate": "whatever",
                 "ca": "whatever",
                 "chain": "whatever",
+                "private_key": "whatever",
+                "private_key_password": "whatever",
             },
         )
         self.harness.charm._certificate_revoked()
         mock_cert_renewal.assert_called_once()
-        mock_get_secret.assert_called_once()
+        mock_get_secret.assert_not_called()
         mock_gen_csr.assert_called_once()
         mock_gen_key.assert_called_once()
         mock_gen_password.assert_called_once()
@@ -235,7 +324,49 @@ class TestCertificatesRelation(unittest.TestCase):
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_renewal"
     )
-    def test_certificate_revoked_no_relation(
+    @patch("charm.NginxIngressCharm._cleanup")
+    def test_certificate_revoked_no_cert_relation(
+        self,
+        mock_cleanup,
+        mock_cert_renewal,
+        mock_cert_create,
+        mock_get_secret,
+        mock_gen_key,
+        mock_gen_csr,
+        mock_gen_password,
+    ):
+        relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
+        self.harness.update_relation_data(
+            relation_id=relation_id,
+            app_or_unit=self.harness.charm.app.name,
+            key_values={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+                "private_key": "whatever",
+                "private_key_password": "whatever",
+            },
+        )
+        self.harness.charm._certificate_revoked()
+        mock_cert_renewal.assert_not_called()
+        mock_get_secret.assert_not_called()
+        mock_gen_csr.assert_not_called()
+        mock_gen_key.assert_not_called()
+        mock_gen_password.assert_not_called()
+        mock_cleanup.asset_called_once()
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("tls_relation.TLSRelationService.generate_password")
+    @patch("charm.generate_csr")
+    @patch("charm.generate_private_key")
+    @patch("ops.model.Model.get_secret")
+    @patch("charm.NginxIngressCharm._on_certificates_relation_created")
+    @patch(
+        "charms.tls_certificates_interface.v2.tls_certificates"
+        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+    )
+    def test_certificate_revoked_no_nginx_relation(
         self,
         mock_cert_renewal,
         mock_cert_create,

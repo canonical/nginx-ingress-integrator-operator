@@ -359,14 +359,15 @@ class NginxIngressCharm(CharmBase):
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
-        tls_rel_data = tls_certificates_relation.data[self.app]
         if JujuVersion.from_environ().has_secrets:
             try:
                 secret = self.model.get_secret(label="private-key")
                 secret.set_content(private_key_dict)
             except ModelError:
                 secret = self.app.add_secret(content=private_key_dict, label="private-key")
-        tls_rel_data.update(private_key_dict)
+        self._tls.update_relation_data_fields(
+            private_key_dict, tls_certificates_relation, self.app
+        )
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         """Handle the TLS Certificate relation joined event.
@@ -384,7 +385,6 @@ class NginxIngressCharm(CharmBase):
             self._cleanup()
             self.unit.status = WaitingStatus("waiting for relation")
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
         private_key_dict = {}
         if JujuVersion.from_environ().has_secrets:
             secret = self.model.get_secret(label="private-key")
@@ -392,8 +392,12 @@ class NginxIngressCharm(CharmBase):
             private_key_dict["key"] = secret.get_content()["key"].encode()
             private_key_dict["password"] = secret.get_content()["password"].encode()
         else:
-            private_key_dict["key"] = tls_rel_data.get("key").encode()
-            private_key_dict["password"] = tls_rel_data.get("password").encode()
+            private_key_dict["key"] = self._tls.get_relation_data_field(
+                "key", tls_certificates_relation, self.app
+            ).encode()
+            private_key_dict["password"] = self._tls.get_relation_data_field(
+                "password", tls_certificates_relation, self.app
+            ).encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         csr = generate_csr(
@@ -401,7 +405,9 @@ class NginxIngressCharm(CharmBase):
             private_key_password=private_key_dict["password"],
             subject=subject,
         )
-        tls_rel_data.update({"csr": csr.decode()})
+        self._tls.update_relation_data_fields(
+            {"csr": csr.decode()}, tls_certificates_relation, self.app
+        )
         self.certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
@@ -415,16 +421,19 @@ class NginxIngressCharm(CharmBase):
             self.unit.status = WaitingStatus("Waiting for peer relation to be created")
             event.defer()
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        tls_rel_data.update({"certificate": event.certificate})
-        tls_rel_data.update({"ca": event.ca})
-        tls_rel_data.update({"chain": str(event.chain[0])})
+        self._tls.update_relation_data_fields(
+            {"certificate": event.certificate, "ca": event.ca, "chain": str(event.chain[0])},
+            tls_certificates_relation,
+            self.app,
+        )
         private_key = ""
         if JujuVersion.from_environ().has_secrets:
             secret = self.model.get_secret(label="private-key")
             private_key = secret.get_content()["key"]
         else:
-            private_key = tls_rel_data.get("key")
+            private_key = self._tls.get_relation_data_field(
+                "key", tls_certificates_relation, self.app
+            )
         self._tls.cert = event.certificate
         self._tls.key = private_key
         self._update_ingress()
@@ -448,8 +457,7 @@ class NginxIngressCharm(CharmBase):
             self._cleanup()
             self.unit.status = WaitingStatus("waiting for relation")
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        old_csr = tls_rel_data.get("csr")
+        old_csr = self._tls.get_relation_data_field("csr", tls_certificates_relation, self.app)
         private_key_dict = {}
         if JujuVersion.from_environ().has_secrets:
             secret = self.model.get_secret(label="private-key")
@@ -457,8 +465,12 @@ class NginxIngressCharm(CharmBase):
             private_key_dict["key"] = secret.get_content()["key"].encode()
             private_key_dict["password"] = secret.get_content()["password"].encode()
         else:
-            private_key_dict["key"] = tls_rel_data.get("key").encode()
-            private_key_dict["password"] = tls_rel_data.get("password").encode()
+            private_key_dict["key"] = self._tls.get_relation_data_field(
+                "key", tls_certificates_relation, self.app
+            ).encode()
+            private_key_dict["password"] = self._tls.get_relation_data_field(
+                "password", tls_certificates_relation, self.app
+            ).encode()
         definition = self._get_definition_from_relation(relation)
         subject = definition.service_hostname if definition is not None else self.model.name
         new_csr = generate_csr(
@@ -470,8 +482,9 @@ class NginxIngressCharm(CharmBase):
             old_certificate_signing_request=old_csr.encode(),
             new_certificate_signing_request=new_csr,
         )
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        tls_rel_data.update({"csr": new_csr.decode()})
+        self._tls.update_relation_data_fields(
+            {"csr": new_csr.decode()}, tls_certificates_relation, self.app
+        )
 
     def _certificate_revoked(self) -> None:
         """Handle TLS Certificate revocation."""
@@ -484,18 +497,20 @@ class NginxIngressCharm(CharmBase):
             self._cleanup()
             self.unit.status = WaitingStatus("waiting for relation")
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        old_csr = tls_rel_data.get("csr")
+        old_csr = self._tls.get_relation_data_field("csr", tls_certificates_relation, self.app)
         if JujuVersion.from_environ().has_secrets:
             secret = self.model.get_secret(label="private-key")
             secret.remove_all_revisions()
         else:
-            tls_rel_data.pop("private_key")
-            tls_rel_data.pop("private_key_password")
+            self._tls.pop_relation_data_fields(
+                ["key", "password"], tls_certificates_relation, self.app
+            )
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
-        tls_rel_data.update(private_key_dict)
+        self._tls.update_relation_data_fields(
+            private_key_dict, tls_certificates_relation, self.app
+        )
         new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
         new_secret.grant(tls_certificates_relation)
         new_secret_data = new_secret.get_content()
@@ -510,11 +525,12 @@ class NginxIngressCharm(CharmBase):
             old_certificate_signing_request=old_csr.encode(),
             new_certificate_signing_request=new_csr,
         )
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        tls_rel_data.update({"csr": new_csr.decode()})
-        tls_rel_data.pop("certificate")
-        tls_rel_data.pop("ca")
-        tls_rel_data.pop("chain")
+        self._tls.update_relation_data_fields(
+            {"csr": new_csr.decode()}, tls_certificates_relation, self.app
+        )
+        self._tls.pop_relation_data_fields(
+            ["ca", "certificate", "chain"], tls_certificates_relation, self.app
+        )
 
     def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
         """Handle the TLS Certificate invalidation event.

@@ -6,7 +6,7 @@ import string
 from typing import Union
 
 import kubernetes
-from ops.model import Relation, Unit
+from ops.model import Application, Relation, Unit
 
 
 class TLSRelationService:
@@ -51,3 +51,45 @@ class TLSRelationService:
             if csr and service_hostname not in [x.spec.rules[0].host for x in ingresses.items]:
                 return True
         return False
+
+    def update_relation_data_fields(
+        self, relation_fields: dict, tls_relation: Relation, app: Application
+    ) -> None:
+        """Update a dict of items from the app relation databag.
+
+        Args:
+            relation_fields: items to update
+            tls_relation: TLS certificates relation
+            app: Charm application
+        """
+        for key, value in relation_fields.items():
+            tls_relation.data[app].update({key: value})
+
+    def pop_relation_data_fields(
+        self, relation_fields: list, tls_relation: Relation, app: Application
+    ) -> None:
+        """Pop a list of items from the app relation databag.
+
+        Args:
+            relation_fields: items to pop
+            tls_relation: TLS certificates relation
+            app: Charm application
+        """
+        for item in relation_fields:
+            tls_relation.data[app].pop(item)
+
+    def get_relation_data_field(
+        self, relation_field: str, tls_relation: Relation, app: Application
+    ) -> str:
+        """Get an item from the app relation databag.
+
+        Args:
+            relation_field: items to pop
+            tls_relation: TLS certificates relation
+            app: Charm application
+
+        Returns:
+            The value from the field.
+        """
+        field_value = tls_relation.data[app].get(relation_field)
+        return field_value

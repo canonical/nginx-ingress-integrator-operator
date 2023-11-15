@@ -303,8 +303,8 @@ class TestCertificatesRelation(unittest.TestCase):
                 "certificate": "whatever",
                 "ca": "whatever",
                 "chain": "whatever",
-                "private_key": "whatever",
-                "private_key_password": "whatever",
+                "key": "whatever",
+                "password": "whatever",
             },
         )
         self.harness.charm._certificate_revoked()

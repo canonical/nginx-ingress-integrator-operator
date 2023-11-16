@@ -51,14 +51,27 @@ class TestCertificatesRelation(unittest.TestCase):
         tls_rel_id = self.harness.add_relation(
             "certificates",
             "self-signed-certificates",
-            unit_data={
+            app_data={
                 "csr": "whatever",
                 "certificate": "whatever",
                 "ca": "whatever",
                 "chain": "whatever",
             },
         )
-        return nginx_route_rel_id, tls_rel_id
+
+        peer_rel_id = self.harness.add_relation(
+            "nginx-peers",
+            "nginx-ingress-integrator",
+            app_data={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+                "key": "whatever",
+                "password": "whatever",
+            },
+        )
+        return nginx_route_rel_id, tls_rel_id, peer_rel_id
 
     def set_up_nginx_relation(self):
         """Set up nginx-route relation."""
@@ -79,11 +92,26 @@ class TestCertificatesRelation(unittest.TestCase):
         self.harness.add_relation(
             "certificates",
             "self-signed-certificates",
-            unit_data={
+            app_data={
                 "csr": "whatever",
                 "certificate": "whatever",
                 "ca": "whatever",
                 "chain": "whatever",
+            },
+        )
+    
+    def set_up_peer_relation(self):
+        """Set up certificates relation."""
+        self.harness.add_relation(
+            "nginx-peers",
+            "nginx-ingress-integrator",
+            app_data={
+                "csr": "whatever",
+                "certificate": "whatever",
+                "ca": "whatever",
+                "chain": "whatever",
+                "key": "whatever",
+                "password": "whatever",
             },
         )
 
@@ -293,6 +321,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_gen_key.return_value = b"key"
         mock_gen_password.return_value = "password"
         self.harness.set_leader(True)
+        self.set_up_peer_relation()
         self.set_up_nginx_relation()
         relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
         self.harness.update_relation_data(
@@ -604,7 +633,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: the indico command to add the user is executed with the appropriate parameters.
         """
         self.harness.set_leader(True)
-        _, tls_rel_id = self.set_up_all_relations()
+        _, tls_rel_id, _ = self.set_up_all_relations()
         self.harness.update_relation_data(
             relation_id=tls_rel_id,
             app_or_unit=self.harness.charm.app.name,

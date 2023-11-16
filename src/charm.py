@@ -368,6 +368,9 @@ class NginxIngressCharm(CharmBase):
         self._tls.update_relation_data_fields(
             private_key_dict, tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields(private_key_dict, peer_relation, self.app)
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         """Handle the TLS Certificate relation joined event.
@@ -408,6 +411,9 @@ class NginxIngressCharm(CharmBase):
         self._tls.update_relation_data_fields(
             {"csr": csr.decode()}, tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields({"csr": csr.decode()}, peer_relation, self.app)
         self.certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
@@ -426,6 +432,13 @@ class NginxIngressCharm(CharmBase):
             tls_certificates_relation,
             self.app,
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields(
+                {"certificate": event.certificate, "ca": event.ca, "chain": str(event.chain[0])},
+                peer_relation,
+                self.app,
+            )
         private_key = ""
         if JujuVersion.from_environ().has_secrets:
             secret = self.model.get_secret(label="private-key")
@@ -485,6 +498,11 @@ class NginxIngressCharm(CharmBase):
         self._tls.update_relation_data_fields(
             {"csr": new_csr.decode()}, tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields(
+                {"csr": new_csr.decode()}, peer_relation, self.app
+            )
 
     def _certificate_revoked(self) -> None:
         """Handle TLS Certificate revocation."""
@@ -505,12 +523,18 @@ class NginxIngressCharm(CharmBase):
             self._tls.pop_relation_data_fields(
                 ["key", "password"], tls_certificates_relation, self.app
             )
+            peer_relation = self.model.get_relation("nginx-peers")
+            if peer_relation:
+                self._tls.pop_relation_data_fields(["key", "password"], peer_relation, self.app)
         private_key_password = self._tls.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {"password": private_key_password.decode(), "key": private_key.decode()}
         self._tls.update_relation_data_fields(
             private_key_dict, tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields(private_key_dict, peer_relation, self.app)
         new_secret = self.app.add_secret(content=private_key_dict, label="private-key")
         new_secret.grant(tls_certificates_relation)
         new_secret_data = new_secret.get_content()
@@ -528,9 +552,19 @@ class NginxIngressCharm(CharmBase):
         self._tls.update_relation_data_fields(
             {"csr": new_csr.decode()}, tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.update_relation_data_fields(
+                {"csr": new_csr.decode()}, peer_relation, self.app
+            )
         self._tls.pop_relation_data_fields(
             ["ca", "certificate", "chain"], tls_certificates_relation, self.app
         )
+        peer_relation = self.model.get_relation("nginx-peers")
+        if peer_relation:
+            self._tls.pop_relation_data_fields(
+                ["ca", "certificate", "chain"], peer_relation, self.app
+            )
 
     def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
         """Handle the TLS Certificate invalidation event.

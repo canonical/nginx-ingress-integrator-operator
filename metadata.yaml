@@ -39,3 +39,6 @@ requires:
     limit: 1
     description: |
       Requires certificates-generating charm for TLS
+peers:
+  nginx-peers:
+    interface: nginx-instance

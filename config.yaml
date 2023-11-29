@@ -116,7 +116,7 @@ options:
     type: int
   tls-secret-name:
     default: ""
-    description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled.
+    description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled if no certificates relation is established.
     type: string
   whitelist-source-range:
     default: ""

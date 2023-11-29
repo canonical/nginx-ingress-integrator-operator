@@ -1,6 +1,6 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
-
+# pylint: disable=too-many-lines
 """nginx-ingress-integrator k8s resource controllers."""
 
 import abc
@@ -622,24 +622,88 @@ class SecretController(
         """
         return ",".join(f"{k}={v}" for k, v in self._labels.items())
 
+    def define_resource(  # type: ignore[override] # pylint:disable=arguments-differ
+        self, definition: IngressDefinition, key: str
+    ) -> kubernetes.client.V1Secret:
+        """Create or update a resource in kubernetes.
+
+        Args:
+            definition: The ingress definition
+            key: Key to filter by hostname.
+
+        Returns:
+            The name of the created or modified resource, None if no resource is
+            modified or created.
+        """
+        resource_list = self._list_resource()
+        body = self._gen_resource_from_definition(definition, key)
+        if body.metadata.name in [r.metadata.name for r in resource_list]:
+            self._patch_resource(
+                name=body.metadata.name,
+                body=body,
+            )
+            logger.info(
+                "%s updated in namespace %s with name %s",
+                self._name,
+                self._namespace,
+                body.metadata.name,
+            )
+        else:
+            self._create_resource(body=body)
+            logger.info(
+                "%s created in namespace %s with name %s",
+                self._name,
+                self._namespace,
+                body.metadata.name,
+            )
+        return body
+
+    def cleanup_resources(
+        self,
+        exclude: typing.Union[list, None] = None,  # type: ignore[override]
+    ) -> None:
+        """Remove unused resources.
+
+        Args:
+            exclude: The name of resource to be excluded from the cleanup.
+        """
+        if exclude is None:
+            exclude = []
+        for resource in self._list_resource():
+            delete_flag = True
+            if exclude:
+                for exclude_item in exclude:
+                    if exclude and resource.metadata.name == exclude_item.metadata.name:
+                        delete_flag = False
+                        break
+            if delete_flag:
+                self._delete_resource(name=resource.metadata.name)
+                logger.info(
+                    "%s deleted in namespace %s with name %s",
+                    self._name,
+                    self._namespace,
+                    resource.metadata.name,
+                )
+
     @_map_k8s_auth_exception
-    def _gen_resource_from_definition(
-        self, definition: IngressDefinition
+    def _gen_resource_from_definition(  # pylint: disable=arguments-differ
+        self, definition: IngressDefinition, key: str
     ) -> kubernetes.client.V1Secret:
         """Generate a V1Secret resource from ingress definition.
 
         Args:
             definition: Ingress definition to use for generating the V1Secret resource.
+            key: Key to filter by hostname.
 
         Returns:
             The generated V1Secret resource.
         """
         return kubernetes.client.V1Secret(
             api_version="v1",
-            string_data={"tls.crt": definition.tls_cert, "tls.key": definition.tls_key},
+            string_data={"tls.crt": definition.tls_cert[key], "tls.key": definition.tls_key[key]},
             kind="Secret",
             metadata=kubernetes.client.V1ObjectMeta(
-                name=f"{self._labels[CREATED_BY_LABEL]}-cert-tls-secret",
+                name=f"{self._labels[CREATED_BY_LABEL]}-cert-tls-secret-{key}",
                 labels=self._labels,
                 namespace=self._namespace,
             ),
@@ -847,6 +911,15 @@ class IngressController(
                     hosts=[definition.service_hostname],
                     secret_name=definition.tls_secret_name,
                 ),
+            ]
+        elif definition.tls_cert:
+            spec.tls = [
+                kubernetes.client.V1IngressTLS(
+                    hosts=[hostname],
+                    secret_name=f"{self._labels[CREATED_BY_LABEL]}-cert-tls-secret-{hostname}",
+                )
+                for hostname in hostnames
+                if hostname in definition.tls_cert.keys()
             ]
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"

@@ -128,13 +128,13 @@ async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
     """
     requirer_unit = model.units["ingress/0"]
 
-    action = await requirer_unit.run_action(action_name="get-certificate")
+    action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
 
     action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
     assert action_output["return-code"] == 0
-    assert "ca" in action_output and action_output["ca"] is not None
-    assert "certificate" in action_output and action_output["certificate"] is not None
-    assert "chain" in action_output and action_output["chain"] is not None
+    assert "ca-any" in action_output and action_output["ca-any"] is not None
+    assert "certificate-any" in action_output and action_output["certificate-any"] is not None
+    assert "chain-any" in action_output and action_output["chain-any"] is not None
 
 
 @pytest.mark.usefixtures("build_and_deploy")
@@ -178,13 +178,13 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     )
     requirer_unit = model.units[f"{new_requirer_app_name}/0"]
 
-    action = await requirer_unit.run_action(action_name="get-certificate")
+    action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
 
     action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
     assert action_output["return-code"] == 0
-    assert "ca" in action_output and action_output["ca"] is not None
-    assert "certificate" in action_output and action_output["certificate"] is not None
-    assert "chain" in action_output and action_output["chain"] is not None
+    assert "ca-any" in action_output and action_output["ca-any"] is not None
+    assert "certificate-any" in action_output and action_output["certificate-any"] is not None
+    assert "chain-any" in action_output and action_output["chain-any"] is not None
 
 
 @pytest.mark.usefixtures("build_and_deploy")

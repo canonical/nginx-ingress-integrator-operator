@@ -24,8 +24,8 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         cls,
         charm: ops.CharmBase,
         relation: Relation,
-        tls_cert: Union[str, None],
-        tls_key: Union[str, None],
+        tls_cert: dict,
+        tls_key: dict,
     ) -> "IngressDefinitionEssence":
         """Create an ingress definition essence object for nginx-route relation.
 
@@ -52,8 +52,8 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         charm: ops.CharmBase,
         relation: Relation,
         ingress_provider: IngressPerAppProvider,
-        tls_cert: Union[str, None],
-        tls_key: Union[str, None],
+        tls_cert: dict,
+        tls_key: dict,
     ) -> "IngressDefinitionEssence":
         """Create an ingress definition essence object for ingress relation.
 
@@ -81,8 +81,8 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         model: Model,
         config: ConfigData,
         relation: Relation,
-        tls_cert: Union[str, None],
-        tls_key: Union[str, None],
+        tls_cert: dict,
+        tls_key: dict,
         ingress_provider: Optional[IngressPerAppProvider] = None,
     ) -> None:
         """Create a _ConfigOrRelation Object.
@@ -529,8 +529,8 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
     service_port: int
     session_cookie_max_age: int
     tls_secret_name: str
-    tls_cert: Union[str, None]
-    tls_key: Union[str, None]
+    tls_cert: dict
+    tls_key: dict
     upstream_endpoint_type: Optional[str]
     upstream_endpoints: List[str]
     use_endpoint_slice: bool

@@ -3,10 +3,10 @@
 """NGINX Ingress TLS relation business logic."""
 import secrets
 import string
-from typing import Union
+from typing import Dict, List, Union
 
 import kubernetes
-from ops.model import Application, Relation, Unit
+from ops.model import Application, Relation
 
 
 class TLSRelationService:
@@ -14,8 +14,8 @@ class TLSRelationService:
 
     def __init__(self) -> None:
         """Init method for the class."""
-        self.cert: Union[str, None] = None
-        self.key: Union[str, None] = None
+        self.cert: Dict[Union[str, None], Union[str, None]] = {}
+        self.key: Dict[Union[str, None], Union[str, None]] = {}
 
     def generate_password(self) -> str:
         """Generate a random 12 character password.
@@ -28,29 +28,38 @@ class TLSRelationService:
 
     def update_cert_on_service_hostname_change(
         self,
-        service_hostname: str,
+        hostnames: List[str],
         tls_certificates_relation: Union[Relation, None],
         namespace: str,
-        unit_name: Unit,
-    ) -> bool:
+        app_name: Application,
+    ) -> list:
         """Handle TLS certificate updates when the charm config changes.
 
         Args:
-            service_hostname: Ingress service hostname.
+            hostnames: Ingress service hostname list.
             tls_certificates_relation: TLS Certificates relation.
             namespace: Kubernetes namespace.
-            unit_name: Juju unit's name.
+            app_name: Juju app's name.
 
         Returns:
             bool: If the TLS certificate needs to be updated.
         """
+        hostnames_to_revoke: List[str] = []
         if tls_certificates_relation:
             api = kubernetes.client.NetworkingV1Api()
             ingresses = api.list_namespaced_ingress(namespace=namespace)
-            csr = tls_certificates_relation.data[unit_name].get("csr")
-            if csr and service_hostname not in [x.spec.rules[0].host for x in ingresses.items]:
-                return True
-        return False
+            hostnames_to_revoke = []
+            hostnames_unchanged = []
+            for hostname in hostnames:
+                csr = tls_certificates_relation.data[app_name].get(f"csr-{hostname}")
+                if csr and hostname in [x.spec.rules[0].host for x in ingresses.items]:
+                    hostnames_unchanged.append(hostname)
+            hostnames_to_revoke = [
+                x.spec.rules[0].host
+                for x in ingresses.items
+                if x.spec.rules[0].host not in hostnames_unchanged
+            ]
+        return hostnames_to_revoke
 
     def update_relation_data_fields(
         self, relation_fields: dict, tls_relation: Relation, app: Application
@@ -84,7 +93,7 @@ class TLSRelationService:
         """Get an item from the app relation databag.
 
         Args:
-            relation_field: items to pop
+            relation_field: item to get
             tls_relation: TLS certificates relation
             app: Charm application
 
@@ -93,3 +102,27 @@ class TLSRelationService:
         """
         field_value = tls_relation.data[app].get(relation_field)
         return field_value
+
+    def get_hostname_from_csr(
+        self, tls_relation: Relation, app: Application, csr: str
+    ) -> Union[str, None]:
+        """Get the hostname from a csr.
+
+        Args:
+            tls_relation: TLS certificates relation
+            app: Charm application
+            csr: csr to extract hostname from
+
+        Returns:
+            The hostname the csr belongs to.
+        """
+        csr_dict = {
+            key: tls_relation.data[app].get(key)
+            for key in tls_relation.data[app]
+            if key.startswith("csr-")
+        }
+        for key in csr_dict:
+            if csr_dict[key].replace("\n", "") == csr.replace("\n", ""):
+                hostname = key.replace("csr-", "", 1)
+                return hostname
+        return None

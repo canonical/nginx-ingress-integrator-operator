@@ -429,7 +429,6 @@ class NginxIngressCharm(CharmBase):
         for hostname in hostnames:
             private_key_dict = {}
             if JujuVersion.from_environ().has_secrets:
-                LOGGER.warning(tls_certificates_relation.data[self.app])
                 secret = self.model.get_secret(label=f"private-key-{hostname}")
                 secret.grant(tls_certificates_relation)
                 private_key_dict["key"] = secret.get_content()["key"].encode()

@@ -19,39 +19,20 @@ If there's a particular area of documentation that you'd like to see that's miss
 |  [Tutorials](https://charmhub.io/nginx-ingress-integrator/docs/getting-started)</br>  Get started - a hands-on introduction to using the Charmed NGINX Integrator operator for new users </br> |  [How-to guides](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) </br> Step-by-step guides covering key operations and common tasks |
 | [Reference](https://charmhub.io/nginx-ingress-integrator/actions) </br> Technical information - specifications, APIs, architecture | [Explanation](https://charmhub.io/nginx-ingress-integrator/docs/architecture) </br> Concepts - discussion and clarification of key topics  |
 
-# Navigation
+# Contents
 
-| Level | Path     | Navlink                         |
-| ----- | -------- | ------------------------------- |
-| 1 | Tutorial | [Tutorial]() |
-| 2 | getting-started | [Getting started](/t/nginx-ingress-integrator-docs-tutorial-getting-started/7697)
-| 1 | how-to | [How to]() |
-| 2 | secure-an-ingress-with-tls | [Secure an Ingress with TLS](https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-how-to-secure-ingress-with-tls/10301) |
-| 2 | add-the-ingress-relation | [Add the Ingress relation to a charm](/t/nginx-ingress-integrator-docs-tutorial-adding-relation-to-a-charm/7434) |
-| 2 | contribute | [Contribute](/t/nginx-ingress-integrator-docs-contributing-hacking/4512)  |
-| 2 | support-multiple-relations | [Support multiple relations](/t/nginx-ingress-integrator-docs-multiple-relations/5725) |
-| 1 | Reference | [Reference]() |
-| 2 | Actions | [Actions](https://charmhub.io/nginx-ingress-integrator/actions) |
-| 2 | Configurations | [Configurations](https://charmhub.io/nginx-ingress-integrator/configure) |
-| 2 | Integrations | [Integrations](/t/nginx-ingress-integrator-docs-reference-integrations/7756) |
-| 2 | Libraries | [Libraries](https://charmhub.io/nginx-ingress-integrator/libraries/ingress) |
-| 1 | Explanation | [Explanation]() |
-| 2 | architecture | [Architecture](/t/nginx-ingress-integrator-docs-charm-architecture/7391) |
-| 2 | what-is-ingress | [What is Ingress?](/t/nginx-ingress-integrator-docs-ingress-explanation/7392) | 
-|  | roadmap | [Roadmap](/t/nginx-ingress-integrator-docs-roadmap/7432) |
-
-
-# Redirects
-
-[details=Mapping table]
-| Path | Location |
-| ---- | -------- |
-[/details]
-
-
-# Redirects
-
-[details=Mapping table]
-| Path | Location |
-| ---- | -------- |
-[/details]
+1. [Tutorial](Tutorial)
+1. [How to](how-to)
+  1. [Secure an Ingress with TLS](how-to/secure-an-ingress-with-tls.md)
+  1. [Add the Ingress relation to a charm](how-to/add-the-ingress-relation.md)
+  1. [Contribute](how-to/contribute.md)
+  1. [Support multiple relations](how-to/support-multiple-relations.md)
+1. [Reference](Reference)
+  1. [Actions](https://charmhub.io/nginx-ingress-integrator/actions)
+  1. [Configurations](https://charmhub.io/nginx-ingress-integrator/configure)
+  1. [Integrations](Reference/Integrations.md)
+  1. [Libraries](https://charmhub.io/nginx-ingress-integrator/libraries/ingress)
+1. [Explanation](Explanation)
+  1. [Architecture](Explanation/architecture.md)
+  1. [What is Ingress?](Explanation/what-is-ingress.md)
+  1. [Roadmap](Explanation/roadmap.md)

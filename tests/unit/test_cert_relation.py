@@ -41,6 +41,18 @@ class TestCertificatesRelation(unittest.TestCase):
         Returns:
             A tuple containing both relation IDs.
         """
+        peer_rel_id = self.harness.add_relation(
+            "nginx-peers",
+            "nginx-ingress-integrator",
+            app_data={
+                "csr-example.com": "whatever",
+                "certificate-example.com": "whatever",
+                "ca-example.com": "whatever",
+                "chain-example.com": "whatever",
+                "key-example.com": "whatever",
+                "password-example.com": "whatever",
+            },
+        )
         nginx_route_rel_id = self.harness.add_relation(
             "nginx-route",
             "gunicorn",
@@ -60,19 +72,6 @@ class TestCertificatesRelation(unittest.TestCase):
                 "certificate-example.com": "whatever",
                 "ca-example.com": "whatever",
                 "chain-example.com": "whatever",
-            },
-        )
-
-        peer_rel_id = self.harness.add_relation(
-            "nginx-peers",
-            "nginx-ingress-integrator",
-            app_data={
-                "csr-example.com": "whatever",
-                "certificate-example.com": "whatever",
-                "ca-example.com": "whatever",
-                "chain-example.com": "whatever",
-                "key-example.com": "whatever",
-                "password-example.com": "whatever",
             },
         )
         return nginx_route_rel_id, tls_rel_id, peer_rel_id
@@ -126,18 +125,8 @@ class TestCertificatesRelation(unittest.TestCase):
         assert type(password) == str
         assert len(password) == 12
 
-    # @pytest.mark.usefixtures("patch_load_incluster_config")
-    # def test_get_hostname_from_csr(self):
-    #     tls_rel = TLSRelationService()
-    #     mock_rel = MagicMock()
-    #     mock_app = MagicMock()
-    #     mock_app.return_value = "app"
-    #     mock_rel.return_value.data["app"].return_value = {"csr-hostname1": "12345"}
-    #     hostname = tls_rel.get_hostname_from_csr(mock_rel, mock_app, "12345")
-    #     assert hostname == "hostname1"
-
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.model.Model.get_secret")
     @patch("ops.JujuVersion.has_secrets")
@@ -156,7 +145,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch(
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
@@ -186,7 +175,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.model.Model.get_secret")
     @pytest.mark.usefixtures("patch_load_incluster_config")
@@ -203,7 +192,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_secret.assert_not_called()
 
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("ops.model.Model.get_secret")
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_on_certificates_relation_created_no_relation(
@@ -218,6 +207,7 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_all_certificates_invalidated_no_secret(self, mock_ingress_update):
         self.harness.set_leader(True)
+        self.set_up_peer_relation()
         self.set_up_nginx_relation()
         relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
         self.harness.update_relation_data(
@@ -275,7 +265,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._cleanup")
-    @patch("charm.NginxIngressCharm._on_certificate_expiring")
+    @patch("tls_relation.TLSRelationService.certificate_expiring")
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_on_certificate_invalidated_expire(
         self, mock_update_ingress, mock_cert_expired, mock_cleanup
@@ -343,6 +333,7 @@ class TestCertificatesRelation(unittest.TestCase):
         """
         mock_has_secrets.return_value = True
         self.harness.set_leader(True)
+        self.set_up_peer_relation()
         self.set_up_nginx_relation()
         relation_id = self.harness.add_relation("certificates", "self-signed-certificates")
         self.harness.update_relation_data(
@@ -545,8 +536,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
-    @patch("charm.generate_private_key")
+    @patch("tls_relation.generate_csr")
+    @patch("tls_relation.generate_private_key")
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
@@ -579,8 +570,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
-    @patch("charm.generate_private_key")
+    @patch("tls_relation.generate_csr")
+    @patch("tls_relation.generate_private_key")
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
@@ -615,7 +606,7 @@ class TestCertificatesRelation(unittest.TestCase):
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("ops.JujuVersion.has_secrets")
     @patch("ops.model.Model.get_secret")
     def test_certificate_expiring(
@@ -655,7 +646,7 @@ class TestCertificatesRelation(unittest.TestCase):
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     def test_certificate_expiring_no_secrets(
         self, mock_gen_csr, mock_get_data, mock_ingress_update, mock_cert_renewal
     ):
@@ -741,7 +732,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_available_no_secrets(
@@ -765,7 +756,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.generate_password")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
@@ -798,7 +789,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch(
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
@@ -823,7 +814,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._cleanup")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch(
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
@@ -846,7 +837,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._cleanup")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch(
         "charms.tls_certificates_interface.v2.tls_certificates"
         ".TLSCertificatesRequiresV2.request_certificate_creation"
@@ -969,7 +960,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_get_certificate_action(self, mock_update_ingress, mock_gen_csr, mock_get_data):
         """
@@ -1029,7 +1020,7 @@ class TestCertificatesRelation(unittest.TestCase):
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("controller.SecretController._list_resource")
     @patch("controller.SecretController._gen_resource_from_definition")
     def test_define_resource_secret(
@@ -1045,7 +1036,7 @@ class TestCertificatesRelation(unittest.TestCase):
         charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
         self.harness.set_leader(True)
         self.set_up_all_relations()
-        relation = charm._get_relation()
+        relation = charm._get_nginx_relation()
         definition = charm._get_definition_from_relation(relation)
         with mock.patch.object(kubernetes.client, "CoreV1Api"):
             secret_controller = SecretController(TEST_NAMESPACE, "nginx-ingress")
@@ -1055,7 +1046,7 @@ class TestCertificatesRelation(unittest.TestCase):
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
-    @patch("charm.generate_csr")
+    @patch("tls_relation.generate_csr")
     @patch("controller.SecretController._list_resource")
     @patch("controller.SecretController._gen_resource_from_definition")
     def test_cleanup_resources_secret(

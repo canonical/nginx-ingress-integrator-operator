@@ -5,3 +5,4 @@
 
 CREATED_BY_LABEL = "nginx-ingress-integrator.charm.juju.is/managed-by"
 BOOLEAN_CONFIG_FIELDS = ["rewrite-enabled"]
+TLS_CERT = "certificates"

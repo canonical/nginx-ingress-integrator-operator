@@ -190,9 +190,7 @@ class ResourceController(typing.Protocol[AnyResource]):
             )
 
 
-class EndpointsController(
-    ResourceController[kubernetes.client.V1Endpoints]
-):  # pylint: disable=inherit-non-class
+class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
     """Kubernetes Endpoints resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
@@ -583,9 +581,7 @@ class ServiceController(
         self._client.delete_namespaced_service(namespace=self._namespace, name=name)
 
 
-class SecretController(
-    ResourceController[kubernetes.client.V1Secret]
-):  # pylint: disable=inherit-non-class
+class SecretController(ResourceController[kubernetes.client.V1Secret]):
     """Kubernetes Secret resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:

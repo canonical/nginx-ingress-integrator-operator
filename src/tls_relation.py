@@ -1,12 +1,26 @@
 # Copyright 2023 Canonical Ltd.
 # See LICENSE file for licensing details.
+# Since the relations invoked in the methods are taken from the charm,
+# mypy guesses the relations might be None about all of them.
+# mypy: disable-error-code="arg-type"
 """NGINX Ingress TLS relation business logic."""
 import secrets
 import string
 from typing import Dict, List, Union
 
 import kubernetes
-from ops.model import Application, Relation
+from charms.tls_certificates_interface.v2.tls_certificates import (
+    CertificateAvailableEvent,
+    CertificateExpiringEvent,
+    CertificateInvalidatedEvent,
+    generate_csr,
+    generate_private_key,
+)
+from ops.charm import CharmBase
+from ops.jujuversion import JujuVersion
+from ops.model import Application, Relation, SecretNotFoundError
+
+from consts import TLS_CERT
 
 
 class TLSRelationService:
@@ -14,8 +28,8 @@ class TLSRelationService:
 
     def __init__(self) -> None:
         """Init method for the class."""
-        self.cert: Dict[Union[str, None], Union[str, None]] = {}
-        self.key: Dict[Union[str, None], Union[str, None]] = {}
+        self.certs: Dict[Union[str, None], Union[str, None]] = {}
+        self.keys: Dict[Union[str, None], Union[str, None]] = {}
 
     def generate_password(self) -> str:
         """Generate a random 12 character password.
@@ -32,7 +46,7 @@ class TLSRelationService:
         tls_certificates_relation: Union[Relation, None],
         namespace: str,
         app_name: Application,
-    ) -> list:
+    ) -> List[str]:
         """Handle TLS certificate updates when the charm config changes.
 
         Args:
@@ -103,9 +117,7 @@ class TLSRelationService:
         field_value = tls_relation.data[app].get(relation_field)
         return field_value
 
-    def get_hostname_from_csr(
-        self, tls_relation: Relation, app: Application, csr: str
-    ) -> Union[str, None]:
+    def get_hostname_from_csr(self, tls_relation: Relation, app: Application, csr: str) -> str:
         """Get the hostname from a csr.
 
         Args:
@@ -125,4 +137,173 @@ class TLSRelationService:
             if csr_dict[key].replace("\n", "") == csr.replace("\n", ""):
                 hostname = key.replace("csr-", "", 1)
                 return hostname
-        return None
+        return ""
+
+    def get_tls_relation(self, charm: CharmBase) -> Union[Relation, None]:
+        """Get the TLS certificates relation.
+
+        Args:
+            charm: The Juju charm containing the relation
+
+        Returns:
+            The TLS certificates relation of the charm.
+        """
+        relation = charm.model.get_relation(TLS_CERT)
+        return relation
+
+    # The charm will not have annotations to avoid circular imports.
+    def certificate_relation_joined(  # type: ignore[no-untyped-def]
+        self, hostname: str, charm
+    ) -> None:
+        """Handle the TLS Certificate joined event.
+
+        Args:
+            hostname: Certificate's hostname.
+            charm: The Ingress charm that has the TLS relation
+        """
+        tls_certificates_relation = self.get_tls_relation(charm)
+        private_key_dict = {}
+        if JujuVersion.from_environ().has_secrets:
+            secret = charm.model.get_secret(label=f"private-key-{hostname}")
+            secret.grant(tls_certificates_relation)
+            private_key_dict["key"] = secret.get_content()["key"].encode()
+            private_key_dict["password"] = secret.get_content()["password"].encode()
+        else:
+            private_key_dict["key"] = self.get_relation_data_field(
+                f"key-{hostname}", tls_certificates_relation, charm.app
+            ).encode()
+            private_key_dict["password"] = self.get_relation_data_field(
+                f"password-{hostname}", tls_certificates_relation, charm.app
+            ).encode()
+        csr = generate_csr(
+            private_key=private_key_dict["key"],
+            private_key_password=private_key_dict["password"],
+            subject=hostname,
+        )
+        self.update_relation_data_fields(
+            {f"csr-{hostname}": csr.decode()}, tls_certificates_relation, charm.app
+        )
+        peer_relation = charm.model.get_relation("nginx-peers")
+        self.update_relation_data_fields(
+            {f"csr-{hostname}": csr.decode()}, peer_relation, charm.app
+        )
+        charm.certificates.request_certificate_creation(certificate_signing_request=csr)
+
+    def certificate_relation_created(  # type: ignore[no-untyped-def]
+        self, hostname: str, charm
+    ) -> None:
+        """Handle the TLS Certificate created event.
+
+        Args:
+            hostname: Certificate's hostname.
+            charm: The Ingress charm that has the TLS relation
+        """
+        tls_certificates_relation = self.get_tls_relation(charm)
+        private_key_password = self.generate_password().encode()
+        private_key = generate_private_key(password=private_key_password)
+        private_key_dict = {
+            "password": private_key_password.decode(),
+            "key": private_key.decode(),
+        }
+        if JujuVersion.from_environ().has_secrets:
+            try:
+                secret = charm.model.get_secret(label=f"private-key-{hostname}")
+                secret.set_content(private_key_dict)
+            except SecretNotFoundError:
+                secret = charm.app.add_secret(
+                    content=private_key_dict, label=f"private-key-{hostname}"
+                )
+        self.update_relation_data_fields(private_key_dict, tls_certificates_relation, charm.app)
+        peer_relation = charm.model.get_relation("nginx-peers")
+        self.update_relation_data_fields(private_key_dict, peer_relation, charm.app)
+
+    def certificate_relation_available(  # type: ignore[no-untyped-def]
+        self, charm, event: CertificateAvailableEvent
+    ) -> None:
+        """Handle the TLS Certificate available event.
+
+        Args:
+            charm: The Ingress charm that has the TLS relation
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.get_tls_relation(charm)
+        hostname = self.get_hostname_from_csr(
+            tls_certificates_relation, charm.app, event.certificate_signing_request
+        )
+        self.update_relation_data_fields(
+            {
+                f"certificate-{hostname}": event.certificate,
+                f"ca-{hostname}": event.ca,
+                f"chain-{hostname}": str(event.chain[0]),
+            },
+            tls_certificates_relation,
+            charm.app,
+        )
+        peer_relation = charm.model.get_relation("nginx-peers")
+        self.update_relation_data_fields(
+            {
+                f"certificate-{hostname}": event.certificate,
+                f"ca-{hostname}": event.ca,
+                f"chain-{hostname}": str(event.chain[0]),
+            },
+            peer_relation,
+            charm.app,
+        )
+        private_key = ""
+        if JujuVersion.from_environ().has_secrets:
+            secret = charm.model.get_secret(label=f"private-key-{hostname}")
+            private_key = secret.get_content()["key"]
+        else:
+            private_key = self.get_relation_data_field(
+                f"key-{hostname}", tls_certificates_relation, charm.app
+            )
+        self.certs[hostname] = event.certificate
+        self.keys[hostname] = private_key
+
+    def certificate_expiring(  # type: ignore[no-untyped-def]
+        self,
+        charm,
+        event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent],
+    ) -> None:
+        """Handle the TLS Certificate expiring event.
+
+        Args:
+            charm: The Ingress charm that has the TLS relation
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self.get_tls_relation(charm)
+        hostname = self.get_hostname_from_csr(
+            tls_certificates_relation, charm.app, event.certificate_signing_request
+        )
+        old_csr = self.get_relation_data_field(
+            f"csr-{hostname}", tls_certificates_relation, charm.app
+        )
+        private_key_dict = {}
+        if JujuVersion.from_environ().has_secrets:
+            secret = charm.model.get_secret(label=f"private-key-{hostname}")
+            secret.grant(tls_certificates_relation)
+            private_key_dict["key"] = secret.get_content()["key"].encode()
+            private_key_dict["password"] = secret.get_content()["password"].encode()
+        else:
+            private_key_dict["key"] = self.get_relation_data_field(
+                f"key-{hostname}", tls_certificates_relation, charm.app
+            ).encode()
+            private_key_dict["password"] = self.get_relation_data_field(
+                f"password-{hostname}", tls_certificates_relation, charm.app
+            ).encode()
+        new_csr = generate_csr(
+            private_key=private_key_dict["key"],
+            private_key_password=private_key_dict["password"],
+            subject=hostname,
+        )
+        charm.certificates.request_certificate_renewal(
+            old_certificate_signing_request=old_csr.encode(),
+            new_certificate_signing_request=new_csr,
+        )
+        self.update_relation_data_fields(
+            {f"csr-{hostname}": new_csr.decode()}, tls_certificates_relation, charm.app
+        )
+        peer_relation = charm.model.get_relation("nginx-peers")
+        self.update_relation_data_fields(
+            {f"csr-{hostname}": new_csr.decode()}, peer_relation, charm.app
+        )

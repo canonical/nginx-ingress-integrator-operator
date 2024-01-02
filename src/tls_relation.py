@@ -1,8 +1,7 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 # Since the relations invoked in the methods are taken from the charm,
 # mypy guesses the relations might be None about all of them.
-# mypy: disable-error-code="arg-type"
 """NGINX Ingress TLS relation business logic."""
 import secrets
 import string
@@ -162,6 +161,7 @@ class TLSRelationService:
             charm: The Ingress charm that has the TLS relation
         """
         tls_certificates_relation = self.get_tls_relation(charm)
+        assert isinstance(tls_certificates_relation, Relation)  # nosec
         private_key_dict = {}
         if JujuVersion.from_environ().has_secrets:
             secret = charm.model.get_secret(label=f"private-key-{hostname}")
@@ -199,6 +199,7 @@ class TLSRelationService:
             charm: The Ingress charm that has the TLS relation
         """
         tls_certificates_relation = self.get_tls_relation(charm)
+        assert isinstance(tls_certificates_relation, Relation)  # nosec
         private_key_password = self.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
         private_key_dict = {
@@ -227,6 +228,7 @@ class TLSRelationService:
             event: The event that fires this method.
         """
         tls_certificates_relation = self.get_tls_relation(charm)
+        assert isinstance(tls_certificates_relation, Relation)  # nosec
         hostname = self.get_hostname_from_csr(
             tls_certificates_relation, charm.app, event.certificate_signing_request
         )
@@ -272,6 +274,7 @@ class TLSRelationService:
             event: The event that fires this method.
         """
         tls_certificates_relation = self.get_tls_relation(charm)
+        assert isinstance(tls_certificates_relation, Relation)  # nosec
         hostname = self.get_hostname_from_csr(
             tls_certificates_relation, charm.app, event.certificate_signing_request
         )

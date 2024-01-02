@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 # pylint: disable=protected-access,too-few-public-methods,too-many-lines
@@ -33,15 +33,13 @@ from ops.model import (
 )
 
 from consts import CREATED_BY_LABEL, TLS_CERT
-from controller import (
-    EndpointsController,
-    EndpointSliceController,
-    IngressController,
-    SecretController,
-    ServiceController,
-)
+from endpoint_slice_controller import EndpointSliceController
+from endpoints_controller import EndpointsController
 from exceptions import InvalidIngressError
+from ingress_controller import IngressController
 from ingress_definition import IngressDefinition, IngressDefinitionEssence
+from secret_controller import SecretController
+from service_controller import ServiceController
 from tls_relation import TLSRelationService
 
 LOGGER = logging.getLogger(__name__)

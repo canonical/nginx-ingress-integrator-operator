@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 # mypy: disable-error-code="arg-type"
 
@@ -20,7 +20,7 @@ from ops.model import SecretNotFoundError
 from ops.testing import Harness
 
 from charm import NginxIngressCharm
-from controller import SecretController
+from secret_controller import SecretController
 from tests.unit.constants import TEST_NAMESPACE
 from tls_relation import TLSRelationService
 
@@ -1021,8 +1021,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
-    @patch("controller.SecretController._list_resource")
-    @patch("controller.SecretController._gen_resource_from_definition")
+    @patch("secret_controller.SecretController._list_resource")
+    @patch("secret_controller.SecretController._gen_resource_from_definition")
     def test_define_resource_secret(
         self, mock_gen_res, mock_list, mock_gen_csr, mock_get_data, mock_update
     ):
@@ -1047,8 +1047,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
-    @patch("controller.SecretController._list_resource")
-    @patch("controller.SecretController._gen_resource_from_definition")
+    @patch("secret_controller.SecretController._list_resource")
+    @patch("secret_controller.SecretController._gen_resource_from_definition")
     def test_cleanup_resources_secret(
         self, mock_gen_res, mock_list, mock_gen_csr, mock_get_data, mock_update
     ):

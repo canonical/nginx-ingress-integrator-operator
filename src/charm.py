@@ -506,6 +506,9 @@ class NginxIngressCharm(CharmBase):
         Args:
             _: The event that fires this method.
         """
+        tls_relation = self._tls.get_tls_relation(self)
+        if tls_relation:
+            tls_relation.data[self.app].clear()
         if JujuVersion.from_environ().has_secrets:
             hostnames = self.get_additional_hostnames()
             for hostname in hostnames:

@@ -125,6 +125,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert type(password) == str
         assert len(password) == 12
 
+    @patch("tls_relation.TLSRelationService.update_relation_data_fields")
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("tls_relation.generate_csr")
     @patch("charm.NginxIngressCharm._update_ingress")
@@ -132,13 +133,20 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.JujuVersion.has_secrets")
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_cert_relation(
-        self, mock_has_secrets, mock_get_secret, mock_update_ingress, mock_gen_csr, mock_gen_pass
+        self,
+        mock_has_secrets,
+        mock_get_secret,
+        mock_update_ingress,
+        mock_gen_csr,
+        mock_gen_pass,
+        mock_update,
     ):
         mock_gen_pass.return_value = "123456789101"
         mock_gen_csr.return_value = b"csr"
         mock_has_secrets.return_value = True
         self.harness.set_leader(True)
         self.set_up_all_relations()
+        self.harness.enable_hooks()
         mock_gen_pass.assert_called_once()
         mock_gen_csr.assert_called_once()
         assert mock_get_secret.call_count == 2
@@ -166,12 +174,14 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_gen_csr.return_value = b"csr"
         event = RelationCreatedEvent(relation=None, handle=None)
         self.harness.set_leader(True)
+        self.harness.disable_hooks()
         self.set_up_all_relations()
+        self.harness.enable_hooks()
         mock_has_secrets.return_value = True
         mock_get_secret.side_effect = SecretNotFoundError
         self.harness.charm._on_certificates_relation_created(event)
-        mock_create_cert.assert_called_once()
-        mock_gen_csr.assert_called_once()
+        mock_create_cert.assert_not_called()
+        mock_gen_csr.assert_not_called()
 
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.TLSRelationService.generate_password")
@@ -627,7 +637,9 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_data.return_value = "whatever"
         mock_gen_csr.return_value = b"csr"
         self.harness.set_leader(True)
+        self.harness.disable_hooks()
         self.set_up_all_relations()
+        self.harness.enable_hooks()
         event = CertificateInvalidatedEvent(
             reason="expired",
             certificate="",
@@ -780,12 +792,14 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_data.return_value = "whatever"
         mock_has_secrets.return_value = True
         self.harness.set_leader(True)
+        self.harness.disable_hooks()
         self.set_up_all_relations()
+        self.harness.enable_hooks()
         event = CertificateAvailableEvent(
             certificate="", certificate_signing_request="", ca="", chain=["whatever"], handle=None
         )
         self.harness.charm._on_certificate_available(event)
-        assert mock_update.call_count == 3
+        mock_update.assert_called_once()
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")

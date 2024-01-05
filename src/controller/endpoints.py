@@ -7,7 +7,7 @@ import typing
 
 import kubernetes.client
 
-from controller import ResourceController, _map_k8s_auth_exception
+from resource import ResourceController, _map_k8s_auth_exception
 from ingress_definition import IngressDefinition
 
 

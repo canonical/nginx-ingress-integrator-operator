@@ -10,7 +10,7 @@ import typing
 import kubernetes.client
 
 from consts import CREATED_BY_LABEL
-from controller import ResourceController, _map_k8s_auth_exception
+from resource import ResourceController, _map_k8s_auth_exception
 from ingress_definition import IngressDefinition
 
 LOGGER = logging.getLogger(__name__)

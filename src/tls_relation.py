@@ -19,7 +19,7 @@ from ops.charm import CharmBase
 from ops.jujuversion import JujuVersion
 from ops.model import Application, Relation, SecretNotFoundError
 
-from consts import TLS_CERT
+from consts import PEER_RELATION_NAME, TLS_CERT
 
 
 class TLSRelationService:
@@ -161,7 +161,7 @@ class TLSRelationService:
             charm: The Ingress charm that has the TLS relation
         """
         tls_certificates_relation = self.get_tls_relation(charm)
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         private_key_dict = {}
         if JujuVersion.from_environ().has_secrets:
@@ -184,7 +184,7 @@ class TLSRelationService:
         self.update_relation_data_fields(
             {f"csr-{hostname}": csr.decode()}, tls_certificates_relation, charm.app
         )
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         self.update_relation_data_fields(
             {f"csr-{hostname}": csr.decode()}, peer_relation, charm.app
         )
@@ -200,7 +200,7 @@ class TLSRelationService:
             charm: The Ingress charm that has the TLS relation
         """
         tls_certificates_relation = self.get_tls_relation(charm)
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         private_key_password = self.generate_password().encode()
         private_key = generate_private_key(password=private_key_password)
@@ -209,21 +209,18 @@ class TLSRelationService:
             "key": private_key.decode(),
         }
         if JujuVersion.from_environ().has_secrets:
-            secret_id = ""  # nosec
             try:
                 secret = charm.model.get_secret(label=f"private-key-{hostname}")
                 secret.set_content(private_key_dict)
-                secret_id = secret.id
             except SecretNotFoundError:
                 secret = charm.app.add_secret(
                     content=private_key_dict, label=f"private-key-{hostname}"
                 )
-                secret_id = secret.id
             self.update_relation_data_fields(
-                {f"secret-{hostname}": secret_id}, peer_relation, charm.app
+                {f"secret-{hostname}": secret.id}, peer_relation, charm.app
             )
         else:
-            peer_relation = charm.model.get_relation("nginx-peers")
+            peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
             self.update_relation_data_fields(private_key_dict, peer_relation, charm.app)
 
     def certificate_relation_available(  # type: ignore[no-untyped-def]
@@ -249,7 +246,7 @@ class TLSRelationService:
             tls_certificates_relation,
             charm.app,
         )
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         self.update_relation_data_fields(
             {
                 f"certificate-{hostname}": event.certificate,
@@ -280,7 +277,7 @@ class TLSRelationService:
             event: The event that fires this method.
         """
         tls_certificates_relation = self.get_tls_relation(charm)
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         hostname = self.get_hostname_from_csr(
             tls_certificates_relation, charm.app, event.certificate_signing_request
@@ -313,7 +310,7 @@ class TLSRelationService:
         self.update_relation_data_fields(
             {f"csr-{hostname}": new_csr.decode()}, tls_certificates_relation, charm.app
         )
-        peer_relation = charm.model.get_relation("nginx-peers")
+        peer_relation = charm.model.get_relation(PEER_RELATION_NAME)
         self.update_relation_data_fields(
             {f"csr-{hostname}": new_csr.decode()}, peer_relation, charm.app
         )

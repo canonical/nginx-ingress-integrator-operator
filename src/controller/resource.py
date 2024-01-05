@@ -93,9 +93,6 @@ class ResourceController(typing.Protocol[AnyResource]):
 
         Args:
             definition: Ingress definition to use for generating the resource.
-
-        Returns:
-            Generated resource.
         """
 
     @abc.abstractmethod
@@ -117,11 +114,7 @@ class ResourceController(typing.Protocol[AnyResource]):
 
     @abc.abstractmethod
     def _list_resource(self) -> typing.List[AnyResource]:
-        """Abstract method to list resources in a given namespace based on a label selector.
-
-        Returns:
-            A list of matched resources.
-        """
+        """Abstract method to list resources in a given namespace based on a label selector."""
 
     @abc.abstractmethod
     def _delete_resource(self, name: str) -> None:

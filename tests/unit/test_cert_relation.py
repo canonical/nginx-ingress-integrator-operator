@@ -20,7 +20,7 @@ from ops.model import SecretNotFoundError
 from ops.testing import Harness
 
 from charm import NginxIngressCharm
-from secret_controller import SecretController
+from controller.secret import SecretController
 from tests.unit.constants import TEST_NAMESPACE
 from tls_relation import TLSRelationService
 
@@ -1035,8 +1035,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
-    @patch("secret_controller.SecretController._list_resource")
-    @patch("secret_controller.SecretController._gen_resource_from_definition")
+    @patch("controller.secret.SecretController._list_resource")
+    @patch("controller.secret.SecretController._gen_resource_from_definition")
     def test_define_resource_secret(
         self, mock_gen_res, mock_list, mock_gen_csr, mock_get_data, mock_update
     ):
@@ -1061,8 +1061,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
-    @patch("secret_controller.SecretController._list_resource")
-    @patch("secret_controller.SecretController._gen_resource_from_definition")
+    @patch("controller.secret.SecretController._list_resource")
+    @patch("controller.secret.SecretController._gen_resource_from_definition")
     def test_cleanup_resources_secret(
         self, mock_gen_res, mock_list, mock_gen_csr, mock_get_data, mock_update
     ):

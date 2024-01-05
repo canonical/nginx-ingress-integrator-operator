@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 type: charm
 bases:
@@ -12,3 +12,13 @@ bases:
         - amd64
         - aarch64
         - arm64
+parts:
+  charm:
+    build-packages:
+      - build-essential
+      - python3-dev
+      - pkg-config
+      - libffi-dev
+      - libssl-dev
+      - rustc
+      - cargo

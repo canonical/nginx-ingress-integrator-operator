@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 options:
   additional-hostnames:
@@ -116,7 +116,7 @@ options:
     type: int
   tls-secret-name:
     default: ""
-    description: The name of the TLS secret to use. Leaving this empty will configure an ingress with TLS disabled.
+    description: The name of the Kubernetes secret used to get the TLS certificate used for HTTPS. This settings overrides any tls-certificate relation defined. If left empty and no tls-certificates relation is defined, HTTPS will be disabled.
     type: string
   whitelist-source-range:
     default: ""

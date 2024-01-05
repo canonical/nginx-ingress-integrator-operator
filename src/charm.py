@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 # pylint: disable=protected-access,too-few-public-methods,too-many-lines
@@ -8,24 +8,39 @@
 
 import logging
 import typing
-from typing import Any, Optional, cast
+from typing import Any, List, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
-from ops.charm import CharmBase
-from ops.main import main
-from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
-
-from consts import CREATED_BY_LABEL
-from controller import (
-    EndpointsController,
-    EndpointSliceController,
-    IngressController,
-    ServiceController,
+from charms.tls_certificates_interface.v2.tls_certificates import (
+    AllCertificatesInvalidatedEvent,
+    CertificateAvailableEvent,
+    CertificateExpiringEvent,
+    CertificateInvalidatedEvent,
+    TLSCertificatesRequiresV2,
 )
+from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
+from ops.charm import ActionEvent, CharmBase, EventBase, RelationCreatedEvent, RelationJoinedEvent
+from ops.jujuversion import JujuVersion
+from ops.main import main
+from ops.model import (
+    ActiveStatus,
+    BlockedStatus,
+    MaintenanceStatus,
+    Relation,
+    SecretNotFoundError,
+    WaitingStatus,
+)
+
+from consts import CREATED_BY_LABEL, TLS_CERT
+from controller.endpoint_slice import EndpointSliceController
+from controller.endpoints import EndpointsController
+from controller.ingress import IngressController
+from controller.secret import SecretController
+from controller.service import ServiceController
 from exceptions import InvalidIngressError
 from ingress_definition import IngressDefinition, IngressDefinitionEssence
+from tls_relation import TLSRelationService
 
 LOGGER = logging.getLogger(__name__)
 
@@ -45,12 +60,34 @@ class NginxIngressCharm(CharmBase):
         kubernetes.config.load_incluster_config()
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
+        self._tls = TLSRelationService()
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
 
         self.framework.observe(self._ingress_provider.on.data_provided, self._on_data_provided)
         self.framework.observe(self._ingress_provider.on.data_removed, self._on_data_removed)
+        self.certificates = TLSCertificatesRequiresV2(self, TLS_CERT)
+        self.framework.observe(
+            self.on.certificates_relation_created, self._on_certificates_relation_created
+        )
+        self.framework.observe(
+            self.on.certificates_relation_joined, self._on_certificates_relation_joined
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_available, self._on_certificate_available
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_expiring, self._on_certificate_expiring
+        )
+        self.framework.observe(
+            self.certificates.on.certificate_invalidated, self._on_certificate_invalidated
+        )
+        self.framework.observe(
+            self.certificates.on.all_certificates_invalidated,
+            self._on_all_certificates_invalidated,
+        )
+        self.framework.observe(self.on.get_certificate_action, self._on_get_certificate_action)
 
         provide_nginx_route(
             charm=self,
@@ -91,6 +128,17 @@ class NginxIngressCharm(CharmBase):
         """
         return ServiceController(namespace=namespace, labels=self._labels)
 
+    def _get_secret_controller(self, namespace: str) -> SecretController:
+        """Create a service controller.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            A ServiceController instance.
+        """
+        return SecretController(namespace=namespace, labels=self._labels)
+
     def _get_ingress_controller(self, namespace: str) -> IngressController:
         """Create an ingress controller.
 
@@ -102,7 +150,7 @@ class NginxIngressCharm(CharmBase):
         """
         return IngressController(namespace=namespace, labels=self._labels)
 
-    def _get_relation(self) -> Optional[Relation]:
+    def _get_nginx_relation(self) -> Optional[Relation]:
         """Get the current effective relation.
 
         Returns:
@@ -132,7 +180,11 @@ class NginxIngressCharm(CharmBase):
         """
         if relation.name == "nginx-route":
             definition_essence = IngressDefinitionEssence(
-                model=self.model, config=self.config, relation=relation
+                model=self.model,
+                config=self.config,
+                relation=relation,
+                tls_cert=self._tls.certs,
+                tls_key=self._tls.keys,
             )
         elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
@@ -140,6 +192,8 @@ class NginxIngressCharm(CharmBase):
                 config=self.config,
                 relation=relation,
                 ingress_provider=self._ingress_provider,
+                tls_cert=self._tls.certs,
+                tls_key=self._tls.keys,
             )
         else:
             raise ValueError(f"Invalid relation: {relation.name}")
@@ -176,6 +230,30 @@ class NginxIngressCharm(CharmBase):
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
 
+    def _check_tls_nginx_relations(self, event: Union[EventBase, None]) -> bool:
+        """Handle the TLS Certificate expiring event.
+
+        Args:
+            event: The event that fires this method.
+
+        Returns:
+            If the execution of the caller method should halt.
+        """
+        tls_certificates_relation = self._tls.get_tls_relation(self)
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
+            if event:
+                event.defer()
+            return True
+        relation = self._get_nginx_relation()
+        if relation is None:
+            self._cleanup()
+            if event:
+                event.defer()
+            self.unit.status = WaitingStatus("Waiting for nginx-route/ingress relation")
+            return True
+        return False
+
     def _reconcile(self, definition: IngressDefinition) -> None:
         """Reconcile ingress related resources based on the provided definition.
 
@@ -187,17 +265,26 @@ class NginxIngressCharm(CharmBase):
         endpoints_controller = self._get_endpoints_controller(namespace=namespace)
         endpoint_slice_controller = self._get_endpoint_slice_controller(namespace=namespace)
         service_controller = self._get_service_controller(namespace=namespace)
+        secret_controller = self._get_secret_controller(namespace=namespace)
         ingress_controller = self._get_ingress_controller(namespace=namespace)
         endpoints = None
         endpoint_slice = None
         if definition.use_endpoint_slice:
             endpoints = endpoints_controller.define_resource(definition=definition)
             endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
+        secret_list = []
+        for hostname in self.get_additional_hostnames():
+            if self._tls.certs.get(hostname):
+                secret = secret_controller.define_resource(definition=definition, key=hostname)
+                secret_list.append(secret)
+                continue
+            LOGGER.warning("Certificate not yet available for %s", hostname)
         service = service_controller.define_resource(definition=definition)
         ingress = ingress_controller.define_resource(definition=definition)
         endpoints_controller.cleanup_resources(exclude=endpoints)
         endpoint_slice_controller.cleanup_resources(exclude=endpoint_slice)
         service_controller.cleanup_resources(exclude=service)
+        secret_controller.cleanup_resources(exclude=secret_list)
         ingress_controller.cleanup_resources(exclude=ingress)
 
     def _cleanup(self) -> None:
@@ -205,6 +292,7 @@ class NginxIngressCharm(CharmBase):
         self._get_endpoints_controller(namespace=self.model.name).cleanup_resources()
         self._get_endpoint_slice_controller(namespace=self.model.name).cleanup_resources()
         self._get_service_controller(namespace=self.model.name).cleanup_resources()
+        self._get_secret_controller(namespace=self.model.name).cleanup_resources()
         self._get_ingress_controller(namespace=self.model.name).cleanup_resources()
 
     def _update_ingress(self) -> None:
@@ -212,12 +300,21 @@ class NginxIngressCharm(CharmBase):
         self.unit.set_workload_version(kubernetes.__version__)
         try:
             self._check_precondition()
-            relation = self._get_relation()
+            relation = self._get_nginx_relation()
             if relation is None:
                 self._cleanup()
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
             definition = self._get_definition_from_relation(relation)
+            tls_certificates_relation = self._tls.get_tls_relation(self)
+            revoke_list = self._tls.update_cert_on_service_hostname_change(
+                self.get_additional_hostnames(),
+                tls_certificates_relation,
+                definition.service_namespace,
+                self.app,
+            )
+            if revoke_list:
+                self._certificate_revoked(revoke_list)
             self._reconcile(definition)
             self.unit.status = WaitingStatus("Waiting for ingress IP availability")
             namespace = definition.service_namespace if definition is not None else self.model.name
@@ -251,6 +348,175 @@ class NginxIngressCharm(CharmBase):
     def _on_nginx_route_broken(self, _: Any) -> None:
         """Handle the nginx-route-broken event."""
         self._update_ingress()
+
+    def _on_get_certificate_action(self, event: ActionEvent) -> None:
+        """Triggered when users run the `get-certificate` Juju action.
+
+        Args:
+            event: Juju event
+        """
+        hostname = event.params["hostname"]
+        tls_certificates_relation = self._tls.get_tls_relation(self)
+        if not tls_certificates_relation:
+            event.fail("Certificates relation not created.")
+            return
+        tls_rel_data = tls_certificates_relation.data[self.app]
+        if tls_rel_data[f"certificate-{hostname}"]:
+            event.set_results(
+                {
+                    f"certificate-{hostname}": tls_rel_data[f"certificate-{hostname}"],
+                    f"ca-{hostname}": tls_rel_data[f"ca-{hostname}"],
+                    f"chain-{hostname}": tls_rel_data[f"chain-{hostname}"],
+                }
+            )
+        else:
+            event.fail("Certificate not available")
+
+    def get_additional_hostnames(self) -> list:
+        """Get a list containing all ingress hostnames.
+
+        Returns:
+            A list containing service and additional hostnames
+        """
+        # The relation will always exist when this method is called
+        relation = self._get_nginx_relation()  # type: ignore[arg-type]
+        definition = self._get_definition_from_relation(relation)  # type: ignore[arg-type]
+        hostnames = [definition.service_hostname]
+        hostnames.extend(definition.additional_hostnames)
+        return hostnames
+
+    def _on_certificates_relation_created(self, event: RelationCreatedEvent) -> None:
+        """Handle the TLS Certificate relation created event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        if self._check_tls_nginx_relations(event):
+            return
+        hostnames = self.get_additional_hostnames()
+        for hostname in hostnames:
+            self._tls.certificate_relation_created(hostname, self)
+
+    def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
+        """Handle the TLS Certificate relation joined event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        if self._check_tls_nginx_relations(event):
+            return
+        hostnames = self.get_additional_hostnames()
+        for hostname in hostnames:
+            self._tls.certificate_relation_joined(hostname, self)
+
+    def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
+        """Handle the TLS Certificate available event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self._tls.get_tls_relation(self)
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
+            event.defer()
+            return
+        self._tls.certificate_relation_available(self, event)
+        self._update_ingress()
+        self.unit.status = ActiveStatus()
+
+    def _on_certificate_expiring(
+        self,
+        event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent],
+    ) -> None:
+        """Handle the TLS Certificate expiring event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        if self._check_tls_nginx_relations(event):
+            return
+        self._tls.certificate_expiring(self, event)
+
+    # This method is too complex but hard to simplify.
+    def _certificate_revoked(self, revoke_list: List[str]) -> None:  # noqa: C901
+        """Handle TLS Certificate revocation.
+
+        Args:
+            revoke_list: TLS Certificates list to revoke
+        """
+        if self._check_tls_nginx_relations(None):
+            return
+        tls_certificates_relation = self._tls.get_tls_relation(self)
+        for hostname in revoke_list:
+            old_csr = self._tls.get_relation_data_field(
+                f"csr-{hostname}",
+                tls_certificates_relation,  # type: ignore[arg-type]
+                self.app,
+            )
+            if not old_csr:
+                continue
+            if JujuVersion.from_environ().has_secrets:
+                try:
+                    secret = self.model.get_secret(label=f"private-key-{hostname}")
+                    secret.remove_all_revisions()
+                except SecretNotFoundError:
+                    LOGGER.warning("Juju secret for %s already does not exist", hostname)
+                    continue
+            try:
+                self._tls.pop_relation_data_fields(
+                    [f"key-{hostname}", f"password-{hostname}"],
+                    tls_certificates_relation,  # type: ignore[arg-type]
+                    self.app,
+                )
+                peer_relation = self.model.get_relation("nginx-peers")  # type: ignore[arg-type]
+                self._tls.pop_relation_data_fields(
+                    [f"key-{hostname}", f"password-{hostname}"],
+                    peer_relation,  # type: ignore[arg-type]
+                    self.app,
+                )
+            except KeyError:
+                LOGGER.warning("Relation data for %s already does not exist", hostname)
+            self.certificates.request_certificate_revocation(
+                certificate_signing_request=old_csr.encode()
+            )
+
+    def _on_certificate_invalidated(self, event: CertificateInvalidatedEvent) -> None:
+        """Handle the TLS Certificate invalidation event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        tls_certificates_relation = self._tls.get_tls_relation(self)
+        if not tls_certificates_relation:
+            self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
+            event.defer()
+            return
+        if event.reason == "revoked":
+            hostname = self._tls.get_hostname_from_csr(
+                tls_certificates_relation, self.app, event.certificate_signing_request
+            )
+            self._certificate_revoked([hostname])
+        if event.reason == "expired":
+            self._tls.certificate_expiring(self, event)
+        self.unit.status = MaintenanceStatus("Waiting for new certificate")
+
+    def _on_all_certificates_invalidated(self, _: AllCertificatesInvalidatedEvent) -> None:
+        """Handle the TLS Certificate relation broken event.
+
+        Args:
+            _: The event that fires this method.
+        """
+        tls_relation = self._tls.get_tls_relation(self)
+        if tls_relation:
+            tls_relation.data[self.app].clear()
+        if JujuVersion.from_environ().has_secrets:
+            hostnames = self.get_additional_hostnames()
+            for hostname in hostnames:
+                try:
+                    secret = self.model.get_secret(label=f"private-key-{hostname}")
+                    secret.remove_all_revisions()
+                except SecretNotFoundError:
+                    LOGGER.warning("Juju secret for %s already does not exist", hostname)
 
 
 if __name__ == "__main__":  # pragma: no cover

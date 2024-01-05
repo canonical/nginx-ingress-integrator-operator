@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """nginx-ingress-integrator ingress definition."""
@@ -20,23 +20,40 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
     """Class containing data from the Charm configuration, or from a relation."""
 
     @classmethod
-    def from_nginx_route(
-        cls, charm: ops.CharmBase, relation: Relation
+    def from_nginx_route(  # pylint: disable=too-many-arguments
+        cls,
+        charm: ops.CharmBase,
+        relation: Relation,
+        tls_cert: dict,
+        tls_key: dict,
     ) -> "IngressDefinitionEssence":
         """Create an ingress definition essence object for nginx-route relation.
 
         Args:
             charm: The charm object.
             relation: The nginx-route relation
+            tls_cert: TLS Certificate content
+            tls_key: TLS private key content
 
         Returns:
             The created ingress definition essence object.
         """
-        return cls(model=charm.model, config=charm.config, relation=relation)
+        return cls(
+            model=charm.model,
+            config=charm.config,
+            relation=relation,
+            tls_key=tls_key,
+            tls_cert=tls_cert,
+        )
 
     @classmethod
-    def from_ingress(
-        cls, charm: ops.CharmBase, relation: Relation, ingress_provider: IngressPerAppProvider
+    def from_ingress(  # pylint: disable=too-many-arguments
+        cls,
+        charm: ops.CharmBase,
+        relation: Relation,
+        ingress_provider: IngressPerAppProvider,
+        tls_cert: dict,
+        tls_key: dict,
     ) -> "IngressDefinitionEssence":
         """Create an ingress definition essence object for ingress relation.
 
@@ -44,6 +61,8 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             charm: The charm object.
             relation: The ingress relation.
             ingress_provider: The ingress provider object from ingress charm library.
+            tls_cert: TLS Certificate content
+            tls_key: TLS private key content
 
         Returns:
             The created ingress definition essence object.
@@ -53,13 +72,17 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             config=charm.config,
             relation=relation,
             ingress_provider=ingress_provider,
+            tls_key=tls_key,
+            tls_cert=tls_cert,
         )
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments
         self,
         model: Model,
         config: ConfigData,
         relation: Relation,
+        tls_cert: dict,
+        tls_key: dict,
         ingress_provider: Optional[IngressPerAppProvider] = None,
     ) -> None:
         """Create a _ConfigOrRelation Object.
@@ -69,12 +92,16 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             config: The charm's configuration.
             relation: One of the charm's relations, if any.
             ingress_provider: The ingress provider object from the ingress charm library.
+            tls_cert: TLS Certificate content
+            tls_key: TLS private key content
         """
         super().__init__()
         self.model = model
         self.config = config
         self.relation = relation
         self.ingress_provider = ingress_provider
+        self.tls_key = tls_key
+        self.tls_cert = tls_cert
 
     def _get_config(self, field: str) -> Union[str, float, int, bool, None]:
         """Get data from config.
@@ -502,6 +529,8 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
     service_port: int
     session_cookie_max_age: int
     tls_secret_name: str
+    tls_cert: dict
+    tls_key: dict
     upstream_endpoint_type: Optional[str]
     upstream_endpoints: List[str]
     use_endpoint_slice: bool
@@ -544,6 +573,8 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
             service_port=essence.service_port,
             session_cookie_max_age=essence.session_cookie_max_age,
             tls_secret_name=essence.tls_secret_name,
+            tls_cert=essence.tls_cert,
+            tls_key=essence.tls_key,
             upstream_endpoint_type=essence.upstream_endpoint_type,
             upstream_endpoints=essence.upstream_endpoints,
             use_endpoint_slice=essence.use_endpoint_slice,

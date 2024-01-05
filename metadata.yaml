@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 name: nginx-ingress-integrator
 display-name: Nginx Ingress Integrator
@@ -33,3 +33,12 @@ provides:
   nginx-route:
     interface: nginx-route
     limit: 1
+requires:
+  certificates:
+    interface: tls-certificates
+    limit: 1
+    description: |
+      Requires certificates-generating charm for TLS
+peers:
+  nginx-peers:
+    interface: nginx-instance

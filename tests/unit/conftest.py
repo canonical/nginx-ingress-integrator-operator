@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """nginx-ingress-integrator charm unit test fixtures."""
@@ -23,7 +23,13 @@ class K8sStub:
     def __init__(self):
         """Initialize a new K8sStub instance."""
         self.namespaces: defaultdict[str, dict] = defaultdict(
-            lambda: {"ingress": {}, "service": {}, "endpoint_slice": {}, "endpoints": {}}
+            lambda: {
+                "ingress": {},
+                "service": {},
+                "endpoint_slice": {},
+                "endpoints": {},
+                "secret": {},
+            }
         )
         self.auth = True
         self.legacy_mode = False
@@ -69,6 +75,17 @@ class K8sStub:
             List of service resources.
         """
         return list(self._get_resource_dict("service", namespace=namespace).values())
+
+    def get_secrets(self, namespace: str) -> List[kubernetes.client.V1Secret]:
+        """Get service resources for the specified namespace.
+
+        Args:
+            namespace: Kubernetes namespace.
+
+        Returns:
+            List of service resources.
+        """
+        return list(self._get_resource_dict("secret", namespace=namespace).values())
 
     def get_endpoint_slices(self, namespace: str) -> List[kubernetes.client.V1EndpointSlice]:
         """Get endpoint slice resources for the specified namespace.
@@ -121,6 +138,7 @@ class K8sStub:
             kubernetes.client.V1Endpoints,
             kubernetes.client.V1EndpointSlice,
             kubernetes.client.V1Service,
+            kubernetes.client.V1Secret,
             kubernetes.client.V1Ingress,
         ],
     ):
@@ -156,6 +174,7 @@ class K8sStub:
             kubernetes.client.V1Endpoints,
             kubernetes.client.V1EndpointSlice,
             kubernetes.client.V1Service,
+            kubernetes.client.V1Secret,
             kubernetes.client.V1Ingress,
         ],
     ) -> None:
@@ -188,6 +207,7 @@ class K8sStub:
         kubernetes.client.V1EndpointsList,
         kubernetes.client.V1EndpointSliceList,
         kubernetes.client.V1ServiceList,
+        kubernetes.client.V1SecretList,
         kubernetes.client.V1IngressList,
     ]:
         """List all resource in a specified namespace.
@@ -212,6 +232,8 @@ class K8sStub:
             return kubernetes.client.V1EndpointSliceList(items=resources)
         elif resource == "service":
             return kubernetes.client.V1ServiceList(items=resources)
+        elif resource == "secret":
+            return kubernetes.client.V1SecretList(items=resources)
         elif resource == "ingress":
             return kubernetes.client.V1IngressList(items=resources)
         else:
@@ -252,6 +274,10 @@ def k8s_stub(monkeypatch: pytest.MonkeyPatch) -> K8sStub:
         monkeypatch.setattr(
             f"kubernetes.client.CoreV1Api.{action}_namespaced_service",
             partial(getattr(stub, f"{action}_namespaced_resource"), "service"),
+        )
+        monkeypatch.setattr(
+            f"kubernetes.client.CoreV1Api.{action}_namespaced_secret",
+            partial(getattr(stub, f"{action}_namespaced_resource"), "secret"),
         )
         ingress_action = action.replace("patch", "replace")
         monkeypatch.setattr(

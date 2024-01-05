@@ -33,13 +33,13 @@ from ops.model import (
 )
 
 from consts import CREATED_BY_LABEL, TLS_CERT
-from controller.endpoint_slice import EndpointSliceController
-from controller.endpoints import EndpointsController
+from endpoint_slice_controller import EndpointSliceController
+from endpoints_controller import EndpointsController
 from exceptions import InvalidIngressError
-from controller.ingress import IngressController
+from ingress_controller import IngressController
 from ingress_definition import IngressDefinition, IngressDefinitionEssence
-from controller.secret import SecretController
-from controller.service import ServiceController
+from secret_controller import SecretController
+from service_controller import ServiceController
 from tls_relation import TLSRelationService
 
 LOGGER = logging.getLogger(__name__)

@@ -1,4 +1,4 @@
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 describe-ingresses:
   description: Describe ingresses configured in this charm's namespace. Intended for debugging purposes.

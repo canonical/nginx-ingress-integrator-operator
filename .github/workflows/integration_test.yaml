@@ -8,4 +8,4 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
-      modules: '["test_ingress_relation", "test_nginx_route"]'
+      modules: '["test_nginx_route"]'

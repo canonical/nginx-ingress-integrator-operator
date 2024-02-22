@@ -142,21 +142,21 @@ class IngressController(
         if definition.limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = definition.limit_rps
             if definition.limit_whitelist:
-                annotations[
-                    "nginx.ingress.kubernetes.io/limit-whitelist"
-                ] = definition.limit_whitelist
+                annotations["nginx.ingress.kubernetes.io/limit-whitelist"] = (
+                    definition.limit_whitelist
+                )
         if definition.owasp_modsecurity_crs:
             annotations["nginx.ingress.kubernetes.io/enable-modsecurity"] = "true"
             annotations["nginx.ingress.kubernetes.io/enable-owasp-modsecurity-crs"] = "true"
             sec_rule_engine = f"SecRuleEngine On\n{definition.owasp_modsecurity_custom_rules}"
             nginx_modsec_file = "/etc/nginx/owasp-modsecurity-crs/nginx-modsecurity.conf"
-            annotations[
-                "nginx.ingress.kubernetes.io/modsecurity-snippet"
-            ] = f"{sec_rule_engine}\nInclude {nginx_modsec_file}"
+            annotations["nginx.ingress.kubernetes.io/modsecurity-snippet"] = (
+                f"{sec_rule_engine}\nInclude {nginx_modsec_file}"
+            )
         if definition.retry_errors:
-            annotations[
-                "nginx.ingress.kubernetes.io/proxy-next-upstream"
-            ] = definition.retry_errors
+            annotations["nginx.ingress.kubernetes.io/proxy-next-upstream"] = (
+                definition.retry_errors
+            )
         if definition.rewrite_enabled:
             annotations["nginx.ingress.kubernetes.io/rewrite-target"] = definition.rewrite_target
         if definition.session_cookie_max_age:
@@ -166,9 +166,9 @@ class IngressController(
             annotations["nginx.ingress.kubernetes.io/session-cookie-max-age"] = str(
                 definition.session_cookie_max_age
             )
-            annotations[
-                "nginx.ingress.kubernetes.io/session-cookie-name"
-            ] = f"{definition.service_name.upper()}_AFFINITY"
+            annotations["nginx.ingress.kubernetes.io/session-cookie-name"] = (
+                f"{definition.service_name.upper()}_AFFINITY"
+            )
             annotations["nginx.ingress.kubernetes.io/session-cookie-samesite"] = "Lax"
         if definition.tls_secret_name:
             spec.tls = [
@@ -189,9 +189,9 @@ class IngressController(
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
         if definition.whitelist_source_range:
-            annotations[
-                "nginx.ingress.kubernetes.io/whitelist-source-range"
-            ] = definition.whitelist_source_range
+            annotations["nginx.ingress.kubernetes.io/whitelist-source-range"] = (
+                definition.whitelist_source_range
+            )
 
         ingress = kubernetes.client.V1Ingress(
             api_version="networking.k8s.io/v1",

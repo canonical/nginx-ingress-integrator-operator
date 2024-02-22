@@ -1,4 +1,4 @@
-name: Integration tests
+name: Integration tests (microk8s 1.20)
 
 on:
   pull_request:
@@ -8,4 +8,5 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
-      modules: '["test_ingress_relation", "test_nginx_route"]'
+      channel: "1.20/stable"
+      modules: '["test_ingress_relation"]'

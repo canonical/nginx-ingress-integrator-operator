@@ -152,7 +152,7 @@ async def test_ingress_connectivity_invalid_backend(model: Model):
     await model.wait_for_idle()
     unit = model.applications[INGRESS_APP_NAME].units[0]
     assert unit.workload_status == "blocked"
-    assert "Invalid backend protocol" in unit.workload_status_message
+    assert "invalid backend protocol" in unit.workload_status_message
     # Undo the change and check again
     await model.applications["ingress"].set_config({"backend-protocol": "HTTP"})
     await model.wait_for_idle(status="active")

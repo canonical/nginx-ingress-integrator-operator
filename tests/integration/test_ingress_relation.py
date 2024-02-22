@@ -30,7 +30,7 @@ async def test_ingress_relation(
     class AnyCharm(AnyCharmBase):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self.ingress = IngressPerAppRequirer(self, port=8080)
+            self.ingress = IngressPerAppRequirer(self, port=8080, model={model.name}, name=any)
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)

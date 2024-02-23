@@ -179,10 +179,7 @@ async def deploy_any_charm(model: Model):
             "any-charm",
             application_name="any",
             channel="beta",
-            config={
-                "python-packages": "pydantic<2.0",
-                "src-overwrite": src_overwrite
-            },
+            config={"python-packages": "pydantic<2.0", "src-overwrite": src_overwrite},
         )
 
     return _deploy_any_charm

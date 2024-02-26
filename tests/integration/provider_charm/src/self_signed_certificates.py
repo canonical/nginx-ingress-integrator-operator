@@ -35,9 +35,11 @@ def generate_private_key(
     key_bytes = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.TraditionalOpenSSL,
-        encryption_algorithm=serialization.BestAvailableEncryption(password)
-        if password
-        else serialization.NoEncryption(),
+        encryption_algorithm=(
+            serialization.BestAvailableEncryption(password)
+            if password
+            else serialization.NoEncryption()
+        ),
     )
     return key_bytes
 

@@ -5,7 +5,6 @@
 # pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with,duplicate-code
 
 """General configuration module for integration tests."""
-import json
 from pathlib import Path
 
 import kubernetes
@@ -172,58 +171,15 @@ async def deploy_any_charm(model: Model):
 
         Args:
             src_overwrite: files to overwrite for testing purposes.
+
+        Returns:
+            The any-charm application.
         """
-        await model.deploy(
+        return await model.deploy(
             "any-charm",
             application_name="any",
             channel="beta",
-            config={"src-overwrite": src_overwrite},
+            config={"python-packages": "pydantic<2.0", "src-overwrite": src_overwrite},
         )
 
     return _deploy_any_charm
-
-
-@pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(model: Model, run_action, build_and_deploy_ingress, deploy_any_charm):
-    """Build and deploy nginx-ingress-integrator charm.
-
-    Also deploy and relate an any-charm application for test purposes.
-
-    Returns: None.
-    """
-    path_lib = "lib/charms/nginx_ingress_integrator/v0/ingress.py"
-    ingress_lib = Path(path_lib).read_text(encoding="utf8")
-    any_charm_script = Path("tests/integration/any_charm.py").read_text(encoding="utf8")
-    any_charm_src_overwrite = {
-        "ingress.py": ingress_lib,
-        "any_charm.py": any_charm_script,
-    }
-    await deploy_any_charm(json.dumps(any_charm_src_overwrite))
-    await build_and_deploy_ingress()
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME, "rpc", method="start_server")
-    relation_name = f"{INGRESS_APP_NAME}:ingress"
-    await model.add_relation(ANY_APP_NAME, relation_name)
-    await model.wait_for_idle(status=ACTIVE_STATUS_NAME)
-
-
-@pytest_asyncio.fixture(scope="module")
-async def setup_new_hostname_and_port(ops_test, run_action, wait_for_ingress):
-    """Update the service-hostname to NEW_HOSTNAME and service-port to NEW_PORT via any-charm.
-
-    Returns: None.
-    """
-    rpc_return = await run_action(
-        ANY_APP_NAME, "rpc", method="start_server", kwargs=json.dumps({"port": NEW_PORT})
-    )
-    assert json.loads(rpc_return["return"]) == NEW_PORT
-    await run_action(
-        ANY_APP_NAME,
-        "rpc",
-        method="update_ingress",
-        kwargs=json.dumps(
-            {"ingress_config": {"service-hostname": NEW_HOSTNAME, "service-port": NEW_PORT}}
-        ),
-    )
-    await ops_test.model.wait_for_idle(status="active")
-    await wait_for_ingress(NEW_INGRESS)

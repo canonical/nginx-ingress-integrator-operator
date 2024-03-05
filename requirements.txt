@@ -1,2 +1,4 @@
-kubernetes ==29.0.0
+kubernetes==24.2.0 # last version with DiscoveryV1beta1Api
 ops
+jsonschema
+cryptography

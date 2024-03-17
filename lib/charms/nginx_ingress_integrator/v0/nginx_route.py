@@ -86,7 +86,7 @@ LIBAPI = 0
 
 # Increment this PATCH version before using `charmcraft publish-lib` or reset
 # to 0 if you are raising the major API version
-LIBPATCH = 5
+LIBPATCH = 6
 
 __all__ = ["require_nginx_route", "provide_nginx_route"]
 
@@ -181,6 +181,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
     service_port: int,
     additional_hostnames: typing.Optional[str] = None,
     backend_protocol: typing.Optional[str] = None,
+    disable_access_log: bool = False,
     limit_rps: typing.Optional[int] = None,
     limit_whitelist: typing.Optional[str] = None,
     max_body_size: typing.Optional[int] = None,
@@ -211,6 +212,8 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
             additional-hostnames option via relation, optional.
         backend_protocol: configure Nginx ingress integrator
             backend-protocol option via relation, optional.
+        disable_access_log: disable access logs with
+            nginx.ingress.kubernetes.io/enable-access-log option.
         limit_rps: configure Nginx ingress integrator limit-rps
             option via relation, optional.
         limit_whitelist: configure Nginx ingress integrator
@@ -251,6 +254,8 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
         config["additional-hostnames"] = additional_hostnames
     if backend_protocol is not None:
         config["backend-protocol"] = backend_protocol
+    if disable_access_log:
+        config["disable-access-log"] = "true"
     if limit_rps is not None:
         config["limit-rps"] = limit_rps
     if limit_whitelist is not None:

@@ -213,6 +213,20 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         return backend_protocol
 
     @property
+    def disable_access_log(self) -> bool:
+        """Return if access log is disabled for this ingress.
+
+        If the charm configuration is set, it takes precedence over the relation data.
+        If this setting is not specified in the configuration or relation, it defaults to False.
+        """
+        relation_data = self._get_relation("disable-access-log")
+        from_relation = relation_data.lower() == "true" if relation_data is not None else None
+        from_config = self._get_config("disable-access-log")
+        if from_config is None:
+            return bool(from_relation)
+        return bool(from_config)
+
+    @property
     def k8s_endpoint_slice_name(self) -> str:
         """Return the endpoint slice name for the use creating a k8s endpoint slice."""
         # endpoint slice name must be the same as service name
@@ -508,6 +522,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
 
     additional_hostnames: List[str]
     backend_protocol: str
+    disable_access_log: bool
     ingress_class: Optional[str]
     is_ingress_relation: bool
     k8s_endpoint_slice_name: str
@@ -552,6 +567,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
         return cls(
             additional_hostnames=essence.additional_hostnames,
             backend_protocol=essence.backend_protocol,
+            disable_access_log=essence.disable_access_log,
             ingress_class=essence.ingress_class,
             is_ingress_relation=essence.is_ingress_relation,
             k8s_endpoint_slice_name=essence.k8s_endpoint_slice_name,

@@ -95,8 +95,10 @@ class IngressController(
 
         body.spec.ingress_class_name = ingress_class
 
+    # disable the "function is too complex" warning here
+    # this function is actually quite straightforward
     @_map_k8s_auth_exception
-    def _gen_resource_from_definition(
+    def _gen_resource_from_definition(  # noqa: C901
         self, definition: IngressDefinition
     ) -> kubernetes.client.V1Ingress:
         """Generate a V1Ingress resource from ingress definition.
@@ -139,6 +141,8 @@ class IngressController(
             "nginx.ingress.kubernetes.io/proxy-read-timeout": definition.proxy_read_timeout,
             "nginx.ingress.kubernetes.io/backend-protocol": definition.backend_protocol,
         }
+        if definition.disable_access_log:
+            annotations["nginx.ingress.kubernetes.io/enable-access-log"] = "false"
         if definition.limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = definition.limit_rps
             if definition.limit_whitelist:

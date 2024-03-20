@@ -181,7 +181,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
     service_port: int,
     additional_hostnames: typing.Optional[str] = None,
     backend_protocol: typing.Optional[str] = None,
-    disable_access_log: bool = False,
+    enable_access_log: typing.Optional[bool] = None,
     limit_rps: typing.Optional[int] = None,
     limit_whitelist: typing.Optional[str] = None,
     max_body_size: typing.Optional[int] = None,
@@ -212,7 +212,7 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
             additional-hostnames option via relation, optional.
         backend_protocol: configure Nginx ingress integrator
             backend-protocol option via relation, optional.
-        disable_access_log: disable access logs with
+        enable_access_log: configure Nginx ingress
             nginx.ingress.kubernetes.io/enable-access-log option.
         limit_rps: configure Nginx ingress integrator limit-rps
             option via relation, optional.
@@ -254,8 +254,8 @@ def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,to
         config["additional-hostnames"] = additional_hostnames
     if backend_protocol is not None:
         config["backend-protocol"] = backend_protocol
-    if disable_access_log:
-        config["disable-access-log"] = "true"
+    if enable_access_log is not None:
+        config["enable-access-log"] = "true" if enable_access_log else "false"
     if limit_rps is not None:
         config["limit-rps"] = limit_rps
     if limit_whitelist is not None:

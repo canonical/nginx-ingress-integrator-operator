@@ -141,7 +141,7 @@ class IngressController(
             "nginx.ingress.kubernetes.io/proxy-read-timeout": definition.proxy_read_timeout,
             "nginx.ingress.kubernetes.io/backend-protocol": definition.backend_protocol,
         }
-        if definition.disable_access_log:
+        if not definition.enable_access_log:
             annotations["nginx.ingress.kubernetes.io/enable-access-log"] = "false"
         if definition.limit_rps:
             annotations["nginx.ingress.kubernetes.io/limit-rps"] = definition.limit_rps

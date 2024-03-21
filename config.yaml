@@ -12,6 +12,11 @@ options:
       Indicates how NGINX should communicate with the backend service. Valid
       Values: HTTP, HTTPS, GRPC, GRPCS, AJP and FCGI.
     type: string
+  enable-access-log:
+    description: >-
+      Setting this to false disables access log for the ingress using nginx.ingress.kubernetes.io/enable-access-log.
+      If this setting is not set anywhere (config or relation), it defaults to true.
+    type: boolean
   ingress-class:
     default: ""
     description: |

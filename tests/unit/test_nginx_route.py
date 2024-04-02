@@ -151,6 +151,35 @@ def test_backend_protocol_error(k8s_stub: K8sStub, harness: Harness, nginx_route
     assert harness.charm.unit.status.name == "blocked"
 
 
+def test_disable_access_log(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):
+    """
+    arrange: set up test harness and nginx-route relation.
+    act: set the disable-access-log in the nginx-route relation.
+    assert: ingress annotations are updated according to the disable-access-log value.
+    """
+    relation_data = nginx_route_relation.gen_example_app_data()
+    harness.begin()
+    nginx_route_relation.update_app_data(relation_data)
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert "nginx.ingress.kubernetes.io/enable-access-log" not in ingress.metadata.annotations
+    relation_data["enable-access-log"] = "false"
+    nginx_route_relation.update_app_data(relation_data)
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/enable-access-log"] == "false"
+    relation_data["enable-access-log"] = "true"
+    nginx_route_relation.update_app_data(relation_data)
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert "nginx.ingress.kubernetes.io/enable-access-log" not in ingress.metadata.annotations
+    harness.update_config({"enable-access-log": False})
+    nginx_route_relation.update_app_data(relation_data)
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/enable-access-log"] == "false"
+    harness.update_config({"enable-access-log": True})
+    nginx_route_relation.update_app_data(relation_data)
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert "nginx.ingress.kubernetes.io/enable-access-log" not in ingress.metadata.annotations
+
+
 def test_ingress_class(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):
     """
     arrange: set up test harness and nginx-route relation.

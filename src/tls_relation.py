@@ -52,7 +52,6 @@ class TLSRelationService:
         hostnames: List[str],
         tls_certificates_relation: Union[Relation, None],
         namespace: str,
-        app_name: Application,
     ) -> List[str]:
         """Handle TLS certificate updates when the charm config changes.
 
@@ -60,7 +59,6 @@ class TLSRelationService:
             hostnames: Ingress service hostname list.
             tls_certificates_relation: TLS Certificates relation.
             namespace: Kubernetes namespace.
-            app_name: Juju app's name.
 
         Returns:
             bool: If the TLS certificate needs to be updated.
@@ -72,7 +70,7 @@ class TLSRelationService:
             hostnames_to_revoke = []
             hostnames_unchanged = []
             for hostname in hostnames:
-                csr = tls_certificates_relation.data[app_name].get(f"csr-{hostname}")
+                csr = tls_certificates_relation.data[self.charm_app].get(f"csr-{hostname}")
                 if csr and hostname in [x.spec.rules[0].host for x in ingresses.items]:
                     hostnames_unchanged.append(hostname)
             hostnames_to_revoke = [
@@ -82,62 +80,56 @@ class TLSRelationService:
             ]
         return hostnames_to_revoke
 
-    def update_relation_data_fields(
-        self, relation_fields: dict, tls_relation: Relation, app: Application
-    ) -> None:
+    def update_relation_data_fields(self, relation_fields: dict, tls_relation: Relation) -> None:
         """Update a dict of items from the app relation databag.
 
         Args:
             relation_fields: items to update
             tls_relation: TLS certificates relation
-            app: Charm application
         """
         for key, value in relation_fields.items():
-            tls_relation.data[app].update({key: value})
+            tls_relation.data[self.charm_app].update({key: value})
 
     def pop_relation_data_fields(
-        self, relation_fields: list, tls_relation: Relation, app: Application
+        self,
+        relation_fields: list,
+        tls_relation: Relation,
     ) -> None:
         """Pop a list of items from the app relation databag.
 
         Args:
             relation_fields: items to pop
             tls_relation: TLS certificates relation
-            app: Charm application
         """
         for item in relation_fields:
-            tls_relation.data[app].pop(item)
+            tls_relation.data[self.charm_app].pop(item)
 
-    def get_relation_data_field(
-        self, relation_field: str, tls_relation: Relation, app: Application
-    ) -> str:
+    def get_relation_data_field(self, relation_field: str, tls_relation: Relation) -> str:
         """Get an item from the app relation databag.
 
         Args:
             relation_field: item to get
             tls_relation: TLS certificates relation
-            app: Charm application
 
         Returns:
             The value from the field.
         """
-        field_value = tls_relation.data[app].get(relation_field)
+        field_value = tls_relation.data[self.charm_app].get(relation_field)
         return field_value
 
-    def get_hostname_from_csr(self, tls_relation: Relation, app: Application, csr: str) -> str:
+    def get_hostname_from_csr(self, tls_relation: Relation, csr: str) -> str:
         """Get the hostname from a csr.
 
         Args:
             tls_relation: TLS certificates relation
-            app: Charm application
             csr: csr to extract hostname from
 
         Returns:
             The hostname the csr belongs to.
         """
         csr_dict = {
-            key: tls_relation.data[app].get(key)
-            for key in tls_relation.data[app]
+            key: tls_relation.data[self.charm_app].get(key)
+            for key in tls_relation.data[self.charm_app]
             if key.startswith("csr-")
         }
         for key in csr_dict:
@@ -178,11 +170,9 @@ class TLSRelationService:
             subject=hostname,
         )
         self.update_relation_data_fields(
-            {f"csr-{hostname}": csr.decode()}, tls_certificates_relation, self.charm_app
+            {f"csr-{hostname}": csr.decode()}, tls_certificates_relation
         )
-        self.update_relation_data_fields(
-            {f"csr-{hostname}": csr.decode()}, peer_relation, self.charm_app
-        )
+        self.update_relation_data_fields({f"csr-{hostname}": csr.decode()}, peer_relation)
         certificates.request_certificate_creation(certificate_signing_request=csr)
 
     def certificate_relation_created(  # type: ignore[no-untyped-def]
@@ -213,11 +203,9 @@ class TLSRelationService:
                     content=private_key_dict, label=f"private-key-{hostname}"
                 )
                 secret.grant(tls_certificates_relation)
-            self.update_relation_data_fields(
-                {f"secret-{hostname}": secret.id}, peer_relation, self.charm_app
-            )
+            self.update_relation_data_fields({f"secret-{hostname}": secret.id}, peer_relation)
         else:
-            self.update_relation_data_fields(private_key_dict, peer_relation, self.charm_app)
+            self.update_relation_data_fields(private_key_dict, peer_relation)
 
     def certificate_relation_available(  # type: ignore[no-untyped-def]
         self, event: CertificateAvailableEvent
@@ -230,7 +218,7 @@ class TLSRelationService:
         tls_certificates_relation = self.get_tls_relation()
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, self.charm_app, event.certificate_signing_request
+            tls_certificates_relation, event.certificate_signing_request
         )
         self.update_relation_data_fields(
             {
@@ -239,7 +227,6 @@ class TLSRelationService:
                 f"chain-{hostname}": str(event.chain[0]),
             },
             tls_certificates_relation,
-            self.charm_app,
         )
         peer_relation = self.charm_model.get_relation(PEER_RELATION_NAME)
         assert isinstance(peer_relation, Relation)  # nosec
@@ -250,7 +237,6 @@ class TLSRelationService:
                 f"chain-{hostname}": str(event.chain[0]),
             },
             peer_relation,
-            self.charm_app,
         )
         private_key = self._get_private_key(hostname)
 
@@ -273,11 +259,9 @@ class TLSRelationService:
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         assert isinstance(peer_relation, Relation)  # nosec
         hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, self.charm_app, event.certificate_signing_request
+            tls_certificates_relation, event.certificate_signing_request
         )
-        old_csr = self.get_relation_data_field(
-            f"csr-{hostname}", tls_certificates_relation, self.charm_app
-        )
+        old_csr = self.get_relation_data_field(f"csr-{hostname}", tls_certificates_relation)
         private_key_dict = self._get_private_key(hostname)
         new_csr = generate_csr(
             private_key=private_key_dict["key"].encode(),
@@ -289,11 +273,9 @@ class TLSRelationService:
             new_certificate_signing_request=new_csr,
         )
         self.update_relation_data_fields(
-            {f"csr-{hostname}": new_csr.decode()}, tls_certificates_relation, self.charm_app
+            {f"csr-{hostname}": new_csr.decode()}, tls_certificates_relation
         )
-        self.update_relation_data_fields(
-            {f"csr-{hostname}": new_csr.decode()}, peer_relation, self.charm_app
-        )
+        self.update_relation_data_fields({f"csr-{hostname}": new_csr.decode()}, peer_relation)
 
     def get_decrypted_keys(self) -> Dict[str, bytes]:
         """Return the list of decrypted private keys.
@@ -349,9 +331,9 @@ class TLSRelationService:
             peer_relation = self.charm_model.get_relation(PEER_RELATION_NAME)
             assert isinstance(peer_relation, Relation)  # nosec
             private_key_dict["key"] = self.get_relation_data_field(
-                f"key-{hostname}", peer_relation, self.charm_app
+                f"key-{hostname}", peer_relation
             )
             private_key_dict["password"] = self.get_relation_data_field(
-                f"password-{hostname}", peer_relation, self.charm_app
+                f"password-{hostname}", peer_relation
             )
         return private_key_dict

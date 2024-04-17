@@ -941,7 +941,7 @@ class TestCertificatesRelation(unittest.TestCase):
             unit_name = self.harness.charm.unit
             tls_certificates_relation.return_value.data[unit_name].return_value = {"csr": "csr"}
             result = tls_rel.update_cert_on_service_hostname_change(
-                service_hostname, tls_certificates_relation, TEST_NAMESPACE, unit_name
+                service_hostname, tls_certificates_relation, TEST_NAMESPACE
             )
             assert result
 
@@ -969,7 +969,7 @@ class TestCertificatesRelation(unittest.TestCase):
             unit_name = self.harness.charm.unit
             tls_certificates_relation.return_value.data[unit_name].return_value = {"csr": "csr"}
             result = tls_rel.update_cert_on_service_hostname_change(
-                [service_hostname], tls_certificates_relation, TEST_NAMESPACE, unit_name
+                [service_hostname], tls_certificates_relation, TEST_NAMESPACE
             )
             assert result == []
 

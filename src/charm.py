@@ -311,7 +311,6 @@ class NginxIngressCharm(CharmBase):
                 self.get_additional_hostnames(),
                 tls_certificates_relation,
                 definition.service_namespace,
-                self.app,
             )
             if revoke_list:
                 self._certificate_revoked(revoke_list)
@@ -451,7 +450,6 @@ class NginxIngressCharm(CharmBase):
             old_csr = self._tls.get_relation_data_field(
                 f"csr-{hostname}",
                 tls_certificates_relation,  # type: ignore[arg-type]
-                self.app,
             )
             if not old_csr:
                 continue
@@ -466,13 +464,11 @@ class NginxIngressCharm(CharmBase):
                 self._tls.pop_relation_data_fields(
                     [f"key-{hostname}", f"password-{hostname}"],
                     tls_certificates_relation,  # type: ignore[arg-type]
-                    self.app,
                 )
                 peer_relation = self.model.get_relation("nginx-peers")  # type: ignore[arg-type]
                 self._tls.pop_relation_data_fields(
                     [f"key-{hostname}", f"password-{hostname}"],
                     peer_relation,  # type: ignore[arg-type]
-                    self.app,
                 )
             except KeyError:
                 LOGGER.warning("Relation data for %s already does not exist", hostname)
@@ -493,7 +489,7 @@ class NginxIngressCharm(CharmBase):
             return
         if event.reason == "revoked":
             hostname = self._tls.get_hostname_from_csr(
-                tls_certificates_relation, self.app, event.certificate_signing_request
+                tls_certificates_relation, event.certificate_signing_request
             )
             self._certificate_revoked([hostname])
         if event.reason == "expired":

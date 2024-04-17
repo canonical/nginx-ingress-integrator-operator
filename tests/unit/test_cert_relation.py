@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 # mypy: disable-error-code="arg-type"
 
+import os
 import typing
 import unittest
 from unittest import mock
@@ -120,7 +121,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_generate_password(self):
-        tls_rel = TLSRelationService()
+        tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
         password = tls_rel.generate_password()
         assert type(password) == str
         assert len(password) == 12
@@ -924,7 +925,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: there are TLS certificates to revoke
         """
         with mock.patch.object(kubernetes.client, "NetworkingV1Api") as mock_networking_v1_api:
-            tls_rel = TLSRelationService()
+            tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
             service_hostname = "hostname"
             mock_ingress = mock.Mock()
             mock_ingress.spec.rules = [
@@ -952,7 +953,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: there are no TLS certificates to revoke
         """
         with mock.patch.object(kubernetes.client, "NetworkingV1Api") as mock_networking_v1_api:
-            tls_rel = TLSRelationService()
+            tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
             service_hostname = "to-be-removed.local"
             mock_ingress = mock.Mock()
             mock_ingress.spec.rules = [
@@ -1084,3 +1085,42 @@ class TestCertificatesRelation(unittest.TestCase):
             secret_controller = SecretController(TEST_NAMESPACE, "nginx-ingress")
             secret_controller.cleanup_resources(exclude=mock_data_2)
             assert self.harness.model.unit.status.name == ops.MaintenanceStatus().name
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("tls_relation.TLSRelationService._get_private_key")
+    def test_get_decrypted_keys(self, mock_get_private_key):
+        """
+        arrange: given a list of encrypted private keys stored on disk with their passwords.
+        act: when the get_decrypted_keys method is executed
+        assert: the decrypted private keys returned matched decrypted private keys stored on disk.
+        """
+        passwords = ["password1", "password2"]
+        domains = ["domain1", "domain2"]
+        test_file_path = os.path.join(os.getcwd(), "tests", "files")
+        encrypted_private_keys = [
+            open(os.path.join(test_file_path, f"test_encrypted_private_key{i+1}.pem")).read()
+            for i in range(len(domains))
+        ]
+
+        self.harness.charm._tls.keys = {
+            domains[i]: encrypted_private_keys[i] for i in range(len(domains))
+        }
+
+        side_effect = [
+            {"key": encrypted_private_keys[i], "password": passwords[i]}
+            for i in range(len(domains))
+        ]
+        mock_get_private_key.side_effect = side_effect
+
+        decrypted_private_keys = self.harness.charm._tls.get_decrypted_keys()
+
+        assert len(decrypted_private_keys) == len(domains)
+
+        decrypted_private_keys_from_disk = {
+            domains[i]: open(os.path.join(test_file_path, f"test_private_key{i+1}.pem"))
+            .read()
+            .encode()
+            for i in range(len(domains))
+        }
+
+        assert decrypted_private_keys == decrypted_private_keys_from_disk

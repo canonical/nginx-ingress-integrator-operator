@@ -18,7 +18,7 @@ from charms.tls_certificates_interface.v2.tls_certificates import (
 )
 from cryptography.hazmat.primitives import serialization
 from ops.jujuversion import JujuVersion
-from ops.model import Application, Model, Relation, SecretNotFoundError
+from ops.model import Model, Relation, SecretNotFoundError
 
 from consts import PEER_RELATION_NAME, TLS_CERT
 
@@ -26,17 +26,16 @@ from consts import PEER_RELATION_NAME, TLS_CERT
 class TLSRelationService:
     """TLS Relation service class."""
 
-    def __init__(self, model: Model, app: Application) -> None:
+    def __init__(self, model: Model) -> None:
         """Init method for the class.
 
         Args:
             model: The charm model used to get the relations and secrets.
-            app: The charm app for the peer relation and secrets.
         """
         self.certs: Dict[Union[str, None], Union[str, None]] = {}
         self.keys: Dict[Union[str, None], Union[str, None]] = {}
         self.charm_model = model
-        self.charm_app = app
+        self.charm_app = model.app
 
     def generate_password(self) -> str:
         """Generate a random 12 character password.

@@ -60,7 +60,7 @@ class NginxIngressCharm(CharmBase):
         kubernetes.config.load_incluster_config()
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
-        self._tls = TLSRelationService(self.model, self.app)
+        self._tls = TLSRelationService(self.model)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)

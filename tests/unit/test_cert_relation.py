@@ -121,7 +121,7 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def test_generate_password(self):
-        tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
+        tls_rel = TLSRelationService(self.harness.charm.model)
         password = tls_rel.generate_password()
         assert type(password) == str
         assert len(password) == 12
@@ -925,7 +925,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: there are TLS certificates to revoke
         """
         with mock.patch.object(kubernetes.client, "NetworkingV1Api") as mock_networking_v1_api:
-            tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
+            tls_rel = TLSRelationService(self.harness.charm.model)
             service_hostname = "hostname"
             mock_ingress = mock.Mock()
             mock_ingress.spec.rules = [
@@ -953,7 +953,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: there are no TLS certificates to revoke
         """
         with mock.patch.object(kubernetes.client, "NetworkingV1Api") as mock_networking_v1_api:
-            tls_rel = TLSRelationService(self.harness.charm.model, self.harness.charm.app)
+            tls_rel = TLSRelationService(self.harness.charm.model)
             service_hostname = "to-be-removed.local"
             mock_ingress = mock.Mock()
             mock_ingress.spec.rules = [

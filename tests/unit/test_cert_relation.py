@@ -1117,9 +1117,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert len(decrypted_private_keys) == len(domains)
 
         decrypted_private_keys_from_disk = {
-            domains[i]: open(os.path.join(test_file_path, f"test_private_key{i+1}.pem"))
-            .read()
-            .encode()
+            domains[i]: open(os.path.join(test_file_path, f"test_private_key{i+1}.pem")).read()
             for i in range(len(domains))
         }
 

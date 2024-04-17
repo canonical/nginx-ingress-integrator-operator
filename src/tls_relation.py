@@ -167,6 +167,7 @@ class TLSRelationService:
             private_key=private_key_dict["key"].encode(),
             private_key_password=private_key_dict["password"].encode(),
             subject=hostname,
+            sans_dns=[hostname],
         )
         self.update_relation_data_fields(
             {f"csr-{hostname}": csr.decode()}, tls_certificates_relation
@@ -266,6 +267,7 @@ class TLSRelationService:
             private_key=private_key_dict["key"].encode(),
             private_key_password=private_key_dict["password"].encode(),
             subject=hostname,
+            sans_dns=[hostname],
         )
         certificates.request_certificate_renewal(
             old_certificate_signing_request=old_csr.encode(),
@@ -276,7 +278,7 @@ class TLSRelationService:
         )
         self.update_relation_data_fields({f"csr-{hostname}": new_csr.decode()}, peer_relation)
 
-    def get_decrypted_keys(self) -> Dict[str, bytes]:
+    def get_decrypted_keys(self) -> Dict[str, str]:
         """Return the list of decrypted private keys.
 
         Returns:
@@ -291,7 +293,7 @@ class TLSRelationService:
         }
         return decrypted_private_keys
 
-    def _get_decrypted_key(self, private_key: str, password: str) -> bytes:
+    def _get_decrypted_key(self, private_key: str, password: str) -> str:
         """Decrypted the provided private key using the provided password.
 
         Args:
@@ -310,7 +312,7 @@ class TLSRelationService:
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
-        )
+        ).decode()
 
     def _get_private_key(self, hostname: str) -> Dict[str, str]:
         """Return the private key and its password from either juju secrets or the relation data.

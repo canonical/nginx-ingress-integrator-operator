@@ -7,8 +7,7 @@
 """Nginx-ingress-integrator charm file."""
 
 import logging
-import typing
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
@@ -184,7 +183,7 @@ class NginxIngressCharm(CharmBase):
                 config=self.config,
                 relation=relation,
                 tls_cert=self._tls.certs,
-                tls_key=self._tls.keys,
+                tls_key=self._tls.get_decrypted_keys(),
             )
         elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
@@ -193,7 +192,7 @@ class NginxIngressCharm(CharmBase):
                 relation=relation,
                 ingress_provider=self._ingress_provider,
                 tls_cert=self._tls.certs,
-                tls_key=self._tls.keys,
+                tls_key=self._tls.get_decrypted_keys(),
             )
         else:
             raise ValueError(f"Invalid relation: {relation.name}")
@@ -206,7 +205,7 @@ class NginxIngressCharm(CharmBase):
         return f"{CREATED_BY_LABEL}={self.app.name}"
 
     @property
-    def _labels(self) -> typing.Dict[str, str]:
+    def _labels(self) -> Dict[str, str]:
         """Get labels assigned to resources created by this app."""
         return {CREATED_BY_LABEL: self.app.name}
 
@@ -371,7 +370,7 @@ class NginxIngressCharm(CharmBase):
         else:
             event.fail("Certificate not available")
 
-    def get_additional_hostnames(self) -> list:
+    def get_additional_hostnames(self) -> List[str]:
         """Get a list containing all ingress hostnames.
 
         Returns:
@@ -379,6 +378,8 @@ class NginxIngressCharm(CharmBase):
         """
         # The relation will always exist when this method is called
         relation = self._get_nginx_relation()  # type: ignore[arg-type]
+        if not relation:
+            return []
         definition = self._get_definition_from_relation(relation)  # type: ignore[arg-type]
         hostnames = [definition.service_hostname]
         hostnames.extend(definition.additional_hostnames)
@@ -421,7 +422,6 @@ class NginxIngressCharm(CharmBase):
             return
         self._tls.certificate_relation_available(event)
         self._update_ingress()
-        self.unit.status = ActiveStatus()
 
     def _on_certificate_expiring(
         self,

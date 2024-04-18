@@ -3,7 +3,7 @@
 """nginx-ingress-integrator k8s endpoint controller."""
 
 
-import typing
+from typing import Dict, List
 
 import kubernetes.client
 
@@ -14,7 +14,7 @@ from ingress_definition import IngressDefinition
 class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
     """Kubernetes Endpoints resource controller."""
 
-    def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
+    def __init__(self, namespace: str, labels: Dict[str, str]) -> None:
         """Initialize the EndpointsController.
 
         Args:
@@ -107,7 +107,7 @@ class EndpointsController(ResourceController[kubernetes.client.V1Endpoints]):
         self._client.patch_namespaced_endpoints(namespace=self._namespace, name=name, body=body)
 
     @_map_k8s_auth_exception
-    def _list_resource(self) -> typing.List[kubernetes.client.V1Endpoints]:
+    def _list_resource(self) -> List[kubernetes.client.V1Endpoints]:
         """List V1Endpoints resources in a given namespace based on a label selector.
 
         Returns:

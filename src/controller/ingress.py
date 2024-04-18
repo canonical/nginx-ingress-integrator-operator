@@ -5,7 +5,7 @@
 
 import logging
 import time
-import typing
+from typing import Dict, List, Optional
 
 import kubernetes.client
 
@@ -24,7 +24,7 @@ class IngressController(
     def __init__(
         self,
         namespace: str,
-        labels: typing.Dict[str, str],
+        labels: Dict[str, str],
     ) -> None:
         """Initialize the IngressController.
 
@@ -60,7 +60,7 @@ class IngressController(
         return ",".join(f"{k}={v}" for k, v in self._labels.items())
 
     def _look_up_and_set_ingress_class(
-        self, ingress_class: typing.Optional[str], body: kubernetes.client.V1Ingress
+        self, ingress_class: Optional[str], body: kubernetes.client.V1Ingress
     ) -> None:
         """Set the configured ingress class, otherwise the cluster's default ingress class.
 
@@ -231,7 +231,7 @@ class IngressController(
         self._client.replace_namespaced_ingress(namespace=self._namespace, name=name, body=body)
 
     @_map_k8s_auth_exception
-    def _list_resource(self) -> typing.List[kubernetes.client.V1Ingress]:
+    def _list_resource(self) -> List[kubernetes.client.V1Ingress]:
         """List V1Ingress resources in a given namespace based on a label selector.
 
         Returns:
@@ -251,7 +251,7 @@ class IngressController(
         """
         self._client.delete_namespaced_ingress(namespace=self._namespace, name=name)
 
-    def get_ingress_ips(self) -> typing.List[str]:
+    def get_ingress_ips(self) -> List[str]:
         """Return IP addresses of ingresses.
 
         Returns:

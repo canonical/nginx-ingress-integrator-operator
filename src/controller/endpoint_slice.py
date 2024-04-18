@@ -3,7 +3,7 @@
 """nginx-ingress-integrator k8s endpoint slice controller."""
 
 
-import typing
+from typing import Dict, List
 
 import kubernetes.client
 
@@ -16,7 +16,7 @@ class EndpointSliceController(
 ):  # pylint: disable=inherit-non-class
     """Kubernetes EndpointSlice resource controller."""
 
-    def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:
+    def __init__(self, namespace: str, labels: Dict[str, str]) -> None:
         """Initialize the EndpointSliceController.
 
         Args:
@@ -127,7 +127,7 @@ class EndpointSliceController(
                 raise
 
     @_map_k8s_auth_exception
-    def _list_resource(self) -> typing.List[kubernetes.client.V1EndpointSlice]:
+    def _list_resource(self) -> List[kubernetes.client.V1EndpointSlice]:
         """List V1EndpointSlice resources in a given namespace based on a label selector.
 
         Returns:

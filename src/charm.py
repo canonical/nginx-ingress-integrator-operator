@@ -7,8 +7,7 @@
 """Nginx-ingress-integrator charm file."""
 
 import logging
-import typing
-from typing import Any, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
@@ -60,7 +59,7 @@ class NginxIngressCharm(CharmBase):
         kubernetes.config.load_incluster_config()
 
         self._ingress_provider = IngressPerAppProvider(charm=self)
-        self._tls = TLSRelationService()
+        self._tls = TLSRelationService(self.model)
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.start, self._on_start)
@@ -184,7 +183,7 @@ class NginxIngressCharm(CharmBase):
                 config=self.config,
                 relation=relation,
                 tls_cert=self._tls.certs,
-                tls_key=self._tls.keys,
+                tls_key=self._tls.get_decrypted_keys(),
             )
         elif relation.name == "ingress":
             definition_essence = IngressDefinitionEssence(
@@ -193,7 +192,7 @@ class NginxIngressCharm(CharmBase):
                 relation=relation,
                 ingress_provider=self._ingress_provider,
                 tls_cert=self._tls.certs,
-                tls_key=self._tls.keys,
+                tls_key=self._tls.get_decrypted_keys(),
             )
         else:
             raise ValueError(f"Invalid relation: {relation.name}")
@@ -206,7 +205,7 @@ class NginxIngressCharm(CharmBase):
         return f"{CREATED_BY_LABEL}={self.app.name}"
 
     @property
-    def _labels(self) -> typing.Dict[str, str]:
+    def _labels(self) -> Dict[str, str]:
         """Get labels assigned to resources created by this app."""
         return {CREATED_BY_LABEL: self.app.name}
 
@@ -239,7 +238,7 @@ class NginxIngressCharm(CharmBase):
         Returns:
             If the execution of the caller method should halt.
         """
-        tls_certificates_relation = self._tls.get_tls_relation(self)
+        tls_certificates_relation = self._tls.get_tls_relation()
         if not tls_certificates_relation:
             self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
             if event:
@@ -306,12 +305,11 @@ class NginxIngressCharm(CharmBase):
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
             definition = self._get_definition_from_relation(relation)
-            tls_certificates_relation = self._tls.get_tls_relation(self)
+            tls_certificates_relation = self._tls.get_tls_relation()
             revoke_list = self._tls.update_cert_on_service_hostname_change(
                 self.get_additional_hostnames(),
                 tls_certificates_relation,
                 definition.service_namespace,
-                self.app,
             )
             if revoke_list:
                 self._certificate_revoked(revoke_list)
@@ -356,7 +354,7 @@ class NginxIngressCharm(CharmBase):
             event: Juju event
         """
         hostname = event.params["hostname"]
-        tls_certificates_relation = self._tls.get_tls_relation(self)
+        tls_certificates_relation = self._tls.get_tls_relation()
         if not tls_certificates_relation:
             event.fail("Certificates relation not created.")
             return
@@ -372,7 +370,7 @@ class NginxIngressCharm(CharmBase):
         else:
             event.fail("Certificate not available")
 
-    def get_additional_hostnames(self) -> list:
+    def get_additional_hostnames(self) -> List[str]:
         """Get a list containing all ingress hostnames.
 
         Returns:
@@ -380,6 +378,8 @@ class NginxIngressCharm(CharmBase):
         """
         # The relation will always exist when this method is called
         relation = self._get_nginx_relation()  # type: ignore[arg-type]
+        if not relation:
+            return []
         definition = self._get_definition_from_relation(relation)  # type: ignore[arg-type]
         hostnames = [definition.service_hostname]
         hostnames.extend(definition.additional_hostnames)
@@ -395,7 +395,7 @@ class NginxIngressCharm(CharmBase):
             return
         hostnames = self.get_additional_hostnames()
         for hostname in hostnames:
-            self._tls.certificate_relation_created(hostname, self)
+            self._tls.certificate_relation_created(hostname)
 
     def _on_certificates_relation_joined(self, event: RelationJoinedEvent) -> None:
         """Handle the TLS Certificate relation joined event.
@@ -407,7 +407,7 @@ class NginxIngressCharm(CharmBase):
             return
         hostnames = self.get_additional_hostnames()
         for hostname in hostnames:
-            self._tls.certificate_relation_joined(hostname, self)
+            self._tls.certificate_relation_joined(hostname, self.certificates)
 
     def _on_certificate_available(self, event: CertificateAvailableEvent) -> None:
         """Handle the TLS Certificate available event.
@@ -415,14 +415,13 @@ class NginxIngressCharm(CharmBase):
         Args:
             event: The event that fires this method.
         """
-        tls_certificates_relation = self._tls.get_tls_relation(self)
+        tls_certificates_relation = self._tls.get_tls_relation()
         if not tls_certificates_relation:
             self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
             event.defer()
             return
-        self._tls.certificate_relation_available(self, event)
+        self._tls.certificate_relation_available(event)
         self._update_ingress()
-        self.unit.status = ActiveStatus()
 
     def _on_certificate_expiring(
         self,
@@ -435,7 +434,7 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        self._tls.certificate_expiring(self, event)
+        self._tls.certificate_expiring(event, self.certificates)
 
     # This method is too complex but hard to simplify.
     def _certificate_revoked(self, revoke_list: List[str]) -> None:  # noqa: C901
@@ -446,12 +445,11 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(None):
             return
-        tls_certificates_relation = self._tls.get_tls_relation(self)
+        tls_certificates_relation = self._tls.get_tls_relation()
         for hostname in revoke_list:
             old_csr = self._tls.get_relation_data_field(
                 f"csr-{hostname}",
                 tls_certificates_relation,  # type: ignore[arg-type]
-                self.app,
             )
             if not old_csr:
                 continue
@@ -466,13 +464,11 @@ class NginxIngressCharm(CharmBase):
                 self._tls.pop_relation_data_fields(
                     [f"key-{hostname}", f"password-{hostname}"],
                     tls_certificates_relation,  # type: ignore[arg-type]
-                    self.app,
                 )
                 peer_relation = self.model.get_relation("nginx-peers")  # type: ignore[arg-type]
                 self._tls.pop_relation_data_fields(
                     [f"key-{hostname}", f"password-{hostname}"],
                     peer_relation,  # type: ignore[arg-type]
-                    self.app,
                 )
             except KeyError:
                 LOGGER.warning("Relation data for %s already does not exist", hostname)
@@ -486,18 +482,18 @@ class NginxIngressCharm(CharmBase):
         Args:
             event: The event that fires this method.
         """
-        tls_certificates_relation = self._tls.get_tls_relation(self)
+        tls_certificates_relation = self._tls.get_tls_relation()
         if not tls_certificates_relation:
             self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
             event.defer()
             return
         if event.reason == "revoked":
             hostname = self._tls.get_hostname_from_csr(
-                tls_certificates_relation, self.app, event.certificate_signing_request
+                tls_certificates_relation, event.certificate_signing_request
             )
             self._certificate_revoked([hostname])
         if event.reason == "expired":
-            self._tls.certificate_expiring(self, event)
+            self._tls.certificate_expiring(event, self.certificates)
         self.unit.status = MaintenanceStatus("Waiting for new certificate")
 
     def _on_all_certificates_invalidated(self, _: AllCertificatesInvalidatedEvent) -> None:
@@ -506,7 +502,7 @@ class NginxIngressCharm(CharmBase):
         Args:
             _: The event that fires this method.
         """
-        tls_relation = self._tls.get_tls_relation(self)
+        tls_relation = self._tls.get_tls_relation()
         if tls_relation:
             tls_relation.data[self.app].clear()
         if JujuVersion.from_environ().has_secrets:

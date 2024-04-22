@@ -427,6 +427,7 @@ def ingress_relation(harness: ops.testing.Harness) -> RelationFixture:
             "port": "8080",
             "model": '"test"',
             "name": '"app"',
+            "url": '"http://example.com"',
         },
         example_unit_data={"host": '"test.svc.cluster.local"', "ip": '"10.0.0.1"'},
     )

@@ -514,6 +514,24 @@ class NginxIngressCharm(CharmBase):
                 except SecretNotFoundError:
                     LOGGER.warning("Juju secret for %s already does not exist", hostname)
 
+    def _on_ingress_relation_created(self, event: RelationCreatedEvent) -> None:
+        """Handle the ingress relation created event.
+
+        Args:
+            event: The event that fires this method.
+        """
+        hostnames = self.get_additional_hostnames()
+        # If there are multiple hostnames, refuse to create the relation
+        if len(hostnames) > 1:
+            event.fail("Multiple hostnames are not supported")
+            return
+        if not hostnames:
+            event.fail("No hostname provided")
+            return
+        
+        self._tls.certificate_relation_created(hostnames[0])
+
+
 
 if __name__ == "__main__":  # pragma: no cover
     main(NginxIngressCharm)

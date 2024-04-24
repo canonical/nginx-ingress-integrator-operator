@@ -132,3 +132,16 @@ def test_port_name(k8s_stub: K8sStub, harness: Harness, ingress_relation):
         == k8s_stub.get_endpoints(TEST_NAMESPACE)[0].subsets[0].ports[0].name
         == k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0].ports[0].name
     )
+
+
+def test_hostname_in_app_data(harness: Harness, ingress_relation, ingress_hostname):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: hostname is in the app data bag.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    print("check data: ", ingress_relation.relation.data[harness.charm.app])
+    assert ingress_relation.relation.data[harness.charm.app].get("url") == ingress_hostname

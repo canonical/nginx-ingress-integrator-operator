@@ -304,6 +304,12 @@ class NginxIngressCharm(CharmBase):
                 self._cleanup()
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
+
+            # If the relation is "ingress", add the hostname to the relation data
+            # Likely not final implementation
+            if self.model.get_relation("ingress") is not None:
+                self._add_hostname_to_relation(relation)
+
             definition = self._get_definition_from_relation(relation)
             tls_certificates_relation = self._tls.get_tls_relation()
             revoke_list = self._tls.update_cert_on_service_hostname_change(
@@ -514,23 +520,24 @@ class NginxIngressCharm(CharmBase):
                 except SecretNotFoundError:
                     LOGGER.warning("Juju secret for %s already does not exist", hostname)
 
-    def _on_ingress_relation_created(self, event: RelationCreatedEvent) -> None:
-        """Handle the ingress relation created event.
+    def _add_hostname_to_relation(self, relation: Relation) -> None:
+        """Add the hostname to the relation data.
 
         Args:
-            event: The event that fires this method.
+            relation: The relation object.
+
+        Raises:
+            InvalidIngressError: If no hostname found in the relation data.
         """
         hostnames = self.get_additional_hostnames()
-        # If there are multiple hostnames, refuse to create the relation
+        # If there are multiple hostnames, refuse to create the relation since the ingress
+        # relation does not support multiple hostnames.
         if len(hostnames) > 1:
-            event.fail("Multiple hostnames are not supported")
-            return
+            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
         if not hostnames:
-            event.fail("No hostname provided")
-            return
-        
-        self._tls.certificate_relation_created(hostnames[0])
+            raise InvalidIngressError("No hostname found in the relation data.")
 
+        relation.data[self.app]["url"] = hostnames[0]
 
 
 if __name__ == "__main__":  # pragma: no cover

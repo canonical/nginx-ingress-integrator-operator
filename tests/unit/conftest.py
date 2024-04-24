@@ -417,8 +417,14 @@ def nginx_route_relation(harness: ops.testing.Harness) -> RelationFixture:
     )
 
 
+@pytest.fixture(name="ingress_hostname")
+def ingress_hostname_fixture() -> str:
+    """Pytest fixture for the ingress hostname."""
+    return "http://example.com"
+
+
 @pytest.fixture
-def ingress_relation(harness: ops.testing.Harness) -> RelationFixture:
+def ingress_relation(harness: ops.testing.Harness, ingress_hostname) -> RelationFixture:
     """Pytest fixture for simulating an ingress relation."""
     return RelationFixture(
         harness,
@@ -427,7 +433,7 @@ def ingress_relation(harness: ops.testing.Harness) -> RelationFixture:
             "port": "8080",
             "model": '"test"',
             "name": '"app"',
-            "url": '"http://example.com"',
+            "url": f'"{ingress_hostname}"',
         },
         example_unit_data={"host": '"test.svc.cluster.local"', "ip": '"10.0.0.1"'},
     )

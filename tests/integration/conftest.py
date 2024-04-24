@@ -184,6 +184,7 @@ async def deploy_any_charm(model: Model):
 
     return _deploy_any_charm
 
+
 @fixture(name="ingress_hostname")
 def ingress_hostname_fixture() -> str:
     """Pytest fixture for the ingress hostname."""

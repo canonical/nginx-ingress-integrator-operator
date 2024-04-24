@@ -330,7 +330,7 @@ class NginxIngressCharm(CharmBase):
             # If the relation is "ingress", add the hostname to the relation data
             # Likely not final implementation
             if self.model.get_relation("ingress") is not None:
-                self._ingress_provider.handle_ingress_data_provided(definition)
+                self._ingress_provider.relation.data[self.app]["url"] = hostnames[0]
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:

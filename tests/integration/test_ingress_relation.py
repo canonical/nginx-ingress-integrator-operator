@@ -23,25 +23,25 @@ async def test_ingress_relation(
     """
     any_charm_py = textwrap.dedent(
         f"""\
-    import pathlib
-    import subprocess
-    from any_charm_base import AnyCharmBase
-    from ingress import IngressPerAppRequirer
-    class AnyCharm(AnyCharmBase):
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-            self.ingress = IngressPerAppRequirer(self, port=8080)
-        def start_server(self):
-            www_dir = pathlib.Path("/tmp/www")
-            www_dir.mkdir(exist_ok=True)
-            file_path = www_dir / "{model.name}-any" / "ok"
-            file_path.parent.mkdir(exist_ok=True)
-            file_path.write_text("{ingress_hostname}")
-            proc_http = subprocess.Popen(
-                ["python3", "-m", "http.server", "-d", www_dir, "8080"],
-                start_new_session=True,
-            )
-    """
+        import pathlib
+        import subprocess
+        from any_charm_base import AnyCharmBase
+        from ingress import IngressPerAppRequirer
+        class AnyCharm(AnyCharmBase):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.ingress = IngressPerAppRequirer(self, port=8080)
+            def start_server(self):
+                www_dir = pathlib.Path("/tmp/www")
+                www_dir.mkdir(exist_ok=True)
+                file_path = www_dir / "{model.name}-any" / "ok"
+                file_path.parent.mkdir(exist_ok=True)
+                file_path.write_text(self.ingress.relation.data["hostname"])
+                proc_http = subprocess.Popen(
+                    ["python3", "-m", "http.server", "-d", www_dir, "8080"],
+                    start_new_session=True,
+                )
+        """
     )
 
     src_overwrite = {

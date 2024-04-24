@@ -145,3 +145,13 @@ def test_hostname_in_app_data(harness: Harness, ingress_relation, ingress_hostna
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
     print("check data: ", ingress_relation.relation.data)
     assert ingress_relation.relation.data[harness.charm.app].get("url") == ingress_hostname
+
+    # add an additional hostname
+    harness.update_config({"service-hostname": "example2.com"})
+    # update the relation
+    
+    # check the unit is blocked
+
+
+    # check hostnames removed
+    #check charm is blocked

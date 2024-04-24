@@ -13,7 +13,7 @@ from juju.model import Model
 
 
 async def test_ingress_relation(
-    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress
+    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress, ingress_hostname
 ):
     """
     assert: None
@@ -36,7 +36,7 @@ async def test_ingress_relation(
             www_dir.mkdir(exist_ok=True)
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-            file_path.write_text("ok")
+            file_path.write_text("{ingress_hostname}")
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
@@ -63,5 +63,5 @@ async def test_ingress_relation(
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    assert response.text == "ok"
+    assert response.text == ingress_hostname
     assert response.status_code == 200

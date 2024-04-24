@@ -143,5 +143,5 @@ def test_hostname_in_app_data(harness: Harness, ingress_relation, ingress_hostna
     harness.begin()
     ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
-    print("check data: ", ingress_relation.relation.data[harness.charm.app])
+    print("check data: ", ingress_relation.relation.data)
     assert ingress_relation.relation.data[harness.charm.app].get("url") == ingress_hostname

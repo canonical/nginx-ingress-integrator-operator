@@ -209,8 +209,11 @@ class NginxIngressCharm(CharmBase):
         """Get labels assigned to resources created by this app."""
         return {CREATED_BY_LABEL: self.app.name}
 
-    def _check_precondition(self) -> None:
+    def _check_precondition(self, hostnames: List[str]) -> None:
         """Check the precondition of the charm.
+
+        Args:
+            hostnames: List of hostnames to check.
 
         Raises:
             InvalidIngressError: If both "nginx-route" and "ingress" relations are present
@@ -228,6 +231,8 @@ class NginxIngressCharm(CharmBase):
             raise InvalidIngressError(
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
+        if ingress_relation is not None and len(hostnames) > 1:
+            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
 
     def _check_tls_nginx_relations(self, event: Union[EventBase, None]) -> bool:
         """Handle the TLS Certificate expiring event.
@@ -298,17 +303,13 @@ class NginxIngressCharm(CharmBase):
         """Handle the config changed event."""
         self.unit.set_workload_version(kubernetes.__version__)
         try:
-            self._check_precondition()
+            hostnames = self.get_additional_hostnames()
+            self._check_precondition(hostnames)
             relation = self._get_nginx_relation()
             if relation is None:
                 self._cleanup()
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
-
-            # If the relation is "ingress", add the hostname to the relation data
-            # Likely not final implementation
-            if self.model.get_relation("ingress") is not None:
-                self._add_hostname_to_relation(relation)
 
             definition = self._get_definition_from_relation(relation)
             tls_certificates_relation = self._tls.get_tls_relation()
@@ -325,6 +326,12 @@ class NginxIngressCharm(CharmBase):
             ingress_controller = self._get_ingress_controller(namespace)
             ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
+
+            # If the relation is "ingress", add the hostname to the relation data
+            # Likely not final implementation
+            if self.model.get_relation("ingress") is not None:
+                self._ingress_provider.handle_ingress_data_provided(definition)
+
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
@@ -520,24 +527,32 @@ class NginxIngressCharm(CharmBase):
                 except SecretNotFoundError:
                     LOGGER.warning("Juju secret for %s already does not exist", hostname)
 
-    def _add_hostname_to_relation(self, relation: Relation) -> None:
-        """Add the hostname to the relation data.
+    # def _add_hostname_to_relation(self, relation: Relation) -> None:
+    #     """Add the hostname to the relation data.
 
-        Args:
-            relation: The relation object.
+    #     Args:
+    #         relation: The relation object.
 
-        Raises:
-            InvalidIngressError: If no hostname found in the relation data.
-        """
-        hostnames = self.get_additional_hostnames()
-        # If there are multiple hostnames, refuse to create the relation since the ingress
-        # relation does not support multiple hostnames.
-        if len(hostnames) > 1:
-            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
-        if not hostnames:
-            raise InvalidIngressError("No hostname found in the relation data.")
+    #     Raises:
+    #         InvalidIngressError: If no hostname found in the relation data.
+    #     """
+    #     hostnames = self.get_additional_hostnames()
+    #     # If there are multiple hostnames, refuse to create the relation since the ingress
+    #     # relation does not support multiple hostnames.
 
-        relation.data[self.app]["url"] = hostnames[0]
+    #     blocked = false
+
+    #     if len(hostnames) > 1:
+    #         blocked - true
+    #         raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
+    #     if not hostnames:
+    #         raise InvalidIngressError("No hostname found in the relation data.")
+
+    #     if blocked:
+    #         # remove from
+    #         raise exception
+
+    #     relation.data[self.app]["url"] = hostnames[0]
 
 
 if __name__ == "__main__":  # pragma: no cover

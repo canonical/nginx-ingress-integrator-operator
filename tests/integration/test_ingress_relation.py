@@ -40,7 +40,6 @@ async def test_ingress_relation(
                 file_path.write_text(self.ingress.relation)
             except:
                 file_path.write_text("any")
-         
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,

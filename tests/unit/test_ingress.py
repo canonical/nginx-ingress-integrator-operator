@@ -134,7 +134,7 @@ def test_port_name(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     )
 
 
-def test_hostname_in_app_data(harness: Harness, ingress_relation, ingress_hostname):
+def test_hostname_in_app_data(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     """
     arrange: set up test harness and ingress relation.
     act: update the ingress relation with basic data.
@@ -143,15 +143,12 @@ def test_hostname_in_app_data(harness: Harness, ingress_relation, ingress_hostna
     harness.begin()
     ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
-    print("check data: ", ingress_relation.relation.data)
-    assert ingress_relation.relation.data[harness.charm.app].get("url") == ingress_hostname
+    harness.update_config({"service-hostname": "example.com"})
 
-    # add an additional hostname
-    harness.update_config({"service-hostname": "example2.com"})
-    # update the relation
+    assert ingress_relation.relation.data[harness.charm.app].get("url") == "example.com"
     
-    # check the unit is blocked
-
-
-    # check hostnames removed
-    #check charm is blocked
+    harness.update_config({"additional-hostnames": "example2.com"})
+    # We have added an additional hostname, so the charm should be blocked and
+    # the url should be removed from the app data.
+    # If we confirm that the url is None, we can confirm that the charm is blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("url") == None

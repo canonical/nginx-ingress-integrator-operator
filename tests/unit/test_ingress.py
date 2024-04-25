@@ -145,7 +145,8 @@ def test_hostname_in_app_data(k8s_stub: K8sStub, harness: Harness, ingress_relat
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
     harness.update_config({"service-hostname": "example.com"})
 
-    assert ingress_relation.relation.data[harness.charm.app].get("url") == "example.com"
+    expected_data = '{"url": "http://example.com"}'
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
 
     harness.update_config({"additional-hostnames": "example2.com"})
     # We have added an additional hostname, so the charm should be blocked and

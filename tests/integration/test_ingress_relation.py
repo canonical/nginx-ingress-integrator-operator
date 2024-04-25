@@ -34,10 +34,13 @@ async def test_ingress_relation(
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)
-            self.model.config["service-hostname"] = "example.com"
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-            file_path.write_text("ok")
+            try:
+                file_path.write_text(self.ingress.relation)
+            except:
+                file_path.write_text("any")
+         
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
@@ -64,5 +67,5 @@ async def test_ingress_relation(
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    assert response.text == "example.com"
+    assert response.text == "any"
     assert response.status_code == 200

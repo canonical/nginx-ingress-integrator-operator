@@ -33,8 +33,9 @@ async def test_ingress_relation(
             super().__init__(*args, **kwargs)
             self.ingress = IngressPerAppRequirer(self, port=8080)
             self.unit.status = ops.BlockedStatus("Waiting for ingress relation")
-            # observe relation events
-            self.framework.observe(self.on.ingress_relation_changed, self._on_ingress_relation_joined)
+            self.framework.observe(
+                self.on.ingress_relation_changed, self._on_ingress_relation_joined
+            )
 
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
@@ -46,10 +47,9 @@ async def test_ingress_relation(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
             )
-        
+
         def _on_ingress_relation_joined(self, event):
             self.unit.status = ops.ActiveStatus()
-            self.start_server()
     """
     )
 
@@ -67,17 +67,13 @@ async def test_ingress_relation(
 
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
-    await asyncio.sleep(10)
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
-    await asyncio.sleep(10)
 
     # Wait for any_charm status to be active to avoid race condition
-    await model.block_until(
-        lambda: model.applications["any"].units[0].workload_status == "active"
-    )
+    await model.block_until(lambda: model.applications["any"].units[0].workload_status == "active")
 
-    # await run_action("any", "rpc", method="start_server")
+    await run_action("any", "rpc", method="start_server")
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5

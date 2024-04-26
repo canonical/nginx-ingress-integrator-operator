@@ -21,7 +21,6 @@ async def test_ingress_relation(
         application with ingress relation for test purposes.
     assert: HTTP request should be forwarded to the application.
     """
-    ingress = None
     any_charm_py = textwrap.dedent(
         f"""\
     import pathlib

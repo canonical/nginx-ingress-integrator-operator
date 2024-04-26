@@ -331,12 +331,40 @@ class NginxIngressCharm(CharmBase):
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
 
             if self.model.get_relation("ingress") is not None:
-                url = "http://" + hostnames[0] if len(hostnames) > 0 else ingress_ips[0]
+                url = self._generate_ingress_url(hostnames) or ingress_ips[0]
                 self._ingress_provider.publish_url(relation, url)
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
+
+    def _generate_ingress_url(self, hostnames: List[str]) -> Optional[str]:
+        """Generate the URL for the ingress.
+
+        Args:
+            hostnames: List of hostnames to generate the URL.
+
+        Returns:
+            The generated URL.
+        """
+        if not hostnames:
+            return None
+
+        hostname = hostnames[0]
+        # Check if TLS is present in the relation, or by checking secrets.
+        tls_present = self._tls.get_tls_relation() or (
+            self._tls.get_decrypted_keys().get(hostname) is not None
+        )
+        prefix = "https" if tls_present else "http"
+
+        if self.config.get("pathroutes"):
+            # Path routes are comma separated
+            pathroutes = self.config.get("pathroutes").split(",")
+            if len(pathroutes) > 1:
+                raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
+            return f"{prefix}://{hostname}/{pathroutes[0]}"
+
+        return f"{prefix}://{hostname}"
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

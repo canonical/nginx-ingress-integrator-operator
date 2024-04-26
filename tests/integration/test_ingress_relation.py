@@ -31,6 +31,8 @@ async def test_ingress_relation(
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.ingress = IngressPerAppRequirer(self, port=8080)
+            self.unit.status = self.model.blocked
+
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)
@@ -63,6 +65,13 @@ async def test_ingress_relation(
     await model.wait_for_idle()
     await asyncio.sleep(10)
     await run_action("any", "rpc", method="start_server")
+
+    # access the data from the ingress relation
+    # relation get
+    # juju exec
+
+    # set any charm to blocked satte
+    # until the relation exists and the url is set to active
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5

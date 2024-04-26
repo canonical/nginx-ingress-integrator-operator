@@ -37,15 +37,6 @@ async def test_ingress_relation(
             www_dir.mkdir(exist_ok=True)
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-            # if self.ingress.relation is not None:
-            #     file_path.write_text(self.ingress.relation.data.get("ingress"))
-            # else:
-            #     file_path.write_text("error")
-
-            # for all keys in the relation data, write them to a file
-            # for key, value in self.ingress.relation.data.items():
-            #     file_path.write_text(""+str(key))
-            #     # file_path.write_text("(key: "+str(key)+", value: "+str(value)+")")
 
             if self.ingress.url is not None:
                 file_path.write_text(self.ingress.url)
@@ -70,7 +61,7 @@ async def test_ingress_relation(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
     )
-    
+
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await asyncio.sleep(5)
@@ -78,12 +69,10 @@ async def test_ingress_relation(
     await model.wait_for_idle()
     await asyncio.sleep(5)
     await run_action("any", "rpc", method="start_server")
-    
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    # assert that "http://any/" is a substring of the response
-    
+
     assert response.text == "http://any/"
     assert response.status_code == 200

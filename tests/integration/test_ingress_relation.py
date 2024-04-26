@@ -21,6 +21,7 @@ async def test_ingress_relation(
         application with ingress relation for test purposes.
     assert: HTTP request should be forwarded to the application.
     """
+    ingress = None
     any_charm_py = textwrap.dedent(
         f"""\
     import pathlib
@@ -42,13 +43,15 @@ async def test_ingress_relation(
             #     file_path.write_text("error")
 
             # for all keys in the relation data, write them to a file
-            for key, value in self.ingress.relation.data.items():
-                # file_path.write_text(""+str(key))
-                if value is not None:
-                    file_path.write_text("(key: "+str(key)+", value: "+str(value)+")")
+            # for key, value in self.ingress.relation.data.items():
+            #     file_path.write_text(""+str(key))
+            #     # file_path.write_text("(key: "+str(key)+", value: "+str(value)+")")
+
+            if self.ingress.url is not None:
+                file_path.write_text(self.ingress.url)
+            else:
+                file_path.write_text(str(self.ingress.relation.data))
             
-
-
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
@@ -67,14 +70,20 @@ async def test_ingress_relation(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
     )
+    
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
+    await asyncio.sleep(5)
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
+    await asyncio.sleep(5)
     await run_action("any", "rpc", method="start_server")
+    
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    assert response.text == "any"
+    # assert that "http://any/" is a substring of the response
+    
+    assert response.text == "http://any/"
     assert response.status_code == 200

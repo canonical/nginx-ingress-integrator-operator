@@ -25,24 +25,31 @@ async def test_ingress_relation(
         f"""\
     import pathlib
     import subprocess
+    import ops
     from any_charm_base import AnyCharmBase
     from ingress import IngressPerAppRequirer
     class AnyCharm(AnyCharmBase):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.ingress = IngressPerAppRequirer(self, port=8080)
-            self.unit.status = self.model.blocked
+            self.unit.status = ops.BlockedStatus("Waiting for ingress relation")
+            # observe relation events
+            self.framework.observe(self.on.ingress_relation_changed, self._on_ingress_relation_joined)
 
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-            file_path.write_text(self.ingress.url)
+            file_path.write_text(str(self.ingress.url))
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
             )
+        
+        def _on_ingress_relation_joined(self, event):
+            self.unit.status = ops.ActiveStatus()
+            self.start_server()
     """
     )
 
@@ -64,14 +71,13 @@ async def test_ingress_relation(
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
     await asyncio.sleep(10)
-    await run_action("any", "rpc", method="start_server")
 
-    # access the data from the ingress relation
-    # relation get
-    # juju exec
+    # Wait for any_charm status to be active to avoid race condition
+    await model.block_until(
+        lambda: model.applications["any"].units[0].workload_status == "active"
+    )
 
-    # set any charm to blocked satte
-    # until the relation exists and the url is set to active
+    # await run_action("any", "rpc", method="start_server")
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5

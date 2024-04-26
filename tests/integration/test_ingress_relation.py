@@ -21,7 +21,6 @@ async def test_ingress_relation(
         application with ingress relation for test purposes.
     assert: HTTP request should be forwarded to the application.
     """
-    ingress = await build_and_deploy_ingress()
     any_charm_py = textwrap.dedent(
         f"""\
     import pathlib
@@ -69,7 +68,6 @@ async def test_ingress_relation(
         build_and_deploy_ingress(),
     )
     await ingress.set_config({"service-hostname": "any"})
-
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()

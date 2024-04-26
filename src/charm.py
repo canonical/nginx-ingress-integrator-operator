@@ -367,7 +367,7 @@ class NginxIngressCharm(CharmBase):
 
         if len(pathroutes) > 1:
             raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
-        return f"{prefix}://{hostname}/{pathroutes[0]}"
+        return f"{prefix}://{hostname}{pathroutes[0]}"
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

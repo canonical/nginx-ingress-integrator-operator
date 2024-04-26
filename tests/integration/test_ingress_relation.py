@@ -21,6 +21,7 @@ async def test_ingress_relation(
         application with ingress relation for test purposes.
     assert: HTTP request should be forwarded to the application.
     """
+    ingress = await build_and_deploy_ingress()
     any_charm_py = textwrap.dedent(
         f"""\
     import pathlib
@@ -36,10 +37,19 @@ async def test_ingress_relation(
             www_dir.mkdir(exist_ok=True)
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-            try:
-                file_path.write_text(self.ingress.relation)
-            except:
-                file_path.write_text("any")
+            # if self.ingress.relation is not None:
+            #     file_path.write_text(self.ingress.relation.data.get("ingress"))
+            # else:
+            #     file_path.write_text("error")
+
+            # for all keys in the relation data, write them to a file
+            for key, value in self.ingress.relation.data.items():
+                # file_path.write_text(""+str(key))
+                if value is not None:
+                    file_path.write_text("(key: "+str(key)+", value: "+str(value)+")")
+            
+
+
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
@@ -59,10 +69,12 @@ async def test_ingress_relation(
         build_and_deploy_ingress(),
     )
     await ingress.set_config({"service-hostname": "any"})
+
     await model.wait_for_idle()
-    await run_action("any", "rpc", method="start_server")
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
+    await run_action("any", "rpc", method="start_server")
+
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )

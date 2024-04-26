@@ -357,14 +357,14 @@ class NginxIngressCharm(CharmBase):
         )
         prefix = "https" if tls_present else "http"
 
-        if self.config.get("pathroutes"):
-            # Path routes are comma separated
-            pathroutes = self.config.get("pathroutes").split(",")
-            if len(pathroutes) > 1:
-                raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
-            return f"{prefix}://{hostname}/{pathroutes[0]}"
+        if not self.config.get("service-hostname"):
+            return f"{prefix}://{hostname}"
 
-        return f"{prefix}://{hostname}"
+        # Path routes are comma separated
+        pathroutes = self.config.get("pathroutes").split(",")
+        if len(pathroutes) > 1:
+            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
+        return f"{prefix}://{hostname}/{pathroutes[0]}"
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

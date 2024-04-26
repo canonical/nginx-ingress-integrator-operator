@@ -36,12 +36,7 @@ async def test_ingress_relation(
             www_dir.mkdir(exist_ok=True)
             file_path = www_dir / "{model.name}-any" / "ok"
             file_path.parent.mkdir(exist_ok=True)
-
-            if self.ingress.url is not None:
-                file_path.write_text(self.ingress.url)
-            else:
-                file_path.write_text(str(self.ingress.relation.data))
-            
+            file_path.write_text(self.ingress.url)
             proc_http = subprocess.Popen(
                 ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                 start_new_session=True,
@@ -63,10 +58,10 @@ async def test_ingress_relation(
 
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
-    await asyncio.sleep(5)
+    await asyncio.sleep(10)
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle()
-    await asyncio.sleep(5)
+    await asyncio.sleep(10)
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get(

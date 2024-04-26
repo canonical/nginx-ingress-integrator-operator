@@ -331,7 +331,8 @@ class NginxIngressCharm(CharmBase):
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
 
             if self.model.get_relation("ingress") is not None:
-                self._ingress_provider.publish_url(relation, ("http://" + hostnames[0]))
+                url = "http://" + hostnames[0] if len(hostnames) > 0 else ingress_ips[0]
+                self._ingress_provider.publish_url(relation, url)
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:

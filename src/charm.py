@@ -346,6 +346,9 @@ class NginxIngressCharm(CharmBase):
 
         Returns:
             The generated URL.
+
+        Raises:
+            InvalidIngressError: If there are multiple paths in the pathroutes config.
         """
         if not hostnames:
             return None
@@ -357,11 +360,11 @@ class NginxIngressCharm(CharmBase):
         )
         prefix = "https" if tls_present else "http"
 
-        if not self.config.get("service-hostname"):
+        if not self.config.get("path-routes"):
             return f"{prefix}://{hostname}"
 
-        # Path routes are comma separated
-        pathroutes = self.config.get("pathroutes").split(",")
+        pathroutes = self.config.get("path-routes", "").split(",")
+
         if len(pathroutes) > 1:
             raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
         return f"{prefix}://{hostname}/{pathroutes[0]}"

@@ -209,11 +209,8 @@ class NginxIngressCharm(CharmBase):
         """Get labels assigned to resources created by this app."""
         return {CREATED_BY_LABEL: self.app.name}
 
-    def _check_precondition(self, hostnames: List[str]) -> None:
+    def _check_precondition(self) -> None:
         """Check the precondition of the charm.
-
-        Args:
-            hostnames: List of hostnames to check.
 
         Raises:
             InvalidIngressError: If both "nginx-route" and "ingress" relations are present
@@ -227,14 +224,15 @@ class NginxIngressCharm(CharmBase):
             )
         nginx_route_relation = self.model.get_relation("nginx-route")
         ingress_relation = self.model.get_relation("ingress")
+        # The charm only supports one relation at a time, so we check if both are present
+        # and raise an error if they are.
         if nginx_route_relation is not None and ingress_relation is not None:
             raise InvalidIngressError(
                 "nginx-ingress-integrator cannot establish more than one relation at a time"
             )
+        hostnames = self.get_additional_hostnames()
         if ingress_relation is not None and len(hostnames) > 1:
-            # Remove the URL field from the relation data if it exists
-            if "url" in ingress_relation.data[self.app]:
-                ingress_relation.data[self.app].pop("url")
+            self._ingress_provider.wipe_ingress_data(ingress_relation)
             raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
 
     def _check_tls_nginx_relations(self, event: Union[EventBase, None]) -> bool:
@@ -306,8 +304,7 @@ class NginxIngressCharm(CharmBase):
         """Handle the config changed event."""
         self.unit.set_workload_version(kubernetes.__version__)
         try:
-            hostnames = self.get_additional_hostnames()
-            self._check_precondition(hostnames)
+            self._check_precondition()
             relation = self._get_nginx_relation()
             if relation is None:
                 self._cleanup()
@@ -330,19 +327,21 @@ class NginxIngressCharm(CharmBase):
             ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
 
-            if self.model.get_relation("ingress") is not None:
-                url = self._generate_ingress_url(hostnames) or ingress_ips[0]
+            if self._get_definition_from_relation(relation).is_ingress_relation:
+                hostnames = self.get_additional_hostnames()
+                url = self._generate_ingress_url(hostnames[0], definition)
                 self._ingress_provider.publish_url(relation, url)
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
 
-    def _generate_ingress_url(self, hostnames: List[str]) -> Optional[str]:
+    def _generate_ingress_url(self, hostname: str, definition: IngressDefinition) -> Optional[str]:
         """Generate the URL for the ingress.
 
         Args:
-            hostnames: List of hostnames to generate the URL.
+            hostname: The hostname to use in the URL.
+            definition: The IngressDefinition object.
 
         Returns:
             The generated URL.
@@ -350,23 +349,17 @@ class NginxIngressCharm(CharmBase):
         Raises:
             InvalidIngressError: If there are multiple paths in the pathroutes config.
         """
-        if not hostnames:
-            return None
-
-        hostname = hostnames[0]
         # Check if TLS is present in the relation, or by checking secrets.
-        tls_present = self._tls.get_tls_relation() or (
-            self._tls.get_decrypted_keys().get(hostname) is not None
-        )
+        # check hostname in self._tls.certs
+        tls_present = self._tls.get_tls_relation() or self._tls.certs.get(hostname)
         prefix = "https" if tls_present else "http"
 
-        if not self.config.get("path-routes"):
+        pathroutes = definition.pathroutes
+
+        if len(pathroutes) == 0:
             return f"{prefix}://{hostname}"
-
-        pathroutes = self.config.get("path-routes", "").split(",")
-
         if len(pathroutes) > 1:
-            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
+            raise InvalidIngressError("Ingress relation does not support multiple pathroutes.")
         return f"{prefix}://{hostname}{pathroutes[0]}"
 
     def _on_config_changed(self, _: Any) -> None:

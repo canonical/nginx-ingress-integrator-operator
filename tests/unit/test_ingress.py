@@ -143,16 +143,16 @@ def test_hostname_in_app_data(k8s_stub: K8sStub, harness: Harness, ingress_relat
     harness.begin()
     ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
-    harness.update_config({"service-hostname": "example.com"})
+    harness.update_config({"service-hostname": "example.com", "path-routes": "/path"})
 
-    expected_data = '{"url": "http://example.com"}'
+    expected_data = '{"url": "http://example.com/path"}'
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
 
-    harness.update_config({"additional-hostnames": "example2.com"})
+    harness.update_config({"additional-hostnames": "example.net"})
     # We have added an additional hostname, so the charm should be blocked and
     # the url should be removed from the app data.
     # If we confirm that the url is None, we can confirm that the charm is blocked.
-    assert ingress_relation.relation.data[harness.charm.app].get("url") is None
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
 
 
 def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):

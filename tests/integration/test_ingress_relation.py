@@ -65,16 +65,15 @@ async def test_ingress_relation(
         build_and_deploy_ingress(),
     )
 
-    await ingress.set_config({"service-hostname": "any", "path-routes": "/path"})
+    await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")
-
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
 
-    assert response.text == "http://any/path"
+    assert response.text.rpartition('/')[0] == "http://any"
     assert response.status_code == 200

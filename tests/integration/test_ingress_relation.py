@@ -75,5 +75,5 @@ async def test_ingress_relation(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
 
-    assert response.text.rpartition('/')[0] == "http://any"
+    assert response.text.rpartition("/")[0] == "http://any"
     assert response.status_code == 200

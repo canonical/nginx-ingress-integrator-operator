@@ -329,19 +329,19 @@ class NginxIngressCharm(CharmBase):
 
             if self._get_definition_from_relation(relation).is_ingress_relation:
                 hostnames = self.get_additional_hostnames()
-                url = self._generate_ingress_url(hostnames[0], definition)
+                url = self._generate_ingress_url(hostnames[0], definition.pathroutes)
                 self._ingress_provider.publish_url(relation, url)
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
 
-    def _generate_ingress_url(self, hostname: str, definition: IngressDefinition) -> Optional[str]:
+    def _generate_ingress_url(self, hostname: str, pathroutes: List[str]) -> Optional[str]:
         """Generate the URL for the ingress.
 
         Args:
             hostname: The hostname to use in the URL.
-            definition: The IngressDefinition object.
+            pathroutes: The pathroutes to use in the URL.
 
         Returns:
             The generated URL.
@@ -353,8 +353,6 @@ class NginxIngressCharm(CharmBase):
         # check hostname in self._tls.certs
         tls_present = self._tls.get_tls_relation() or self._tls.certs.get(hostname)
         prefix = "https" if tls_present else "http"
-
-        pathroutes = definition.pathroutes
 
         if len(pathroutes) == 0:
             return f"{prefix}://{hostname}"

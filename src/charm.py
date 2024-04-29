@@ -357,6 +357,7 @@ class NginxIngressCharm(CharmBase):
         if len(pathroutes) == 0:
             return f"{prefix}://{hostname}"
         if len(pathroutes) > 1:
+            self._ingress_provider.wipe_ingress_data(self._get_nginx_relation())
             raise InvalidIngressError("Ingress relation does not support multiple pathroutes.")
         return f"{prefix}://{hostname}{pathroutes[0]}"
 

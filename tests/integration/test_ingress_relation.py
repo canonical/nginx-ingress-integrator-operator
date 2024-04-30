@@ -40,7 +40,7 @@ async def test_ingress_relation(
         def start_server(self):
             www_dir = pathlib.Path("/tmp/www")
             www_dir.mkdir(exist_ok=True)
-            file_path = www_dir / "{model.name}-any" / "ok"
+            file_path = www_dir / "path" / "ok"
             file_path.parent.mkdir(exist_ok=True)
             file_path.write_text(str(self.ingress.url))
             proc_http = subprocess.Popen(
@@ -65,15 +65,15 @@ async def test_ingress_relation(
         build_and_deploy_ingress(),
     )
 
-    await ingress.set_config({"service-hostname": "any"})
+    await ingress.set_config({"service-hostname": "any", "path-routes": "/path"})
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
-    await model.wait_for_idle(wait_for_active=True)
+    await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get(
-        f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
+        f"http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5
     )
 
-    assert response.text == f"http://any/{model.name}-any"
+    assert response.text == f"http://any/path"
     assert response.status_code == 200

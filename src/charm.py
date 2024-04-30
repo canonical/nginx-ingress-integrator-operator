@@ -228,7 +228,7 @@ class NginxIngressCharm(CharmBase):
         # and raise an error if they are.
         if nginx_route_relation is not None and ingress_relation is not None:
             raise InvalidIngressError(
-                "nginx-ingress-integrator cannot establish more than one relation at a time"
+                "Both nginx-route and ingress relations found, please remove either one."
             )
         hostnames = self.get_additional_hostnames()
         if ingress_relation is not None and len(hostnames) > 1:

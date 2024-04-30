@@ -68,7 +68,7 @@ async def test_ingress_relation(
     await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
-    await model.wait_for_idle(status="active")
+    await model.wait_for_idle(wait_for_active=True)
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get(

@@ -327,8 +327,10 @@ class NginxIngressCharm(CharmBase):
             ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
 
-            if self._get_definition_from_relation(relation).is_ingress_relation:
+            if definition.is_ingress_relation:
                 hostnames = self.get_additional_hostnames()
+                # There will always be an element available in hostnames, as the service hostname
+                # is always present. The ingress definition will catch the error if else.
                 url = self._generate_ingress_url(hostnames[0], definition.pathroutes)
                 self._ingress_provider.publish_url(relation, url)
 

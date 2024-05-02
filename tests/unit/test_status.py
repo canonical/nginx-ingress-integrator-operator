@@ -123,5 +123,5 @@ def test_two_relation(harness: Harness, k8s_stub, ingress_relation, nginx_route_
     assert harness.charm.unit.status.name == "blocked"
     assert (
         harness.charm.unit.status.message
-        == "nginx-ingress-integrator cannot establish more than one relation at a time"
+        == "Both nginx-route and ingress relations found, please remove either one."
     )

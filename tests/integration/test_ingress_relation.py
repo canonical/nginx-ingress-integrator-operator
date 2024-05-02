@@ -22,7 +22,7 @@ async def test_ingress_relation(
     assert: HTTP request should be forwarded to the application.
     """
     any_charm_py = textwrap.dedent(
-        f"""\
+        """\
     import pathlib
     import subprocess
     import ops
@@ -71,9 +71,7 @@ async def test_ingress_relation(
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
 
-    response = requests.get(
-        f"http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5
-    )
+    response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
 
-    assert response.text == f"http://any/path"
+    assert response.text == "http://any/path"
     assert response.status_code == 200

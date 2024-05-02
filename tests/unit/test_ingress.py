@@ -165,7 +165,6 @@ def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
     ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
     harness.update_config({"service-hostname": "example.com", "path-routes": "/path"})
-
     expected_data = '{"url": "http://example.com/path"}'
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
 
@@ -179,5 +178,6 @@ def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
 
     harness.update_config({"path-routes": ""})
+    expected_data = f'{{"url": "http://example.com/{harness.charm.model.name}-app"}}'
     # We have added an invalid path route, so the charm should be blocked.
-    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data

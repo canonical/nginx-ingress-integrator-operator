@@ -174,5 +174,10 @@ def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
 
     harness.update_config({"path-routes": "/path1,invalid_path"})
+    # We have added an invalid path route, that does not start with /
+    #  so the charm should be blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
+
+    harness.update_config({"path-routes": ""})
     # We have added an invalid path route, so the charm should be blocked.
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None

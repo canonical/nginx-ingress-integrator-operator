@@ -329,8 +329,8 @@ class NginxIngressCharm(CharmBase):
 
             if definition.is_ingress_relation:
                 hostnames = self.get_additional_hostnames()
-                # We know that hostnames will always contain at least one element, the
-                # service_hostname, so we can safely access the first element.
+                # There will always be an element available in hostnames, as the service hostname
+                # is always present. The ingress definition will catch the error if else.
                 url = self._generate_ingress_url(hostnames[0], definition.pathroutes)
                 self._ingress_provider.publish_url(relation, url)
 

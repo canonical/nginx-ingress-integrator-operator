@@ -71,7 +71,8 @@ async def test_ingress_relation(
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
 
-    response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
-
-    assert response.text == "http://any/path"
+    response = requests.get(
+        f"http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5
+    )
+    assert response.text == f"http://any/path"
     assert response.status_code == 200

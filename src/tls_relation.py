@@ -114,8 +114,14 @@ class TLSRelationService:
 
         Returns:
             The value from the field.
+
+        Raises:
+            KeyError: if the field is not found in the relation databag.
         """
         field_value = tls_relation.data[self.charm_app].get(relation_field)
+        if not field_value:
+            raise KeyError(f"{relation_field} field not found in {tls_relation.name}")
+
         return field_value
 
     def get_hostname_from_cert(self, certificate: str) -> str:

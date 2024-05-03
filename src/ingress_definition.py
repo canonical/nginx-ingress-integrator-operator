@@ -511,7 +511,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
     @property
     def ingress_class(self) -> Optional[str]:
         """Return the ingress class configured in the charm."""
-        return self.config["ingress-class"]
+        return str(self.config["ingress-class"]) if self.config["ingress-class"] else None
 
 
 @dataclasses.dataclass

@@ -11,12 +11,12 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     AllCertificatesInvalidatedEvent,
     CertificateAvailableEvent,
     CertificateExpiringEvent,
     CertificateInvalidatedEvent,
-    TLSCertificatesRequiresV2,
+    TLSCertificatesRequiresV3,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops.charm import ActionEvent, CharmBase, EventBase, RelationCreatedEvent, RelationJoinedEvent
@@ -66,7 +66,7 @@ class NginxIngressCharm(CharmBase):
 
         self.framework.observe(self._ingress_provider.on.data_provided, self._on_data_provided)
         self.framework.observe(self._ingress_provider.on.data_removed, self._on_data_removed)
-        self.certificates = TLSCertificatesRequiresV2(self, TLS_CERT)
+        self.certificates = TLSCertificatesRequiresV3(self, TLS_CERT)
         self.framework.observe(
             self.on.certificates_relation_created, self._on_certificates_relation_created
         )
@@ -528,8 +528,8 @@ class NginxIngressCharm(CharmBase):
             event.defer()
             return
         if event.reason == "revoked":
-            hostname = self._tls.get_hostname_from_csr(
-                tls_certificates_relation, event.certificate_signing_request
+            hostname = self._tls.get_hostname_from_cert(
+                tls_certificates_relation, event.certificate
             )
             self._certificate_revoked([hostname])
         if event.reason == "expired":

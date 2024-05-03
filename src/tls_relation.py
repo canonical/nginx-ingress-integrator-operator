@@ -8,11 +8,11 @@ import string
 from typing import Dict, List, Union
 
 import kubernetes
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
     CertificateInvalidatedEvent,
-    TLSCertificatesRequiresV2,
+    TLSCertificatesRequiresV3,
     generate_csr,
     generate_private_key,
 )
@@ -116,7 +116,7 @@ class TLSRelationService:
         field_value = tls_relation.data[self.charm_app].get(relation_field)
         return field_value
 
-    def get_hostname_from_csr(self, tls_relation: Relation, csr: str) -> str:
+    def get_hostname_from_cert(self, tls_relation: Relation, csr: str) -> str:
         """Get the hostname from a csr.
 
         Args:
@@ -129,11 +129,11 @@ class TLSRelationService:
         csr_dict = {
             key: tls_relation.data[self.charm_app].get(key)
             for key in tls_relation.data[self.charm_app]
-            if key.startswith("csr-")
+            if key.startswith("certificate-")
         }
         for key in csr_dict:
             if csr_dict[key].replace("\n", "") == csr.replace("\n", ""):
-                hostname = key.replace("csr-", "", 1)
+                hostname = key.replace("certificate-", "", 1)
                 return hostname
         return ""
 
@@ -150,7 +150,7 @@ class TLSRelationService:
     def certificate_relation_joined(  # type: ignore[no-untyped-def]
         self,
         hostname: str,
-        certificates: TLSCertificatesRequiresV2,
+        certificates: TLSCertificatesRequiresV3,
     ) -> None:
         """Handle the TLS Certificate joined event.
 
@@ -217,9 +217,7 @@ class TLSRelationService:
         """
         tls_certificates_relation = self.get_tls_relation()
         assert isinstance(tls_certificates_relation, Relation)  # nosec
-        hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, event.certificate_signing_request
-        )
+        hostname = self.get_hostname_from_cert(tls_certificates_relation, event.certificate)
         self.update_relation_data_fields(
             {
                 f"certificate-{hostname}": event.certificate,
@@ -240,13 +238,13 @@ class TLSRelationService:
         )
         private_key = self._get_private_key(hostname)
 
-        self.certs[hostname] = event.certificate
+        self.certs[hostname] = event.chain_as_pem()
         self.keys[hostname] = private_key["key"]
 
     def certificate_expiring(  # type: ignore[no-untyped-def]
         self,
         event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent],
-        certificates: TLSCertificatesRequiresV2,
+        certificates: TLSCertificatesRequiresV3,
     ) -> None:
         """Handle the TLS Certificate expiring event.
 
@@ -258,9 +256,7 @@ class TLSRelationService:
         peer_relation = self.charm_model.get_relation(PEER_RELATION_NAME)
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         assert isinstance(peer_relation, Relation)  # nosec
-        hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, event.certificate_signing_request
-        )
+        hostname = self.get_hostname_from_cert(tls_certificates_relation, event.certificate)
         old_csr = self.get_relation_data_field(f"csr-{hostname}", tls_certificates_relation)
         private_key_dict = self._get_private_key(hostname)
         new_csr = generate_csr(

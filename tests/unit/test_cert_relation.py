@@ -12,7 +12,7 @@ import kubernetes
 import kubernetes.client
 import ops
 import pytest
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     CertificateInvalidatedEvent,
 )
@@ -156,8 +156,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_creation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_creation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.model.Model.get_secret")
@@ -323,8 +323,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_revocation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_revocation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
@@ -366,8 +366,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_revocation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_revocation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
@@ -411,8 +411,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_revocation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_revocation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
@@ -459,8 +459,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_revocation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_revocation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
@@ -508,8 +508,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_revocation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_revocation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @pytest.mark.usefixtures("patch_load_incluster_config")
@@ -552,8 +552,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     @patch("charm.NginxIngressCharm._cleanup")
     def test_certificate_revoked_no_nginx_relation(
@@ -586,8 +586,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("ops.model.Model.get_secret")
     @patch("charm.NginxIngressCharm._on_certificates_relation_created")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     def test_certificate_revoked_no_tls_relation(
         self,
@@ -612,8 +612,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
@@ -654,8 +654,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
@@ -685,8 +685,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     def test_certificate_expiring_no_tls_relation(self, mock_cert_renewal):
         """
@@ -707,8 +707,8 @@ class TestCertificatesRelation(unittest.TestCase):
 
     @pytest.mark.usefixtures("patch_load_incluster_config")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_renewal"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_renewal"
     )
     @patch("charm.NginxIngressCharm._cleanup")
     def test_certificate_expiring_no_nginx_relation(self, mock_cleanup, mock_cert_renewal):
@@ -806,8 +806,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
     @patch("tls_relation.generate_csr")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_creation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_creation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_relation_joined(
@@ -831,8 +831,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._cleanup")
     @patch("tls_relation.generate_csr")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_creation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_creation"
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_relation_joined_no_nginx_relation(
@@ -854,8 +854,8 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._cleanup")
     @patch("tls_relation.generate_csr")
     @patch(
-        "charms.tls_certificates_interface.v2.tls_certificates"
-        ".TLSCertificatesRequiresV2.request_certificate_creation"
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_creation"
     )
     def test_certificate_relation_joined_no_cert_relation(
         self, mock_create_cert, mock_gen_csr, mock_cleanup

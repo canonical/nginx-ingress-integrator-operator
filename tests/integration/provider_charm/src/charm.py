@@ -31,8 +31,8 @@ class SampleTLSCertificatesProviderCharm(CharmBase):
         )
 
     @property
-    def _self_signed_ca_certificate(self) -> Optional[str]:
-        return self._get_value_from_relation_data("self_signed_ca_certificate")
+    def _self_signed_ca_certificate(self) -> str:
+        return self._get_value_from_relation_data("self_signed_ca_certificate") or ""
 
     @property
     def _self_signed_ca_private_key(self) -> Optional[str]:
@@ -185,7 +185,7 @@ class SampleTLSCertificatesProviderCharm(CharmBase):
             ca=self._self_signed_ca_certificate,
             chain=ca_chain,
             relation_id=event.relation_id,
-            recommended_expiry_notification_time=720,
+            recommended_expiry_notification_time=0,
         )
         self.unit.status = ActiveStatus()
 

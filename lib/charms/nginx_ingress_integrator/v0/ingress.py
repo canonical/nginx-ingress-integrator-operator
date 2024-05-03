@@ -261,9 +261,8 @@ class IngressRequires(Object):
         if self.model.unit.is_leader():
             if self._config_dict_errors(config_dict=self.config_dict):
                 return
-            event.relation.data[self.model.app].update(
-                (key, str(self.config_dict[key])) for key in self.config_dict
-            )
+            relation_dict = {key: str(self.config_dict[key]) for key in self.config_dict}
+            event.relation.data[self.model.app].update(relation_dict)
 
     def update_config(self, config_dict: Dict) -> None:
         """Allow for updates to relation.

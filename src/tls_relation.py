@@ -8,15 +8,17 @@ import string
 from typing import Dict, List, Union
 
 import kubernetes
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateAvailableEvent,
     CertificateExpiringEvent,
     CertificateInvalidatedEvent,
-    TLSCertificatesRequiresV2,
+    TLSCertificatesRequiresV3,
     generate_csr,
     generate_private_key,
 )
+from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from cryptography.x509.oid import NameOID
 from ops.jujuversion import JujuVersion
 from ops.model import Model, Relation, SecretNotFoundError
 
@@ -112,30 +114,32 @@ class TLSRelationService:
 
         Returns:
             The value from the field.
+
+        Raises:
+            KeyError: if the field is not found in the relation databag.
         """
         field_value = tls_relation.data[self.charm_app].get(relation_field)
+        if not field_value:
+            raise KeyError(f"{relation_field} field not found in {tls_relation.name}")
+
         return field_value
 
-    def get_hostname_from_csr(self, tls_relation: Relation, csr: str) -> str:
-        """Get the hostname from a csr.
+    def get_hostname_from_cert(self, certificate: str) -> str:
+        """Get the hostname from a certificate subject name.
 
         Args:
-            tls_relation: TLS certificates relation
-            csr: csr to extract hostname from
+            certificate: The certificate in PEM format.
 
         Returns:
-            The hostname the csr belongs to.
+            The hostname the certificate is issue to.
         """
-        csr_dict = {
-            key: tls_relation.data[self.charm_app].get(key)
-            for key in tls_relation.data[self.charm_app]
-            if key.startswith("csr-")
-        }
-        for key in csr_dict:
-            if csr_dict[key].replace("\n", "") == csr.replace("\n", ""):
-                hostname = key.replace("csr-", "", 1)
-                return hostname
-        return ""
+        decoded_cert = x509.load_pem_x509_certificate(certificate.encode())
+
+        common_name_attribute = decoded_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        if not common_name_attribute:
+            return ""
+
+        return str(common_name_attribute[0].value)
 
     def get_tls_relation(self) -> Union[Relation, None]:
         """Get the TLS certificates relation.
@@ -150,7 +154,7 @@ class TLSRelationService:
     def certificate_relation_joined(  # type: ignore[no-untyped-def]
         self,
         hostname: str,
-        certificates: TLSCertificatesRequiresV2,
+        certificates: TLSCertificatesRequiresV3,
     ) -> None:
         """Handle the TLS Certificate joined event.
 
@@ -217,14 +221,12 @@ class TLSRelationService:
         """
         tls_certificates_relation = self.get_tls_relation()
         assert isinstance(tls_certificates_relation, Relation)  # nosec
-        hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, event.certificate_signing_request
-        )
+        hostname = self.get_hostname_from_cert(event.certificate)
         self.update_relation_data_fields(
             {
                 f"certificate-{hostname}": event.certificate,
                 f"ca-{hostname}": event.ca,
-                f"chain-{hostname}": str(event.chain[0]),
+                f"chain-{hostname}": str(event.chain_as_pem()),
             },
             tls_certificates_relation,
         )
@@ -234,19 +236,19 @@ class TLSRelationService:
             {
                 f"certificate-{hostname}": event.certificate,
                 f"ca-{hostname}": event.ca,
-                f"chain-{hostname}": str(event.chain[0]),
+                f"chain-{hostname}": str(event.chain_as_pem()),
             },
             peer_relation,
         )
         private_key = self._get_private_key(hostname)
 
-        self.certs[hostname] = event.certificate
+        self.certs[hostname] = event.chain_as_pem()
         self.keys[hostname] = private_key["key"]
 
     def certificate_expiring(  # type: ignore[no-untyped-def]
         self,
         event: Union[CertificateExpiringEvent, CertificateInvalidatedEvent],
-        certificates: TLSCertificatesRequiresV2,
+        certificates: TLSCertificatesRequiresV3,
     ) -> None:
         """Handle the TLS Certificate expiring event.
 
@@ -258,9 +260,7 @@ class TLSRelationService:
         peer_relation = self.charm_model.get_relation(PEER_RELATION_NAME)
         assert isinstance(tls_certificates_relation, Relation)  # nosec
         assert isinstance(peer_relation, Relation)  # nosec
-        hostname = self.get_hostname_from_csr(
-            tls_certificates_relation, event.certificate_signing_request
-        )
+        hostname = self.get_hostname_from_cert(event.certificate)
         old_csr = self.get_relation_data_field(f"csr-{hostname}", tls_certificates_relation)
         private_key_dict = self._get_private_key(hostname)
         new_csr = generate_csr(

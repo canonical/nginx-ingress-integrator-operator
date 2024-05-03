@@ -5,9 +5,9 @@
 import logging
 from typing import Optional
 
-from charms.tls_certificates_interface.v2.tls_certificates import (
+from charms.tls_certificates_interface.v3.tls_certificates import (
     CertificateCreationRequestEvent,
-    TLSCertificatesProvidesV2,
+    TLSCertificatesProvidesV3,
 )
 from ops.charm import CharmBase, InstallEvent
 from ops.main import main
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class SampleTLSCertificatesProviderCharm(CharmBase):
     def __init__(self, *args):
         super().__init__(*args)
-        self.certificates = TLSCertificatesProvidesV2(self, "certificates")
+        self.certificates = TLSCertificatesProvidesV3(self, "certificates")
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(
             self.certificates.on.certificate_creation_request,
@@ -31,8 +31,8 @@ class SampleTLSCertificatesProviderCharm(CharmBase):
         )
 
     @property
-    def _self_signed_ca_certificate(self) -> Optional[str]:
-        return self._get_value_from_relation_data("self_signed_ca_certificate")
+    def _self_signed_ca_certificate(self) -> str:
+        return self._get_value_from_relation_data("self_signed_ca_certificate") or ""
 
     @property
     def _self_signed_ca_private_key(self) -> Optional[str]:
@@ -185,6 +185,7 @@ class SampleTLSCertificatesProviderCharm(CharmBase):
             ca=self._self_signed_ca_certificate,
             chain=ca_chain,
             relation_id=event.relation_id,
+            recommended_expiry_notification_time=0,
         )
         self.unit.status = ActiveStatus()
 

@@ -253,14 +253,16 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("charm.NginxIngressCharm._cleanup")
     @patch("charm.NginxIngressCharm._certificate_revoked")
     @patch("charm.NginxIngressCharm._update_ingress")
+    @patch("tls_relation.TLSRelationService.get_hostname_from_cert")
     def test_on_certificate_invalidated_revoke(
-        self, mock_update_ingress, mock_cert_revoked, mock_cleanup
+        self, mock_get_hostname, mock_update_ingress, mock_cert_revoked, mock_cleanup
     ):
         """
         arrange: given the harnessed charm with all relations set and no juju secrets
         act: when the on_certificate_invalidated method is executed with a revoked cert
         assert: the method is executed properly, calling _on_certificate_revoked
         """
+        mock_get_hostname.return_value = "whatever"
         self.harness.set_leader(True)
         self.harness.add_relation("certificates", "certificates")
         event = CertificateInvalidatedEvent(
@@ -617,6 +619,7 @@ class TestCertificatesRelation(unittest.TestCase):
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
+    @patch("tls_relation.TLSRelationService.get_hostname_from_cert")
     @patch("tls_relation.generate_csr")
     @patch("ops.JujuVersion.has_secrets")
     @patch("ops.model.Model.get_secret")
@@ -625,6 +628,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_secret,
         mock_has_secrets,
         mock_gen_csr,
+        mock_get_hostname,
         mock_get_data,
         mock_ingress_update,
         mock_cert_renewal,
@@ -636,6 +640,7 @@ class TestCertificatesRelation(unittest.TestCase):
         """
         mock_has_secrets.return_value = True
         mock_get_data.return_value = "whatever"
+        mock_get_hostname.return_value = "whatever"
         mock_gen_csr.return_value = b"csr"
         self.harness.set_leader(True)
         self.harness.disable_hooks()
@@ -659,9 +664,15 @@ class TestCertificatesRelation(unittest.TestCase):
     )
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
+    @patch("tls_relation.TLSRelationService.get_hostname_from_cert")
     @patch("tls_relation.generate_csr")
     def test_certificate_expiring_no_secrets(
-        self, mock_gen_csr, mock_get_data, mock_ingress_update, mock_cert_renewal
+        self,
+        mock_gen_csr,
+        mock_get_hostname,
+        mock_get_data,
+        mock_ingress_update,
+        mock_cert_renewal,
     ):
         """
         arrange: given the harnessed charm with all relations set and no juju secrets
@@ -669,6 +680,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert: the method is executed properly
         """
         mock_get_data.return_value = "whatever"
+        mock_get_hostname.return_value = "whatever"
         mock_gen_csr.return_value = b"csr"
         self.harness.set_leader(True)
         self.set_up_all_relations()
@@ -747,9 +759,10 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("tls_relation.generate_csr")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
+    @patch("tls_relation.TLSRelationService.get_hostname_from_cert")
     @patch("charm.NginxIngressCharm._update_ingress")
     def test_certificate_available_no_secrets(
-        self, mock_update, mock_get_data, mock_gen_csr, mock_gen_pass
+        self, mock_update, mock_get_hostname, mock_get_data, mock_gen_csr, mock_gen_pass
     ):
         """
         arrange: given the harnessed charm with all relations set and no juju secrets
@@ -759,6 +772,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_gen_csr.return_value = b"csr"
         mock_gen_pass.return_value = "123456789101"
         mock_get_data.return_value = "whatever"
+        mock_get_hostname.return_value = "whatever"
         self.harness.set_leader(True)
         self.set_up_all_relations()
         event = CertificateAvailableEvent(
@@ -771,6 +785,7 @@ class TestCertificatesRelation(unittest.TestCase):
     @patch("tls_relation.TLSRelationService.generate_password")
     @patch("tls_relation.generate_csr")
     @patch("tls_relation.TLSRelationService.get_relation_data_field")
+    @patch("tls_relation.TLSRelationService.get_hostname_from_cert")
     @patch("charm.NginxIngressCharm._update_ingress")
     @patch("ops.JujuVersion.has_secrets")
     @patch("ops.model.Model.get_secret")
@@ -779,6 +794,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_get_secret,
         mock_has_secrets,
         mock_update,
+        mock_get_hostname,
         mock_get_data,
         mock_gen_csr,
         mock_gen_pass,
@@ -791,6 +807,7 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_gen_csr.return_value = b"csr"
         mock_gen_pass.return_value = "123456789101"
         mock_get_data.return_value = "whatever"
+        mock_get_hostname.return_value = "whatever"
         mock_has_secrets.return_value = True
         self.harness.set_leader(True)
         self.harness.disable_hooks()

@@ -528,9 +528,7 @@ class NginxIngressCharm(CharmBase):
             event.defer()
             return
         if event.reason == "revoked":
-            hostname = self._tls.get_hostname_from_cert(
-                tls_certificates_relation, event.certificate
-            )
+            hostname = self._tls.get_hostname_from_cert(event.certificate)
             self._certificate_revoked([hostname])
         if event.reason == "expired":
             self._tls.certificate_expiring(event, self.certificates)

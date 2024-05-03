@@ -602,3 +602,10 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
     def port_name(self) -> str:
         """Return the port name for ingress related objects."""
         return f"tcp-{self.service_port}"
+
+    @property
+    def pathroutes(self) -> List[str]:
+        """Return the path routes to use for the k8s ingress."""
+        if not all(path_route.startswith("/") for path_route in self.path_routes):
+            raise InvalidIngressError("All path routes must start with a forward slash '/'")
+        return self.path_routes

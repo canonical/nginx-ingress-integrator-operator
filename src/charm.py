@@ -224,10 +224,16 @@ class NginxIngressCharm(CharmBase):
             )
         nginx_route_relation = self.model.get_relation("nginx-route")
         ingress_relation = self.model.get_relation("ingress")
+        # The charm only supports one relation at a time, so we check if both are present
+        # and raise an error if they are.
         if nginx_route_relation is not None and ingress_relation is not None:
             raise InvalidIngressError(
-                "nginx-ingress-integrator cannot establish more than one relation at a time"
+                "Both nginx-route and ingress relations found, please remove either one."
             )
+        hostnames = self.get_additional_hostnames()
+        if ingress_relation is not None and len(hostnames) > 1:
+            self._ingress_provider.wipe_ingress_data(ingress_relation)
+            raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
 
     def _check_tls_nginx_relations(self, event: Union[EventBase, None]) -> bool:
         """Handle the TLS Certificate expiring event.
@@ -304,6 +310,7 @@ class NginxIngressCharm(CharmBase):
                 self._cleanup()
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
+
             definition = self._get_definition_from_relation(relation)
             tls_certificates_relation = self._tls.get_tls_relation()
             revoke_list = self._tls.update_cert_on_service_hostname_change(
@@ -319,9 +326,42 @@ class NginxIngressCharm(CharmBase):
             ingress_controller = self._get_ingress_controller(namespace)
             ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
+
+            if definition.is_ingress_relation:
+                hostnames = self.get_additional_hostnames()
+                # There will always be an element available in hostnames, as the service hostname
+                # is always present. The ingress definition will catch the error if else.
+                url = self._generate_ingress_url(hostnames[0], definition.pathroutes)
+                self._ingress_provider.publish_url(relation, url)
+
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
             self.unit.status = BlockedStatus(exc.msg)
+
+    def _generate_ingress_url(self, hostname: str, pathroutes: List[str]) -> Optional[str]:
+        """Generate the URL for the ingress.
+
+        Args:
+            hostname: The hostname to use in the URL.
+            pathroutes: The pathroutes to use in the URL.
+
+        Returns:
+            The generated URL.
+
+        Raises:
+            InvalidIngressError: If there are multiple paths in the pathroutes config.
+        """
+        # Check if TLS is present in the relation, or by checking secrets.
+        # check hostname in self._tls.certs
+        tls_present = self._tls.get_tls_relation() or self._tls.certs.get(hostname)
+        prefix = "https" if tls_present else "http"
+
+        if len(pathroutes) == 0:
+            return f"{prefix}://{hostname}"
+        if len(pathroutes) > 1:
+            self._ingress_provider.wipe_ingress_data(self._get_nginx_relation())
+            raise InvalidIngressError("Ingress relation does not support multiple pathroutes.")
+        return f"{prefix}://{hostname}{pathroutes[0]}"
 
     def _on_config_changed(self, _: Any) -> None:
         """Handle the config-changed event."""

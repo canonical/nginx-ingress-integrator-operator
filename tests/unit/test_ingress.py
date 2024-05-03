@@ -132,3 +132,52 @@ def test_port_name(k8s_stub: K8sStub, harness: Harness, ingress_relation):
         == k8s_stub.get_endpoints(TEST_NAMESPACE)[0].subsets[0].ports[0].name
         == k8s_stub.get_endpoint_slices(TEST_NAMESPACE)[0].ports[0].name
     )
+
+
+def test_hostname_in_app_data(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: hostname is in the app data bag.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com", "path-routes": "/path"})
+
+    expected_data = '{"url": "http://example.com/path"}'
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
+
+    harness.update_config({"additional-hostnames": "example.net"})
+    # We have added an additional hostname, so the charm should be blocked and
+    # the url should be removed from the app data.
+    # If we confirm that the url is None, we can confirm that the charm is blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
+
+
+def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the ingress relation with basic data.
+    assert: path routes are set up correctly in the service.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com", "path-routes": "/path"})
+    expected_data = '{"url": "http://example.com/path"}'
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
+
+    harness.update_config({"path-routes": "/path1,/path2"})
+    # We have added multiple path routes, so the charm should be blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
+
+    harness.update_config({"path-routes": "/path1,invalid_path"})
+    # We have added an invalid path route, that does not start with /
+    #  so the charm should be blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") is None
+
+    harness.update_config({"path-routes": ""})
+    expected_data = f'{{"url": "http://example.com/{harness.charm.model.name}-app"}}'
+    # We have added an invalid path route, so the charm should be blocked.
+    assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data

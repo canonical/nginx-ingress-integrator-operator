@@ -230,7 +230,7 @@ class NginxIngressCharm(CharmBase):
             raise InvalidIngressError(
                 "Both nginx-route and ingress relations found, please remove either one."
             )
-        hostnames = self.get_additional_hostnames()
+        hostnames = self.get_all_hostnames()
         if ingress_relation is not None and len(hostnames) > 1:
             self._ingress_provider.wipe_ingress_data(ingress_relation)
             raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
@@ -278,7 +278,7 @@ class NginxIngressCharm(CharmBase):
             endpoints = endpoints_controller.define_resource(definition=definition)
             endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
         secret_list = []
-        for hostname in self.get_additional_hostnames():
+        for hostname in self.get_all_hostnames():
             if self._tls.certs.get(hostname):
                 secret = secret_controller.define_resource(definition=definition, key=hostname)
                 secret_list.append(secret)
@@ -314,7 +314,7 @@ class NginxIngressCharm(CharmBase):
             definition = self._get_definition_from_relation(relation)
             tls_certificates_relation = self._tls.get_tls_relation()
             revoke_list = self._tls.update_cert_on_service_hostname_change(
-                self.get_additional_hostnames(),
+                self.get_all_hostnames(),
                 tls_certificates_relation,
                 definition.service_namespace,
             )
@@ -328,7 +328,7 @@ class NginxIngressCharm(CharmBase):
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
 
             if definition.is_ingress_relation:
-                hostnames = self.get_additional_hostnames()
+                hostnames = self.get_all_hostnames()
                 # There will always be an element available in hostnames, as the service hostname
                 # is always present. The ingress definition will catch the error if else.
                 url = self._generate_ingress_url(hostnames[0], definition.pathroutes)
@@ -410,7 +410,7 @@ class NginxIngressCharm(CharmBase):
         else:
             event.fail("Certificate not available")
 
-    def get_additional_hostnames(self) -> List[str]:
+    def get_all_hostnames(self) -> List[str]:
         """Get a list containing all ingress hostnames.
 
         Returns:
@@ -433,7 +433,7 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        hostnames = self.get_additional_hostnames()
+        hostnames = self.get_all_hostnames()
         for hostname in hostnames:
             self._tls.certificate_relation_created(hostname)
 
@@ -445,7 +445,7 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        hostnames = self.get_additional_hostnames()
+        hostnames = self.get_all_hostnames()
         for hostname in hostnames:
             self._tls.certificate_relation_joined(hostname, self.certificates)
 
@@ -544,7 +544,7 @@ class NginxIngressCharm(CharmBase):
         if tls_relation:
             tls_relation.data[self.app].clear()
         if JujuVersion.from_environ().has_secrets:
-            hostnames = self.get_additional_hostnames()
+            hostnames = self.get_all_hostnames()
             for hostname in hostnames:
                 try:
                     secret = self.model.get_secret(label=f"private-key-{hostname}")

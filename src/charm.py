@@ -548,12 +548,14 @@ class NginxIngressCharm(CharmBase):
                 hostnames = self.get_all_hostnames()
             except InvalidIngressError as e:
                 LOGGER.warning("InvalidIngressError: %s", e)
-                LOGGER.warning((
-                    "Certificates relation removed so our ingress definition may be "
-                    "invalid. Just ignore, since we're likely removing the charm or "
-                    "the entire model, in which case Juju will clean up the relevant "
-                    "k8s resources."
-                ))
+                LOGGER.warning(
+                    (
+                        "Certificates relation removed so our ingress definition may be "
+                        "invalid. Just ignore, since we're likely removing the charm or "
+                        "the entire model, in which case Juju will clean up the relevant "
+                        "k8s resources."
+                    )
+                )
                 return
             for hostname in hostnames:
                 try:

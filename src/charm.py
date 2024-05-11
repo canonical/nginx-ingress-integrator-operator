@@ -544,7 +544,17 @@ class NginxIngressCharm(CharmBase):
         if tls_relation:
             tls_relation.data[self.app].clear()
         if JujuVersion.from_environ().has_secrets:
-            hostnames = self.get_all_hostnames()
+            try:
+                hostnames = self.get_all_hostnames()
+            except InvalidIngressError as e:
+                LOGGER.warning("InvalidIngressError: %s", e)
+                LOGGER.warning((
+                    "Certificates relation removed so our ingress definition may be "
+                    "invalid. Just ignore, since we're likely removing the charm or "
+                    "the entire model, in which case Juju will clean up the relevant "
+                    "k8s resources."
+                ))
+                return
             for hostname in hostnames:
                 try:
                     secret = self.model.get_secret(label=f"private-key-{hostname}")

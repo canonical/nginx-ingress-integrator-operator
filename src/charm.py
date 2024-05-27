@@ -399,7 +399,7 @@ class NginxIngressCharm(CharmBase):
             event.fail("Certificates relation not created.")
             return
         tls_rel_data = tls_certificates_relation.data[self.app]
-        if tls_rel_data[f"certificate-{hostname}"]:
+        if tls_rel_data.get(f"certificate-{hostname}"):
             event.set_results(
                 {
                     f"certificate-{hostname}": tls_rel_data[f"certificate-{hostname}"],

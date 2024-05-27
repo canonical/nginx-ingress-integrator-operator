@@ -161,7 +161,7 @@ class NginxIngressCharm(CharmBase):
                 return relation
         elif self.model.get_relation("ingress") is not None:
             relation = cast(Relation, self.model.get_relation("ingress"))
-            if relation.app is not None and relation.data[relation.app]:
+            if relation.app is not None and relation.units and relation.data[relation.app]:
                 return relation
         return None
 

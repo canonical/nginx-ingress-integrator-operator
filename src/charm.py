@@ -433,7 +433,14 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        hostnames = self.get_all_hostnames()
+        try:
+            hostnames = self.get_all_hostnames()
+        except InvalidIngressError as exc:
+            LOGGER.warning(
+                "Ingress relation seems not to be ready yet, will defer the event: %s", exc
+            )
+            event.defer()
+            return
         for hostname in hostnames:
             self._tls.certificate_relation_created(hostname)
 
@@ -445,7 +452,14 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        hostnames = self.get_all_hostnames()
+        try:
+            hostnames = self.get_all_hostnames()
+        except InvalidIngressError as exc:
+            LOGGER.warning(
+                "Ingress relation seems not to be ready yet, will defer the event: %s", exc
+            )
+            event.defer()
+            return
         for hostname in hostnames:
             self._tls.certificate_relation_joined(hostname, self.certificates)
 

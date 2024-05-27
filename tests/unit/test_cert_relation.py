@@ -23,6 +23,7 @@ from ops.testing import Harness
 
 from charm import NginxIngressCharm
 from controller.secret import SecretController
+from exceptions import InvalidIngressError
 from tests.unit.constants import TEST_NAMESPACE
 from tls_relation import TLSRelationService
 
@@ -182,6 +183,43 @@ class TestCertificatesRelation(unittest.TestCase):
         mock_has_secrets.return_value = True
         mock_get_secret.side_effect = SecretNotFoundError
         self.harness.charm._on_certificates_relation_created(event)
+        mock_create_cert.assert_not_called()
+        mock_gen_csr.assert_not_called()
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("tls_relation.TLSRelationService.get_relation_data_field")
+    @patch("tls_relation.generate_csr")
+    @patch(
+        "charms.tls_certificates_interface.v3.tls_certificates"
+        ".TLSCertificatesRequiresV3.request_certificate_creation"
+    )
+    @patch("charm.NginxIngressCharm._update_ingress")
+    @patch("charm.NginxIngressCharm.get_all_hostnames")
+    @patch("ops.model.Model.get_secret")
+    @patch("ops.JujuVersion.has_secrets")
+    def test_certificate_relation_created_joined_ingress_not_ready(
+        self,
+        mock_has_secrets,
+        mock_get_secret,
+        mock_get_hostnames,
+        mock_ingress_update,
+        mock_create_cert,
+        mock_gen_csr,
+        mock_get_data,
+    ):
+        mock_get_data.return_value = "whatever"
+        mock_gen_csr.return_value = b"csr"
+        event = RelationCreatedEvent(relation=None, handle=None)
+        self.harness.set_leader(True)
+        self.harness.disable_hooks()
+        self.set_up_all_relations()
+        self.harness.enable_hooks()
+        mock_get_hostnames.side_effect = InvalidIngressError("not ready yet")
+        self.harness.charm._on_certificates_relation_created(event)
+        mock_create_cert.assert_not_called()
+        mock_gen_csr.assert_not_called()
+
+        self.harness.charm._on_certificates_relation_joined(event)
         mock_create_cert.assert_not_called()
         mock_gen_csr.assert_not_called()
 

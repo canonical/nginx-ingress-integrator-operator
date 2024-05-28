@@ -153,15 +153,15 @@ class NginxIngressCharm(CharmBase):
         """Get the current effective relation.
 
         Returns:
-            The current effective relation object, None if there are no relation.
+            The current effective relation object, None if there is no relation or it is not ready.
         """
         if self.model.get_relation("nginx-route") is not None:
             relation = cast(Relation, self.model.get_relation("nginx-route"))
-            if relation.app is not None and relation.data[relation.app]:
+            if relation.app is not None and relation.data[relation.app] and relation.units:
                 return relation
         elif self.model.get_relation("ingress") is not None:
             relation = cast(Relation, self.model.get_relation("ingress"))
-            if relation.app is not None and relation.data[relation.app]:
+            if relation.app is not None and relation.data[relation.app] and relation.units:
                 return relation
         return None
 
@@ -433,14 +433,7 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        try:
-            hostnames = self.get_all_hostnames()
-        except InvalidIngressError as exc:
-            LOGGER.warning(
-                "Ingress relation seems not to be ready yet, will defer the event: %s", exc
-            )
-            event.defer()
-            return
+        hostnames = self.get_all_hostnames()
         for hostname in hostnames:
             self._tls.certificate_relation_created(hostname)
 
@@ -452,14 +445,7 @@ class NginxIngressCharm(CharmBase):
         """
         if self._check_tls_nginx_relations(event):
             return
-        try:
-            hostnames = self.get_all_hostnames()
-        except InvalidIngressError as exc:
-            LOGGER.warning(
-                "Ingress relation seems not to be ready yet, will defer the event: %s", exc
-            )
-            event.defer()
-            return
+        hostnames = self.get_all_hostnames()
         for hostname in hostnames:
             self._tls.certificate_relation_joined(hostname, self.certificates)
 

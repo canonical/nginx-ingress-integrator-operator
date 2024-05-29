@@ -201,6 +201,7 @@ async def test_given_enough_time_passed_then_certificate_expired(model: Model, o
         status="maintenance",
         timeout=1000,
         idle_period=0,
+        check_freq=0.1,
     )
     requirer_unit = model.units["ingress/0"]
 

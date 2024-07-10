@@ -80,7 +80,7 @@ class TLSRelationService:
         if tls_certificates_relation:
             api = kubernetes.client.NetworkingV1Api()
             ingresses = api.list_namespaced_ingress(
-                namespace=namespace, selector=f"{CREATED_BY_LABEL}={self.charm_app.name}"
+                namespace=namespace, label_selector=f"{CREATED_BY_LABEL}={self.charm_app.name}"
             )
             hostnames_to_revoke = []
             hostnames_unchanged = []

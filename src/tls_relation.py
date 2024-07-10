@@ -22,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from ops.jujuversion import JujuVersion
 from ops.model import Model, Relation, SecretNotFoundError
 
-from consts import PEER_RELATION_NAME, TLS_CERT
+from consts import CREATED_BY_LABEL, PEER_RELATION_NAME, TLS_CERT
 
 
 class TLSRelationService:
@@ -79,7 +79,9 @@ class TLSRelationService:
         hostnames_to_revoke: List[str] = []
         if tls_certificates_relation:
             api = kubernetes.client.NetworkingV1Api()
-            ingresses = api.list_namespaced_ingress(namespace=namespace)
+            ingresses = api.list_namespaced_ingress(
+                namespace=namespace, label_selector=f"{CREATED_BY_LABEL}={self.charm_app.name}"
+            )
             hostnames_to_revoke = []
             hostnames_unchanged = []
             for hostname in hostnames:

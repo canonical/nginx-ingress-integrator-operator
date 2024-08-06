@@ -3,6 +3,7 @@
 # mypy: disable-error-code="arg-type"
 
 import os
+import secrets
 import typing
 import unittest
 from unittest import mock
@@ -1139,3 +1140,38 @@ class TestCertificatesRelation(unittest.TestCase):
         }
 
         assert decrypted_private_keys == decrypted_private_keys_from_disk
+
+
+def test_certs_and_keys_are_initialized(harness, monkeypatch):
+    """
+    arrange: given the harnessed charm with relation data in the certificates relation
+    act: when the charm is being set up
+    assert: the certificates and keys are initialized properly in the TLSRelationService
+    """
+    cert_chain = secrets.token_hex(16)
+    private_key = secrets.token_hex(16)
+
+    monkeypatch.setattr(
+        "tls_relation.TLSRelationService._get_private_key",
+        lambda *args, **kwargs: {"key": private_key, "password": secrets.token_hex(16)},
+    )
+
+    tls_rel_id = harness.add_relation(
+        "certificates",
+        "self-signed-certificates",
+    )
+
+    harness.update_relation_data(
+        relation_id=tls_rel_id,
+        app_or_unit="nginx-ingress-integrator",
+        key_values={
+            "csr-example.com": secrets.token_hex(16),
+            "certificate-example.com": secrets.token_hex(16),
+            "ca-example.com": secrets.token_hex(16),
+            "chain-example.com": cert_chain,
+        },
+    )
+    harness.begin()
+
+    assert harness.charm._tls.certs == {"example.com": cert_chain}
+    assert harness.charm._tls.keys == {"example.com": private_key}

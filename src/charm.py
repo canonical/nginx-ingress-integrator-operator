@@ -153,15 +153,15 @@ class NginxIngressCharm(CharmBase):
         """Get the current effective relation.
 
         Returns:
-            The current effective relation object, None if there are no relation.
+            The current effective relation object, None if there is no relation or it is not ready.
         """
         if self.model.get_relation("nginx-route") is not None:
             relation = cast(Relation, self.model.get_relation("nginx-route"))
-            if relation.app is not None and relation.data[relation.app]:
+            if relation.app is not None and relation.data[relation.app] and relation.units:
                 return relation
         elif self.model.get_relation("ingress") is not None:
             relation = cast(Relation, self.model.get_relation("ingress"))
-            if relation.app is not None and relation.data[relation.app]:
+            if relation.app is not None and relation.data[relation.app] and relation.units:
                 return relation
         return None
 
@@ -399,7 +399,7 @@ class NginxIngressCharm(CharmBase):
             event.fail("Certificates relation not created.")
             return
         tls_rel_data = tls_certificates_relation.data[self.app]
-        if tls_rel_data[f"certificate-{hostname}"]:
+        if tls_rel_data.get(f"certificate-{hostname}"):
             event.set_results(
                 {
                     f"certificate-{hostname}": tls_rel_data[f"certificate-{hostname}"],

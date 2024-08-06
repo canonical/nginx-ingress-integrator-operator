@@ -22,7 +22,7 @@ from cryptography.x509.oid import NameOID
 from ops.jujuversion import JujuVersion
 from ops.model import Model, Relation, SecretNotFoundError
 
-from consts import PEER_RELATION_NAME, TLS_CERT
+from consts import CREATED_BY_LABEL, PEER_RELATION_NAME, TLS_CERT
 
 
 class TLSRelationService:
@@ -38,6 +38,18 @@ class TLSRelationService:
         self.keys: Dict[Union[str, None], Union[str, None]] = {}
         self.charm_model = model
         self.charm_app = model.app
+        self._init_certs_and_keys()
+
+    def _init_certs_and_keys(self) -> None:
+        """Initialize the certificates and keys which are already present in relation data."""
+        tls_certificates_relation = self.get_tls_relation()
+        if not tls_certificates_relation:
+            return
+        for key, value in tls_certificates_relation.data[self.charm_app].items():
+            if key.startswith("chain-"):
+                hostname = key.split("-", maxsplit=1)[1]
+                self.certs[hostname] = value
+                self.keys[hostname] = self._get_private_key(hostname)["key"]
 
     def generate_password(self) -> str:
         """Generate a random 12 character password.
@@ -67,7 +79,9 @@ class TLSRelationService:
         hostnames_to_revoke: List[str] = []
         if tls_certificates_relation:
             api = kubernetes.client.NetworkingV1Api()
-            ingresses = api.list_namespaced_ingress(namespace=namespace)
+            ingresses = api.list_namespaced_ingress(
+                namespace=namespace, label_selector=f"{CREATED_BY_LABEL}={self.charm_app.name}"
+            )
             hostnames_to_revoke = []
             hostnames_unchanged = []
             for hostname in hostnames:

@@ -390,7 +390,7 @@ class TestCertificatesRelation(unittest.TestCase):
         act: when the _certificate_revoked method is executed
         assert: the method is halted due to old_csr not existing
         """
-        mock_get_data.return_value = None
+        mock_get_data.side_effect = KeyError()
         mock_has_secrets.return_value = True
         self.harness.set_leader(True)
         self.set_up_nginx_relation()

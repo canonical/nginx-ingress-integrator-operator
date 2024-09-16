@@ -487,11 +487,12 @@ class NginxIngressCharm(CharmBase):
             return
         tls_certificates_relation = self._tls.get_tls_relation()
         for hostname in revoke_list:
-            old_csr = self._tls.get_relation_data_field(
-                f"csr-{hostname}",
-                tls_certificates_relation,  # type: ignore[arg-type]
-            )
-            if not old_csr:
+            try:
+                old_csr = self._tls.get_relation_data_field(
+                    f"csr-{hostname}",
+                    tls_certificates_relation,  # type: ignore[arg-type]
+                )
+            except KeyError:
                 continue
             if JujuVersion.from_environ().has_secrets:
                 try:

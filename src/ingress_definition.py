@@ -47,7 +47,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         )
 
     @classmethod
-    def from_ingress(  # pylint: disable=too-many-arguments
+    def from_ingress(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         cls,
         charm: ops.CharmBase,
         relation: Relation,
@@ -76,7 +76,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             tls_cert=tls_cert,
         )
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         model: Model,
         config: ConfigData,

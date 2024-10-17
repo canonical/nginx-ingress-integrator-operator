@@ -42,7 +42,7 @@ async def model_fixture(ops_test: OpsTest, pytestconfig: Config) -> Model:
     assert ops_test.model
     model_arch = pytestconfig.getoption("--model-arch")
     if model_arch:
-        #  Equivalent to `juju set-model-constraints arch=arm64`
+        #  Equivalent to `juju set-model-constraints arch=<amd64 / arm64 / ...>`
         await ops_test.model.set_constraints({"arch": model_arch})
     return ops_test.model
 

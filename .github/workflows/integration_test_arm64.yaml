@@ -13,3 +13,4 @@ jobs:
       juju-channel: 3.1/stable
       self-hosted-runner: true
       self-hosted-runner-arch: arm64
+      builder-runner-label: arm64

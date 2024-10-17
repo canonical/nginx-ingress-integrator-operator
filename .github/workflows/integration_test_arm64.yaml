@@ -1,4 +1,4 @@
-name: Integration tests
+name: Integration tests arm64
 
 on:
   pull_request:

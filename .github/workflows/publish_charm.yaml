@@ -1,4 +1,4 @@
-name: Publish to edge arm64
+name: Publish to edge
 
 on:
   push:
@@ -7,6 +7,6 @@ on:
       - track/*
 
 jobs:
-  publish-to-edge-arm64:
+  publish-to-edge:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit

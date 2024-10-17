@@ -12,7 +12,7 @@ import pytest_asyncio
 import yaml
 from juju.model import Model
 from ops.model import ActiveStatus
-from pytest import fixture, Config
+from pytest import Config, fixture
 from pytest_operator.plugin import OpsTest
 
 # Mype can't recognize the name as a string type, so we should skip the type check.

@@ -9,5 +9,7 @@ on:
 jobs:
   publish-to-edge-arm64:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
-    integration-test-workflow-file: "integration_test_arm64.yaml"
     secrets: inherit
+    with:
+      integration-test-workflow-file: "integration_test_arm64.yaml"
+

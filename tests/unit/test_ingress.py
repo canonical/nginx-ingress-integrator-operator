@@ -46,6 +46,34 @@ def test_basic(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     assert endpoints.metadata.name == service.metadata.name
 
 
+def test_proxy_timeout(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the proxy timeout configurations.
+    assert: ingress proxy timeout annotations are set appropriately.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] == "60"
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-send-timeout"] == "60"
+    assert (
+        ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-connect-timeout"] == "60"
+    )
+
+    harness.update_config(
+        {"proxy-read-timeout": 1, "proxy-send-timeout": 2, "proxy-connect-timeout": 3}
+    )
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-read-timeout"] == "1"
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-send-timeout"] == "2"
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-connect-timeout"] == "3"
+
+
 def test_route_path(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     """
     arrange: set up test harness and ingress relation.

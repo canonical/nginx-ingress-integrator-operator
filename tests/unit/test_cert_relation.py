@@ -124,7 +124,7 @@ class TestCertificatesRelation(unittest.TestCase):
     def test_generate_password(self):
         tls_rel = TLSRelationService(self.harness.charm.model)
         password = tls_rel.generate_password()
-        assert type(password) == str
+        assert isinstance(password, str)
         assert len(password) == 12
 
     @patch("tls_relation.TLSRelationService.update_relation_data_fields")
@@ -1116,7 +1116,7 @@ class TestCertificatesRelation(unittest.TestCase):
         domains = ["domain1", "domain2"]
         test_file_path = os.path.join(os.getcwd(), "tests", "files")
         encrypted_private_keys = [
-            open(os.path.join(test_file_path, f"test_encrypted_private_key{i+1}.pem")).read()
+            open(os.path.join(test_file_path, f"test_encrypted_private_key{i + 1}.pem")).read()
             for i in range(len(domains))
         ]
 
@@ -1135,7 +1135,7 @@ class TestCertificatesRelation(unittest.TestCase):
         assert len(decrypted_private_keys) == len(domains)
 
         decrypted_private_keys_from_disk = {
-            domains[i]: open(os.path.join(test_file_path, f"test_private_key{i+1}.pem")).read()
+            domains[i]: open(os.path.join(test_file_path, f"test_private_key{i + 1}.pem")).read()
             for i in range(len(domains))
         }
 

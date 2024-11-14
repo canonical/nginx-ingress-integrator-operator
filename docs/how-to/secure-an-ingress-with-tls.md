@@ -24,7 +24,7 @@ For the creation of the Certificate Authority key execute:
 
 ```
 
-OpenSSL genrsa -out ca.key 2048
+openSSL genrsa -out ca.key 2048
 
 ```
 

@@ -1,0 +1,15 @@
+name: Publish to edge arm64
+
+on:
+  push:
+    branches:
+      - main
+      - track/*
+
+jobs:
+  publish-to-edge-arm64:
+    uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
+    secrets: inherit
+    with:
+      integration-test-workflow-file: "integration_test_arm64.yaml"
+

@@ -12,7 +12,7 @@ import pytest_asyncio
 import yaml
 from juju.model import Model
 from ops.model import ActiveStatus
-from pytest import fixture
+from pytest import Config, fixture
 from pytest_operator.plugin import OpsTest
 
 # Mype can't recognize the name as a string type, so we should skip the type check.
@@ -36,10 +36,14 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@pytest_asyncio.fixture(scope="module", name="model")
-async def model_fixture(ops_test: OpsTest) -> Model:
+@pytest_asyncio.fixture(scope="module", name="model", autouse=True)
+async def model_fixture(ops_test: OpsTest, pytestconfig: Config) -> Model:
     """The current test model."""
     assert ops_test.model
+    model_arch = pytestconfig.getoption("--model-arch")
+    if model_arch:
+        #  Equivalent to `juju set-model-constraints arch=<amd64 / arm64 / ...>`
+        await ops_test.model.set_constraints({"arch": model_arch})
     return ops_test.model
 
 

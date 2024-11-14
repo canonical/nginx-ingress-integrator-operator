@@ -13,6 +13,12 @@ on:
         description: 'Destination Channel'
         options:
         - latest/stable
+      base-architecture:
+        type: choice
+        description: 'Base Architecture'
+        options:
+        - amd64
+        - arm64
     secrets:
       CHARMHUB_TOKEN:
         required: true
@@ -23,4 +29,5 @@ jobs:
     with:
       origin-channel: ${{ github.event.inputs.origin-channel }}
       destination-channel: ${{ github.event.inputs.destination-channel }}
+      base-architecture:  ${{ github.event.inputs.base-architecture }}
     secrets: inherit

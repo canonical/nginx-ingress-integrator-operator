@@ -1,0 +1,18 @@
+name: Integration tests arm64
+
+on:
+  pull_request:
+
+jobs:
+  integration-tests-arm64:
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
+    secrets: inherit
+    with:
+      channel: 1.28-strict/stable
+      modules: '["test_cert_relation", "test_ingress_relation", "test_nginx_route"]'
+      juju-channel: 3.1/stable
+      self-hosted-runner: true
+      self-hosted-runner-arch: arm64
+      self-hosted-runner-label: "edge"
+      builder-runner-label: arm64
+      extra-arguments: -x --model-arch=arm64

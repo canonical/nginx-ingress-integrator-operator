@@ -460,12 +460,12 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                     .get_data(self.relation)
                     .units
                 ):
-                    if u.ip is not None:
-                        endpoints.append(u.ip)
-                    else:
+                    if u.ip is None:
                         logger.error(
                             "unit with hostname %s has no ip address in relation data", u.host
                         )
+                        continue
+                    endpoints.append(u.ip)
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         if self.use_endpoint_slice and not endpoints:

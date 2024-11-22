@@ -336,6 +336,7 @@ class NginxIngressCharm(CharmBase):
 
             self.unit.status = ActiveStatus(message)
         except InvalidIngressError as exc:
+            LOGGER.exception("Invalid ingress definition")
             self.unit.status = BlockedStatus(exc.msg)
 
     def _generate_ingress_url(self, hostname: str, pathroutes: List[str]) -> Optional[str]:

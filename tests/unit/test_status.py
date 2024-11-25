@@ -64,7 +64,7 @@ TEST_INCOMPLETE_INGRESS_PARAMS = [
     pytest.param(["port"], "waiting", "waiting for relation", id="missing-port"),
     pytest.param(["name"], "waiting", "waiting for relation", id="missing-name"),
     pytest.param(
-        ["ip"], "blocked", "no endpoints are provided in ingress relation", id="missing-ip"
+        ["ip"], "blocked", "no endpoints with ip are provided in ingress relation", id="missing-ip"
     ),
 ]
 

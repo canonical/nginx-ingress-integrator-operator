@@ -5,6 +5,7 @@
 
 import dataclasses
 import ipaddress
+import logging
 import re
 from typing import List, Optional, Union, cast
 
@@ -14,6 +15,8 @@ from ops.model import Application, ConfigData, Model, Relation
 
 from consts import BOOLEAN_CONFIG_FIELDS
 from exceptions import InvalidIngressError
+
+logger = logging.getLogger(__name__)
 
 
 class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
@@ -461,17 +464,21 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         endpoints = []
         if self.use_endpoint_slice:
             try:
-                endpoints = [
-                    u.ip
-                    for u in cast(IngressPerAppProvider, self.ingress_provider)
+                for u in (
+                    cast(IngressPerAppProvider, self.ingress_provider)
                     .get_data(self.relation)
                     .units
-                    if u.ip is not None
-                ]
+                ):
+                    if u.ip is None:
+                        logger.error(
+                            "unit with hostname %s has no ip address in relation data", u.host
+                        )
+                        continue
+                    endpoints.append(u.ip)
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
         if self.use_endpoint_slice and not endpoints:
-            raise InvalidIngressError("no endpoints are provided in ingress relation")
+            raise InvalidIngressError("no endpoints with ip are provided in ingress relation")
         return endpoints
 
     @property

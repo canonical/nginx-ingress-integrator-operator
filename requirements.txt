@@ -1,4 +1,4 @@
 kubernetes==24.2.0 # last version with DiscoveryV1beta1Api
 ops==2.17.1
 jsonschema==4.23.0
-cryptography==43.0.1
+cryptography==44.0.0

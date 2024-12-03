@@ -5,7 +5,7 @@ on:
 
 jobs:
   integration-tests-arm64:
-    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@javi-testing
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
       channel: 1.28-strict/stable
@@ -16,4 +16,3 @@ jobs:
       self-hosted-runner-label: "edge"
       builder-runner-label: arm64
       extra-arguments: -x --model-arch=arm64
-      tmate-debug: true

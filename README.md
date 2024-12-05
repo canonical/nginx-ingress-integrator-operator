@@ -18,7 +18,7 @@ to this charm will be possible via a simple `juju relate` command.
 
 ## Get started
 
-Refer to [Nginx Getting Started](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) tutorial for more details.
+Refer to the [Nginx tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) for more details on getting started.
 
 ### Basic operations
 
@@ -45,6 +45,8 @@ about integrations.
 
 ## Learn more
 * [Read more](https://charmhub.io/nginx-ingress-integrator)
+* [Official webpage](https://github.com/nginx)
+* [Troubleshooting](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 
 ## Project and community
 * [Issues](https://github.com/canonical/nginx-ingress-integrator-operator/issues)

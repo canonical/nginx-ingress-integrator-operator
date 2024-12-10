@@ -80,7 +80,15 @@ options:
     type: string
   proxy-read-timeout:
     default: 60
-    description: Defines a timeout in seconds for reading a response from the proxied server.
+    description: Timeout in seconds for reading a response from the proxied server.
+    type: int
+  proxy-send-timeout:
+    default: 60
+    description: Timeout in seconds for sending a response from the proxied server.
+    type: int
+  proxy-connect-timeout:
+    default: 60
+    description: Timeout in seconds for connecting to the proxied server.
     type: int
   retry-errors:
     default: ""

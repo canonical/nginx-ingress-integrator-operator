@@ -139,6 +139,8 @@ class IngressController(
         annotations = {
             "nginx.ingress.kubernetes.io/proxy-body-size": definition.max_body_size,
             "nginx.ingress.kubernetes.io/proxy-read-timeout": definition.proxy_read_timeout,
+            "nginx.ingress.kubernetes.io/proxy-send-timeout": definition.proxy_send_timeout,
+            "nginx.ingress.kubernetes.io/proxy-connect-timeout": definition.proxy_connect_timeout,
             "nginx.ingress.kubernetes.io/backend-protocol": definition.backend_protocol,
         }
         if not definition.enable_access_log:

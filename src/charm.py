@@ -59,6 +59,7 @@ class NginxIngressCharm(CharmBase):
             relationship_name=TLS_CERT,
             certificate_requests=self._get_certificate_requests(),
             mode=Mode.APP,
+            refresh_events=[self.on.config_changed, self.on.update_status],
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -413,6 +414,7 @@ class NginxIngressCharm(CharmBase):
     def _get_certificate_requests(self) -> List[str]:
         """Get the certificate requests for the charm."""
         hostnames = self.get_all_hostnames()
+        LOGGER.warning("TO DELETE: Certificate requests: %s", hostnames)
         return [
             CertificateRequestAttributes(common_name=hostname, sans_dns=frozenset([hostname]))
             for hostname in hostnames
@@ -421,20 +423,18 @@ class NginxIngressCharm(CharmBase):
     def _get_tls_certs(self) -> Dict[Union[str, None], Union[str, None]]:
         """Get the TLS certificates provided by the TLS provider."""
         certs: Dict[Union[str, None], Union[str, None]] = {}
-        certificates_relation = self._get_tls_relation()
-        if not certificates_relation:
+        if not hasattr(self, "certificates"):
             return certs
         provider_certs, _ = self.certificates.get_assigned_certificates()
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
-            certs[hostname] = str(provider_cert.certificate.cert)
+            certs[hostname] = str(provider_cert.certificate)
         return certs
 
     def _get_tls_keys(self) -> Dict[Union[str, None], Union[str, None]]:
         """Get the private keys for the charm."""
         keys: Dict[Union[str, None], Union[str, None]] = {}
-        certificates_relation = self._get_tls_relation()
-        if not certificates_relation:
+        if not hasattr(self, "certificates"):
             return keys
         provider_certs, private_key = self.certificates.get_assigned_certificates()
         for provider_cert in provider_certs:

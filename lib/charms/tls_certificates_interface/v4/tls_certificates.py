@@ -986,9 +986,11 @@ class TLSCertificatesRequiresV4(Object):
         It will send certificate requests if they haven't been sent yet.
         It will find available certificates and emit events.
         """
+        logger.warning("TO DELETE: starting configuring tls")
         if not self._tls_relation_created():
             logger.debug("TLS relation not created yet.")
             return
+        logger.warning("TO DELETE: tls relation created")
         self._generate_private_key()
         self._send_certificate_requests()
         self._find_available_certificates()
@@ -1200,12 +1202,15 @@ class TLSCertificatesRequiresV4(Object):
 
     def _request_certificate(self, csr: CertificateSigningRequest, is_ca: bool) -> None:
         """Add CSR to relation data."""
+        logger.warning("TO DELETE: Requesting certificate")
         if self.mode == Mode.APP and not self.model.unit.is_leader():
             logger.debug("Not a leader unit - Skipping")
+            logger.warning("TO DELETE: Not a leader unit - Skipping")
             return
         relation = self.model.get_relation(self.relationship_name)
         if not relation:
             logger.debug("No relation: %s", self.relationship_name)
+            logger.warning("TO DELETE: No relation")
             return
         new_csr = _CertificateSigningRequest(
             certificate_signing_request=str(csr).strip(), ca=is_ca
@@ -1230,7 +1235,9 @@ class TLSCertificatesRequiresV4(Object):
     def _send_certificate_requests(self):
         if not self.private_key:
             logger.debug("Private key not generated yet.")
+            logger.warning("TO DELETE: Private key not generated yet.")
             return
+        logger.warning("Certificate requests: %s", self.certificate_requests)
         for certificate_request in self.certificate_requests:
             if not self._certificate_requested(certificate_request):
                 csr = certificate_request.generate_csr(

@@ -293,7 +293,6 @@ class NginxIngressCharm(CharmBase):
                 self._cleanup()
                 self.unit.status = WaitingStatus("waiting for relation")
                 return
-
             definition = self._get_definition_from_relation(relation)
             self._reconcile(definition)
             self.unit.status = WaitingStatus("Waiting for ingress IP availability")
@@ -301,7 +300,6 @@ class NginxIngressCharm(CharmBase):
             ingress_controller = self._get_ingress_controller(namespace)
             ingress_ips = ingress_controller.get_ingress_ips()
             message = f"Ingress IP(s): {', '.join(ingress_ips)}" if ingress_ips else ""
-
             if definition.is_ingress_relation:
                 hostnames = self.get_all_hostnames()
                 # There will always be an element available in hostnames, as the service hostname
@@ -418,7 +416,6 @@ class NginxIngressCharm(CharmBase):
     def _get_certificate_requests(self) -> List[str]:
         """Get the certificate requests for the charm."""
         hostnames = self.get_all_hostnames()
-        LOGGER.warning("TO DELETE: Certificate requests: %s", hostnames)
         return [
             CertificateRequestAttributes(common_name=hostname, sans_dns=frozenset([hostname]))
             for hostname in hostnames

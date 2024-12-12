@@ -2,8 +2,8 @@
 # See LICENSE file for licensing details.
 # mypy: disable-error-code="arg-type"
 
+import typing
 import unittest
-from typing import Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -13,6 +13,7 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     PrivateKey,
     ProviderCertificate,
 )
+from ops.charm import ActionEvent
 from ops.testing import Harness
 
 from charm import NginxIngressCharm
@@ -28,6 +29,41 @@ class TestCertificatesRelation(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
+    def set_up_all_relations(self):
+        """Set up certificates and nginx-route relations.
+
+        Returns:
+            A tuple containing both relation IDs.
+        """
+        peer_rel_id = self.harness.add_relation(
+            "nginx-peers",
+            "nginx-ingress-integrator",
+            app_data={
+                "csr-example.com": "whatever",
+                "certificate-example.com": "whatever",
+                "ca-example.com": "whatever",
+                "chain-example.com": "whatever",
+                "key-example.com": "whatever",
+                "password-example.com": "whatever",
+            },
+        )
+        nginx_route_rel_id = self.harness.add_relation(
+            "nginx-route",
+            "gunicorn",
+            app_data={
+                "service-hostname": "example.com",
+                "service-port": "8080",
+                "service-namespace": "test",
+                "service-name": "app",
+            },
+            unit_data={"host": '"test.svc.cluster.local"', "ip": '"10.0.0.1"'},
+        )
+        tls_rel_id = self.harness.add_relation(
+            "certificates",
+            "self-signed-certificates",
+        )
+        return nginx_route_rel_id, tls_rel_id, peer_rel_id
+
     def set_up_nginx_relation(self):
         """Set up nginx-route relation."""
         self.harness.add_relation(
@@ -42,7 +78,7 @@ class TestCertificatesRelation(unittest.TestCase):
             unit_data={"host": '"test.svc.cluster.local"', "ip": '"10.0.0.1"'},
         )
 
-    def generate_certificates(self) -> Tuple[ProviderCertificate, PrivateKey]:
+    def generate_certificates(self) -> typing.Tuple[ProviderCertificate, PrivateKey]:
         """Generate certificates for testing.
 
         Returns:
@@ -93,3 +129,89 @@ class TestCertificatesRelation(unittest.TestCase):
         self.harness.charm._on_certificate_available(event)
 
         mock_define_secret_resource.assert_called()
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_get_certificate_action(self, mock_update_ingress):
+        """
+        arrange: a hostname
+        act: when the _on_get_certificate_action method is executed
+        assert: the charm gets the certificate appropriately.
+        """
+        provider_cert_mock, private_key = self.generate_certificates()
+        self.harness.charm.certificates = MagicMock()
+        self.harness.charm.certificates.get_assigned_certificates.return_value = (
+            [provider_cert_mock],
+            private_key,
+        )
+        self.harness.set_leader(True)
+        _, tls_rel_id, _ = self.set_up_all_relations()
+        self.harness.disable_hooks()
+        charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
+        event = MagicMock(spec=ActionEvent)
+        event.params = {
+            "hostname": "example.com",
+        }
+
+        charm._on_get_certificate_action(event)
+
+        event.set_results.assert_called_with(
+            {
+                "certificate-example.com": str(provider_cert_mock.certificate),
+                "ca-example.com": str(provider_cert_mock.ca),
+                "chain-example.com": str(provider_cert_mock.chain),
+            }
+        )
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_get_certificate_action_no_tls_relation(self, mock_update_ingress):
+        """
+        arrange: a hostname
+        act: when the _on_get_certificate_action method is executed
+        assert: the charm gets the certificate appropriately.
+        """
+        provider_cert_mock, private_key = self.generate_certificates()
+        self.harness.charm.certificates = MagicMock()
+        self.harness.charm.certificates.get_assigned_certificates.return_value = (
+            [provider_cert_mock],
+            private_key,
+        )
+        self.harness.set_leader(True)
+        self.harness.disable_hooks()
+        charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
+        event = MagicMock(spec=ActionEvent)
+        event.params = {
+            "hostname": "example.com",
+        }
+
+        charm._on_get_certificate_action(event)
+
+        event.fail.assert_called_with("Certificates relation not created.")
+
+    @pytest.mark.usefixtures("patch_load_incluster_config")
+    @patch("charm.NginxIngressCharm._update_ingress")
+    def test_get_certificate_action_cert_not_available(self, mock_update_ingress):
+        """
+        arrange: a hostname
+        act: when the _on_get_certificate_action method is executed
+        assert: the charm gets the certificate appropriately.
+        """
+        provider_cert_mock, private_key = self.generate_certificates()
+        self.harness.charm.certificates = MagicMock()
+        self.harness.charm.certificates.get_assigned_certificates.return_value = (
+            [],
+            private_key,
+        )
+        self.harness.set_leader(True)
+        _, tls_rel_id, _ = self.set_up_all_relations()
+        self.harness.disable_hooks()
+        charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
+        event = MagicMock(spec=ActionEvent)
+        event.params = {
+            "hostname": "example.com",
+        }
+
+        charm._on_get_certificate_action(event)
+
+        event.fail.assert_called_with("Certificate not available")

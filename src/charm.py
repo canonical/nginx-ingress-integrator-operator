@@ -17,7 +17,7 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     TLSCertificatesRequiresV4,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
-from ops.charm import ActionEvent, CharmBase, EventBase
+from ops.charm import ActionEvent, CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
 
@@ -217,30 +217,6 @@ class NginxIngressCharm(CharmBase):
             self._ingress_provider.wipe_ingress_data(ingress_relation)
             raise InvalidIngressError("Ingress relation does not support multiple hostnames.")
 
-    def _check_tls_nginx_relations(self, event: Union[EventBase, None]) -> bool:
-        """Handle the TLS Certificate expiring event.
-
-        Args:
-            event: The event that fires this method.
-
-        Returns:
-            If the execution of the caller method should halt.
-        """
-        tls_certificates_relation = self._get_tls_relation()
-        if not tls_certificates_relation:
-            self.unit.status = WaitingStatus("Waiting for certificates relation to be created")
-            if event:
-                event.defer()
-            return True
-        relation = self._get_nginx_relation()
-        if relation is None:
-            self._cleanup()
-            if event:
-                event.defer()
-            self.unit.status = WaitingStatus("Waiting for nginx-route/ingress relation")
-            return True
-        return False
-
     def _reconcile(self, definition: IngressDefinition) -> None:
         """Reconcile ingress related resources based on the provided definition.
 
@@ -373,17 +349,18 @@ class NginxIngressCharm(CharmBase):
         if not tls_certificates_relation:
             event.fail("Certificates relation not created.")
             return
-        tls_rel_data = tls_certificates_relation.data[self.app]
-        if tls_rel_data.get(f"certificate-{hostname}"):
-            event.set_results(
-                {
-                    f"certificate-{hostname}": tls_rel_data[f"certificate-{hostname}"],
-                    f"ca-{hostname}": tls_rel_data[f"ca-{hostname}"],
-                    f"chain-{hostname}": tls_rel_data[f"chain-{hostname}"],
-                }
-            )
-        else:
-            event.fail("Certificate not available")
+        provider_certificates, _ = self.certificates.get_assigned_certificates()
+        for provider_cert in provider_certificates:
+            if provider_cert.certificate.common_name == hostname:
+                event.set_results(
+                    {
+                        f"certificate-{hostname}": str(provider_cert.certificate),
+                        f"ca-{hostname}": str(provider_cert.ca),
+                        f"chain-{hostname}": str(provider_cert.chain),
+                    }
+                )
+                return
+        event.fail("Certificate not available")
 
     def get_all_hostnames(self) -> List[str]:
         """Get a list containing all ingress hostnames.

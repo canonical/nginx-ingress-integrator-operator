@@ -59,7 +59,11 @@ class NginxIngressCharm(CharmBase):
             relationship_name=TLS_CERT,
             certificate_requests=self._get_certificate_requests(),
             mode=Mode.APP,
-            refresh_events=[self.on.config_changed, self.on.update_status],
+            refresh_events=[
+                self.on.config_changed,
+                self.on["ingress"].relation_changed,
+                self.on["nginx-route"].relation_changed,
+            ],
         )
         self.framework.observe(
             self.certificates.on.certificate_available, self._on_certificate_available
@@ -439,7 +443,7 @@ class NginxIngressCharm(CharmBase):
         provider_certs, private_key = self.certificates.get_assigned_certificates()
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
-            keys[hostname] = private_key
+            keys[hostname] = str(private_key)
         return keys
 
 

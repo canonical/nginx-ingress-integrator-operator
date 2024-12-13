@@ -93,7 +93,7 @@ async def build_and_deploy(
 
     await model.wait_for_idle(
         apps=[TLS_CERTIFICATES_PROVIDER_APP_NAME],
-        status="blocked",
+        status="active",
         timeout=1000,
     )
 

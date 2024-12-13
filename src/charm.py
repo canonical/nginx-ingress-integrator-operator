@@ -237,12 +237,10 @@ class NginxIngressCharm(CharmBase):
             endpoint_slice = endpoint_slice_controller.define_resource(definition=definition)
         secret_list = []
         for hostname in self.get_all_hostnames():
-            certs = self._get_tls_certs()
-            if certs.get(hostname):
+            if self._get_tls_certs().get(hostname):
                 secret = secret_controller.define_resource(definition=definition, key=hostname)
                 secret_list.append(secret)
                 continue
-            LOGGER.warning("Certificate not yet available for %s", hostname)
         service = service_controller.define_resource(definition=definition)
         ingress = ingress_controller.define_resource(definition=definition)
         endpoints_controller.cleanup_resources(exclude=endpoints)
@@ -352,11 +350,12 @@ class NginxIngressCharm(CharmBase):
         provider_certificates, _ = self.certificates.get_assigned_certificates()
         for provider_cert in provider_certificates:
             if provider_cert.certificate.common_name == hostname:
+                provider_cert_json = provider_cert.to_json()
                 event.set_results(
                     {
-                        f"certificate-{hostname}": str(provider_cert.certificate),
-                        f"ca-{hostname}": str(provider_cert.ca),
-                        f"chain-{hostname}": str(provider_cert.chain),
+                        f"certificate-{hostname}": provider_cert_json["certificate"],
+                        f"ca-{hostname}": provider_cert_json["ca"],
+                        f"chain-{hostname}": provider_cert_json["chain"],
                     }
                 )
                 return

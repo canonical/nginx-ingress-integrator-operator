@@ -93,6 +93,14 @@ class TestCertificatesRelation(unittest.TestCase):
         private_key = PrivateKey.from_string(key)
         certificate = Certificate.from_string(cert)
         provider_cert_mock.certificate = certificate
+        provider_cert_mock.ca = certificate
+        provider_cert_mock.chain = [certificate]
+        provider_cert_mock.to_json.return_value = {
+            "certificate": cert,
+            "ca": cert,
+            "chain": [cert],
+            "key": key,
+        }
         return provider_cert_mock, private_key
 
     @patch("controller.resource.ResourceController.cleanup_resources")
@@ -157,9 +165,9 @@ class TestCertificatesRelation(unittest.TestCase):
 
         event.set_results.assert_called_with(
             {
-                "certificate-example.com": str(provider_cert_mock.certificate),
-                "ca-example.com": str(provider_cert_mock.ca),
-                "chain-example.com": str(provider_cert_mock.chain),
+                "certificate-example.com": provider_cert_mock.to_json()["certificate"],
+                "ca-example.com": provider_cert_mock.to_json()["ca"],
+                "chain-example.com": provider_cert_mock.to_json()["chain"],
             }
         )
 

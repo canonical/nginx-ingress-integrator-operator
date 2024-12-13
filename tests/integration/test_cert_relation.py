@@ -21,8 +21,8 @@ LOGGER = logging.getLogger(__name__)
 
 # Mypy can't recognize the name as a string type, so we should skip the type check.
 ACTIVE_STATUS_NAME = ActiveStatus.name
-PROVIDER_CHARM_DIR = "tests/integration/provider_charm"
-TLS_CERTIFICATES_PROVIDER_APP_NAME = "tls-certificates-provider"
+TLS_CERTIFICATES_PROVIDER_APP_NAME = "self-signed-certificates"
+SELF_SIGNED_CERTIFICATES_CHARM_NAME = "self-signed-certificates"
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"
 ANY_APP_NAME_2 = "any2"
@@ -85,11 +85,10 @@ async def build_and_deploy(
     relation_name = f"{INGRESS_APP_NAME}:nginx-route"
     await model.add_relation(f"{ANY_APP_NAME}:nginx-route", relation_name)
     await model.wait_for_idle()
-    provider_charm = await ops_test.build_charm(f"{PROVIDER_CHARM_DIR}/")
     await model.deploy(
-        provider_charm,
+        SELF_SIGNED_CERTIFICATES_CHARM_NAME,
         application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-        series="jammy",
+        channel="stable",
     )
 
     await model.wait_for_idle(

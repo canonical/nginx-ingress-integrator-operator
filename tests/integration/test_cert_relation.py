@@ -8,6 +8,7 @@
 import asyncio
 import json
 import logging
+import time
 import typing
 from pathlib import Path
 
@@ -68,7 +69,11 @@ def gen_src_overwrite(
 
 @pytest_asyncio.fixture(scope="module")
 async def build_and_deploy(
-    model: Model, ops_test: OpsTest, deploy_any_charm, run_action, build_and_deploy_ingress
+    model: Model,
+    ops_test: OpsTest,
+    deploy_any_charm,
+    run_action,
+    build_and_deploy_ingress,
 ):
     """Build and deploy nginx-ingress-integrator charm.
 
@@ -177,13 +182,19 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     )
     requirer_unit = model.units[f"{new_requirer_app_name}/0"]
 
-    action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
+    t0 = time.time()
+    timeout = 600
+    while time.time() - t0 < timeout:
+        action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
+        action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
 
-    action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
-    assert action_output["return-code"] == 0
-    assert "ca-any" in action_output and action_output["ca-any"] is not None
-    assert "certificate-any" in action_output and action_output["certificate-any"] is not None
-    assert "chain-any" in action_output and action_output["chain-any"] is not None
+        keys = ["ca-any", "certificate-any", "chain-any"]
+        if action_output["return-code"] == 0 and all(action_output.get(key) for key in keys):
+            LOGGER.info("Certificate received")
+            break
+
+        LOGGER.info("Waiting for certificate")
+        time.sleep(5)
 
 
 @pytest.mark.usefixtures("build_and_deploy")

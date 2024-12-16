@@ -2,7 +2,8 @@
 
 A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) deploying and managing external access to HTTP/HTTPS services in a
 Kubernetes cluster via an Nginx Ingress resource. This charm requires the Kubernetes cluster in question to have an
-[Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it.
+[Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it. The Nginx Integrator
+Operator is a workload-less charm that allows other charms to configure an Nginx Ingress resource.
 
 This charm simplifies exposing services running inside a Kubernetes cluster to
 external clients. It offers TLS termination as well as easy configuration of a
@@ -18,7 +19,7 @@ to this charm will be possible via a simple `juju relate` command.
 
 ## Get started
 
-Refer to the [Nginx tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) for more details on getting started.
+Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) for more details on getting started.
 
 ### Basic operations
 
@@ -33,10 +34,10 @@ Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-int
 
 - [ingress](https://charmhub.io/nginx-ingress-integrator/integrations#ingress): Ingress interface that allows to
   provide an Ingress for the charms supporting this interface. Charms can get an Ingress using the `ingress` or the
-  `nginx-route` interfaces.
+  `nginx-route` interfaces. Prefer `ingress` if you want to use generic features.
 - [nginx-route](https://charmhub.io/nginx-ingress-integrator/integrations#nginx-route): Ingress interface that allows to
   provide an Ingress for the charms supporting this interface. Charms can get an Ingress using the `ingress` or the
-  `nginx-route` interfaces.
+  `nginx-route` interfaces. Prefer `nginx-route` if you want to use Nginx specific features.
 - [certificates](https://charmhub.io/nginx-ingress-integrator/integrations#certificates): Requires `tls-certificates`
   interface that facilitates the use of a TLS certificate.
 
@@ -45,7 +46,6 @@ about integrations.
 
 ## Learn more
 * [Read more](https://charmhub.io/nginx-ingress-integrator)
-* [Official webpage](https://github.com/nginx)
 * [Troubleshooting](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 
 ## Project and community

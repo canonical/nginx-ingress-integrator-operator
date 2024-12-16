@@ -37,7 +37,7 @@ Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-int
   `nginx-route` interfaces. Prefer `ingress` if you want to use generic features.
 - [nginx-route](https://charmhub.io/nginx-ingress-integrator/integrations#nginx-route): Ingress interface that allows to
   provide an Ingress for the charms supporting this interface. Charms can get an Ingress using the `ingress` or the
-  `nginx-route` interfaces. Prefer `nginx-route` if you want to use Nginx specific features.
+  `nginx-route` interfaces. If you want to use Nginx specific features, use `nginx-route`.
 - [certificates](https://charmhub.io/nginx-ingress-integrator/integrations#certificates): Requires `tls-certificates`
   interface that facilitates the use of a TLS certificate.
 

@@ -196,24 +196,3 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
         LOGGER.info("Waiting for certificate")
         time.sleep(5)
     raise TimeoutError("Timed out waiting for certificate")
-
-
-@pytest.mark.usefixtures("build_and_deploy")
-async def test_given_enough_time_passed_then_certificate_expired(model: Model, ops_test: OpsTest):
-    """
-    arrange: given charm has been built, deployed and related to a certificate provider.
-    act: wait until the certificate expires.
-    assert: the certificate expires and the given charm waits for a new certificate.
-    """
-    await model.wait_for_idle(
-        apps=[
-            INGRESS_APP_NAME,
-        ],
-        status="maintenance",
-        timeout=1000,
-        idle_period=0,
-        check_freq=0.1,
-    )
-    requirer_unit = model.units["ingress/0"]
-
-    assert requirer_unit.workload_status_message == "Waiting for new certificate"

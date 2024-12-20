@@ -191,10 +191,11 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
         keys = ["ca-any", "certificate-any", "chain-any"]
         if action_output["return-code"] == 0 and all(action_output.get(key) for key in keys):
             LOGGER.info("Certificate received")
-            break
+            return
 
         LOGGER.info("Waiting for certificate")
         time.sleep(5)
+    raise TimeoutError("Timed out waiting for certificate")
 
 
 @pytest.mark.usefixtures("build_and_deploy")

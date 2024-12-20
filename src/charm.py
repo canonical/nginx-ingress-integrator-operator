@@ -350,7 +350,7 @@ class NginxIngressCharm(CharmBase):
         provider_certificates, _ = self.certificates.get_assigned_certificates()
         for provider_cert in provider_certificates:
             if provider_cert.certificate.common_name == hostname:
-                provider_cert_json = provider_cert.to_json()
+                provider_cert_json = json.loads(provider_cert.to_json())
                 event.set_results(
                     {
                         f"certificate-{hostname}": provider_cert_json["certificate"],

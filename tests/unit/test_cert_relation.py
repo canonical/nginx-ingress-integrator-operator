@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 # mypy: disable-error-code="arg-type"
 
+import json
 import typing
 import unittest
 from unittest.mock import MagicMock, patch
@@ -95,12 +96,14 @@ class TestCertificatesRelation(unittest.TestCase):
         provider_cert_mock.certificate = certificate
         provider_cert_mock.ca = certificate
         provider_cert_mock.chain = [certificate]
-        provider_cert_mock.to_json.return_value = {
-            "certificate": cert,
-            "ca": cert,
-            "chain": [cert],
-            "key": key,
-        }
+        provider_cert_mock.to_json.return_value = json.dumps(
+            {
+                "certificate": cert,
+                "ca": cert,
+                "chain": [cert],
+                "key": key,
+            }
+        )
         return provider_cert_mock, private_key
 
     @patch("controller.resource.ResourceController.cleanup_resources")
@@ -165,9 +168,9 @@ class TestCertificatesRelation(unittest.TestCase):
 
         event.set_results.assert_called_with(
             {
-                "certificate-example.com": provider_cert_mock.to_json()["certificate"],
-                "ca-example.com": provider_cert_mock.to_json()["ca"],
-                "chain-example.com": provider_cert_mock.to_json()["chain"],
+                "certificate-example.com": json.loads(provider_cert_mock.to_json())["certificate"],
+                "ca-example.com": json.loads(provider_cert_mock.to_json())["ca"],
+                "chain-example.com": json.loads(provider_cert_mock.to_json())["chain"],
             }
         )
 

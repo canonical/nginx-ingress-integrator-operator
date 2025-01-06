@@ -375,7 +375,7 @@ class NginxIngressCharm(CharmBase):
         try:
             definition = self._get_definition_from_relation(relation)  # type: ignore[arg-type]
         except InvalidIngressError:
-            LOGGER.warning("Invalid ingress definition")
+            LOGGER.error("Invalid ingress definition")
             return []
         hostnames = [definition.service_hostname]
         hostnames.extend(definition.additional_hostnames)

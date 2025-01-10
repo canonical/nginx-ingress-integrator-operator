@@ -59,7 +59,7 @@ class NginxIngressCharm(CharmBase):
             charm=self,
             relationship_name=TLS_CERT,
             certificate_requests=self._get_certificate_requests(),
-            mode=Mode.APP,
+            mode=Mode.UNIT,
             refresh_events=[
                 self.on.config_changed,
                 self.on["ingress"].relation_changed,

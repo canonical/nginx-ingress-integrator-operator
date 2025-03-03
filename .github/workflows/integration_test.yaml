@@ -17,4 +17,4 @@ jobs:
     with:
       channel: 1.21-strict/stable
       modules: '["test_ingress_relation", "test_nginx_route"]'
-      juju-channel: 2/stable
+      juju-channel: 2.9/stable

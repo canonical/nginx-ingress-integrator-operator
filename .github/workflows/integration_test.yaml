@@ -15,6 +15,6 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
-      channel: 1.21/stable
+      channel: 1.28/stable
       modules: '["test_ingress_relation", "test_nginx_route"]'
       juju-channel: 2.9/stable

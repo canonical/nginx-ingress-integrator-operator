@@ -18,3 +18,4 @@ jobs:
       channel: 1.28/stable
       modules: '["test_ingress_relation", "test_nginx_route"]'
       juju-channel: 2.9/stable
+      test-tox-env: integration-juju2

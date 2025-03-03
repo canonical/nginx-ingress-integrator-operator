@@ -200,8 +200,8 @@ actions:
         description: Hostname to extract certs from.
 
 type: charm
-base: ubuntu@22.04
-build-base: ubuntu@22.04
+base: ubuntu@24.04
+build-base: ubuntu@24.04
 platforms:
   amd64:
   arm64:

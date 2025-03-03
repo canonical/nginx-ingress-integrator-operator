@@ -51,12 +51,12 @@ config:
   options:
     additional-hostnames:
       default: ""
-      description: >
+      description: >-
         Comma-separated list of additional hostnames for this ingress to listen on.
       type: string
     backend-protocol:
       default: ""
-      description: >
+      description: >-
         Indicates how NGINX should communicate with the backend service. Valid
         Values: HTTP, HTTPS, GRPC, GRPCS, AJP and FCGI.
       type: string
@@ -90,7 +90,7 @@ config:
       type: string
     limit-rps:
       default: 0
-      description: |
+      description: >-
         Number of requests accepted from a given IP each second. The burst limit
         is set to this limit multiplied by 5. When clients exceed this limit a
         503 error will be returned.
@@ -98,7 +98,7 @@ config:
       type: int
     limit-whitelist:
       default: ""
-      description: |
+      description: >-
         If rate-limiting is set, client IP source ranges to be excluded. The value
         is a comma-separated list of CIDRs.
       type: string
@@ -108,7 +108,7 @@ config:
       type: int
     owasp-modsecurity-crs:
       default: false
-      description: |
+      description: >-
         Enable OWASP ModSecurity Core Rule Set (CRS). A set of generic attack detection rules for use
         with ModSecurity or compatible web application firewalls. The CRS aims to protect web
         applications from a wide range of attacks, including the OWASP Top Ten, with a minimum of
@@ -140,7 +140,7 @@ config:
       type: int
     retry-errors:
       default: ""
-      description: |
+      description: >-
         Specifies in which cases a request should be retried against the next server.
         Comma-separated list, e.g. "error,timeout,http_502,http_503,http_504".
         See http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_next_upstream
@@ -165,7 +165,9 @@ config:
       type: string
     service-namespace:
       default: ""
-      description: The namespace of the service to create an ingress for. Will default to the namespace this charm is deployed into.
+      description: >-
+        The namespace of the service to create an ingress for. Will default to 
+        the namespace this charm is deployed into.
       type: string
     service-port:
       default: 0
@@ -173,16 +175,29 @@ config:
       type: int
     session-cookie-max-age:
       default: 0
-      description: The max age to configure a session cookie for. Leaving unset or setting to 0 will disable session cookies and cookie-based affinity.
+      description: >-
+        The max age to configure a session cookie for. Leaving unset or 
+        setting to 0 will disable session cookies and cookie-based affinity.
       type: int
     tls-secret-name:
       default: ""
-      description: The name of the Kubernetes secret used to get the TLS certificate used for HTTPS. This settings overrides any tls-certificate relation defined. If left empty and no tls-certificates relation is defined, HTTPS will be disabled.
+      description: >-
+        The name of the Kubernetes secret used to get the TLS certificate
+        used for HTTPS. This settings overrides any tls-certificate relation
+        defined. If left empty and no tls-certificates relation is defined,
+        HTTPS will be disabled.
       type: string
     whitelist-source-range:
       default: ""
       description: Allowed client IP source ranges. The value is a comma separated list of CIDRs.
       type: string
+actions:
+  get-certificate:
+    description: Returns the TLS Certificate. Intended for testing and debugging purposes.
+    params:
+      hostname:
+        type: string
+        description: Hostname to extract certs from.
 
 type: charm
 base: ubuntu@22.04

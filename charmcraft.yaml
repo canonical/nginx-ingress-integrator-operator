@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 name: nginx-ingress-integrator
-display-name: Nginx Ingress Integrator
+title: Nginx Ingress Integrator
 summary: An operator to configure a kubernetes ingress.
 description: |
   A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) deploying and managing external access to HTTP/HTTPS services in a
@@ -22,7 +22,7 @@ description: |
   to this charm will be possible via a simple `juju relate` command.
 
 links:
-  docs: https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511
+  documentation: https://discourse.charmhub.io/t/nginx-ingress-integrator-docs-index/4511
   issues: https://github.com/canonical/nginx-ingress-integrator-operator/issues
   source: https://github.com/canonical/nginx-ingress-integrator-operator
   contact: https://launchpad.net/~canonical-is-devops

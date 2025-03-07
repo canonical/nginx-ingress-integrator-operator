@@ -26,9 +26,15 @@ class TestCertificatesRelation(unittest.TestCase):
     @pytest.mark.usefixtures("patch_load_incluster_config")
     def setUp(self):
         """Setup the harness object."""
+        self._patch = patch.object(NginxIngressCharm, "_has_secrets", MagicMock(return_value=True))
+        self._patch.start()
         self.harness = Harness(NginxIngressCharm)
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
+
+    def tearDown(self):
+        """Tear down test fixtures."""
+        self._patch.stop()
 
     def set_up_all_relations(self):
         """Set up certificates and nginx-route relations.

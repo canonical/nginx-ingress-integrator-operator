@@ -5,7 +5,7 @@ In the context of this operator, there are two key concepts to understand:
 * The first is an ingress **controller**, which is a cluster-level service that provides ingress for applications.
 * The second is an ingress **resource**, which is something defined by an application running within a cluster describing how ingress for it should be configured.
 
-This operator configures an ingress **resource** which is then picked up by an ingress **controller** to determine how ingress for a given application is configured.
+This operator configures an ingress **resource** which is then picked up by an ingress **controller** to determine how the ingress for a given application is configured.
 
 ### What does this charm do?
 
@@ -17,10 +17,10 @@ The reason for offering both relation and direct `juju config` support is that p
 
 The charm supports the following via the relation:
 
-* Rate limiting (with a whitelist for exclusions by CIDRs)
-* Setting maximum allowed body size for file uploads
-* Configuring retrying of errors against the next server
-* A session cookie to use for cookie-based session affinity, and the age of that cookie
-* The TLS certificate to use for your service if applicable
+* Rate limiting (with an allowlist for exclusions by CIDRs).
+* Setting maximum allowed body size for file uploads.
+* Configuring retrying of errors against the next server.
+* A session cookie to use for cookie-based session affinity, and the age of that cookie.
+* The TLS certificate to use for your service if applicable.
 
-All of these options can also be configured at deploy time. In addition there’s also an `ingress-class` option to use, in the case that your cluster has multiple ingress controllers. This allows you to target the correct one.
+All of these options can also be configured at deploy time. In addition there’s also an `ingress-class` option to use, in the case that your cluster has multiple ingress controllers. This allows you to target the correct controller.

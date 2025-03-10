@@ -23,4 +23,4 @@ The charm supports the following via the relation:
 * A session cookie to use for cookie-based session affinity, and the age of that cookie.
 * The TLS certificate to use for your service if applicable.
 
-All of these options can also be configured at deploy time. In addition there’s also an `ingress-class` option to use, in the case that your cluster has multiple ingress controllers. This allows you to target the correct controller.
+All of these options can also be configured at deployment. In addition there’s also an `ingress-class` option to use, in the case that your cluster has multiple ingress controllers. This allows you to target the correct controller.

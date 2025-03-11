@@ -1,11 +1,11 @@
 # Charm architecture
 
-At it’s core, Nginx Ingress Integrator is a basic charm that talks to the 
+At its core, Nginx Ingress Integrator is a basic charm that talks to the 
 Kubernetes API and provisions an Nginx ingress resource.
 
-In designing this charm, we've leveraged Juju's sidecar pattern for Kubernetes 
+In designing this charm, we've leveraged the [sidecar](https://kubernetes.io/blog/2015/06/the-distributed-system-toolkit-patterns/#example-1-sidecar-containers) pattern for Kubernetes 
 charms, but somewhat unusually we're not actually deploying a workload container
-alongside our charm code. Instead, the charm code is talking directly to the 
+alongside our charm code. Instead, the charm code talks directly to the 
 Kubernetes API to provision the appropriate Nginx ingress resource to enable 
 traffic to reach the service in question. 
 
@@ -19,9 +19,9 @@ nginx-ingress-integrator-0       1/1     Running   0          3h47m
 
 ```
 
-This shows there is only one container, for the charm code itself.
+This shows there is only one container for the charm code itself.
 
-## Structure of the Nginx ingress integrator
+## Structure of the Nginx Ingress Integrator
 
 The Nginx Ingress Integrator receives ingress requests from application charms 
 via either the [`ingress` integration](https://github.com/canonical/charm-relation-interfaces/tree/main/interfaces/ingress/v2) 
@@ -31,9 +31,9 @@ supported by many other charms, including the [`traefik-k8s` charm](charmhub.io/
 The `nginx-route` integration is more specific to the Nginx Ingress Integrator 
 but offers more customization of the ingress specification.
 
-When the Nginx Ingress Integrator receives an ingress request via either the 
+When the Nginx Ingress Integrator receives an ingress request from an application charm, via either the 
 `ingress` integration or the `nginx-route` integration, it unifies the request
-into an intermediate representation and then converts this intermediate 
+into an intermediate representation and then converts this 
 representation into the desired Kubernetes resources, including [`ingress` resources](https://kubernetes.io/docs/concepts/services-networking/ingress/)
 , [`service` resources](https://kubernetes.io/docs/concepts/services-networking/service/)
 , [`EndpointSlice` resources](https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/)
@@ -45,11 +45,11 @@ The Nginx Ingress Integrator can also integrate with `tls-certificate` provider
 charms and use the certificates provided by these charms as the server 
 certificates for ingress.
 
-## Nginx ingress integrator's handling of `ingress` integration
+## Nginx Ingress Integrator's handling of `ingress` integration
 
-Since the `ingress` integration is a universal integration that may be used in 
-Juju models or Juju Kubernetes models, unlike the `nginx-route` integration, 
-which is designed exclusively for use within Juju Kubernetes models, the Nginx
+The `ingress` integration is a universal integration that may be used in 
+Juju VM models or Juju Kubernetes models, unlike the `nginx-route` integration, 
+which is designed exclusively for use within Juju Kubernetes models. Therefore, the Nginx
 Ingress Integrator cannot make many assumptions about the application requiring
 ingress. For this reason, the ingress for `ingress` integrations is built based
 on Kubernetes `EndpointSlice` resources, using `IP` addresses provided in the
@@ -58,13 +58,13 @@ ingress integration. In contrast, the `nginx-route` integration is based on
 
 ## Charm architecture diagram
 
-The Nginx Ingress Integrator charm uses the `ingress`, `tls_certificates`, and 
+The Nginx Ingress Integrator charm uses the `ingress`, `tls_certificates` and 
 `nginx_route` charm libraries to handle charm integrations. It also uses the 
 Kubernetes Python client, which is wrapped in custom modules to reconcile the 
 Kubernetes resources necessary for ingress.
 
 ```mermaid
-C4Component
+C4Context
     Container_Boundary(nginx-ingress-integrator, "Nginx Ingress Integrator") {
         Container_Boundary(charm-lib, "Charm Libraries") {
             Component(nginx-route-lib, "nginx_ingress_integrator.v0.nginx_route")
@@ -94,6 +94,11 @@ C4Component
         Rel(nginx-ingress-integrator-charm, service, "Reconciliation")
 
         UpdateLayoutConfig($c4ShapeInRow="1", $c4BoundaryInRow="4")
+        
+        UpdateRelStyle(nginx-route-lib, nginx-ingress-integrator-charm , $offsetY="-15", $offsetX="-5")
+        UpdateRelStyle(tls-certificates-lib, nginx-ingress-integrator-charm, $offsetY="0", $offsetX="-120")
+        UpdateRelStyle(ingress-lib, nginx-ingress-integrator-charm, $offsetY="70", $offsetX="-140")
+        UpdateRelStyle(nginx-ingress-integrator-charm, endpoint-slice, $offsetY="-10", $offsetX="-20")
     }
 
 ```

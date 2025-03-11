@@ -56,6 +56,49 @@ on Kubernetes `EndpointSlice` resources, using `IP` addresses provided in the
 ingress integration. In contrast, the `nginx-route` integration is based on 
 `service` resources with [selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/).
 
+## OCI images
+
+Nginx Ingress Integrator charm doesn't use any OCI image resources.
+
+## Juju events
+
+For this charm, the following Juju events are observed:
+
+1. [`config-changed`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#config-changed)
+2. [`start`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#start)
+3. [`get-certificate-action`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#action-action)
+4. [`data-provided` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
+5. [`data-removed` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
+6. [`certificate_available` from `tls_certificates` charm library](https://charmhub.io/tls-certificates-interface/libraries/tls_certificates)
+
+In addition, the charm libraries can observe many other events. For more 
+details, see the documentation for the charm libraries.
+
+## Charm code overview
+
+The `src/charm.py` is the default entry point for a charm and has the 
+`NginxIngressCharm` Python class which inherits from `CharmBase`. `CharmBase` is 
+the base class from which all Charms are formed, defined by [Ops](https://juju.is/docs/sdk/ops)
+(Python framework for developing charms).
+
+> See more in the Juju docs: [Charm](https://juju.is/docs/sdk/constructs#heading--charm)
+
+The `__init__` method guarantees that the charm observes all events relevant to 
+its operation and handles them.
+
+Take, for example, when a configuration is changed by using the CLI.
+
+1. User runs the configuration command:
+```bash
+juju config <relevant-charm-configuration>
+```
+2. A `config-changed` event is emitted.
+3. In the `__init__` method is defined how to handle this event like this:
+```python
+self.framework.observe(self.on.config_changed, self._on_config_changed)
+```
+4. The method `_on_config_changed`, for its turn, will take the necessary actions such as waiting for all the relations to be ready and then configuring the containers.
+
 ## Charm architecture diagram
 
 The Nginx Ingress Integrator charm uses the `ingress`, `tls_certificates` and 
@@ -100,5 +143,4 @@ C4Context
         UpdateRelStyle(ingress-lib, nginx-ingress-integrator-charm, $offsetY="70", $offsetX="-140")
         UpdateRelStyle(nginx-ingress-integrator-charm, endpoint-slice, $offsetY="-10", $offsetX="-20")
     }
-
 ```

@@ -45,7 +45,7 @@ The Nginx Ingress Integrator can also integrate with `tls-certificate` provider
 charms and use the certificates provided by these charms as the server 
 certificates for ingress.
 
-## Nginx Ingress Integrator's handling of `ingress` integration
+### Nginx Ingress Integrator's handling of `ingress` integration
 
 The `ingress` integration is a universal integration that may be used in 
 Juju VM models or Juju Kubernetes models, unlike the `nginx-route` integration, 

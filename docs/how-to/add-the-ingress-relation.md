@@ -1,4 +1,4 @@
-# How to add the Ingress relation.
+# How to add Ingress
 
 ## Requirements
 

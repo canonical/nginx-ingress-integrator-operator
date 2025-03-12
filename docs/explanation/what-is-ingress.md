@@ -13,9 +13,9 @@ To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t
 
 The charm can be configured via a relation (see [this page](https://charmhub.io/nginx-ingress-integrator/libraries/ingress) for details on the ingress library as an easy method of integrating Operator Framework charms with it), or via `juju config` directly.
 
-The reason for offering both relation and direct `juju config` support is that providing the relation means charm authors can make the experience better for end users by implementing the relation, but if a charm doesn’t yet implement the relation it can still be used with this charm and configured manually.
+The reason for offering both relation and direct `juju config` support is that providing the relation means charm authors can make the experience better for end users by implementing the relation. If a charm doesn’t implement the relation it can still be used with this charm and configured manually.
 
-The charm supports the following via the relation:
+Using the relation, the charm supports the following features:
 
 * Rate limiting (with an allowlist for exclusions by CIDRs).
 * Setting maximum allowed body size for file uploads.
@@ -23,4 +23,4 @@ The charm supports the following via the relation:
 * A session cookie to use for cookie-based session affinity, and the age of that cookie.
 * The TLS certificate to use for your service if applicable.
 
-All of these options can also be configured at deployment. In addition there’s also an `ingress-class` option to use, in the case that your cluster has multiple ingress controllers. This allows you to target the correct controller.
+All of these options can also be configured at deployment. In addition there’s an `ingress-class` option to use when your cluster has multiple ingress controllers. This allows you to target the correct controller.

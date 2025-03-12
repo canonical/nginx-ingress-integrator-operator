@@ -1,5 +1,8 @@
 # How to add Ingress
 
+The `ingress` relation is preferred over the `nginx-route` relation if you want to use generic features. If you need
+something nginx-specific such as owasp-modsecurity-crs, then please follow the [nginx-route relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) tutorial instead.
+
 ## Requirements
 
 You will need:
@@ -37,7 +40,7 @@ Now let's deploy the charm just to confirm everything is working as expected wit
 ```
 charmcraft pack
 ```
-This will build the charm inside an LXC for you. The output will tell you the location of the built charm. In my case, that was `my-charm_ubuntu-22.04-amd64.charm`.
+This will build the charm inside an LXC container for you. The output will tell you the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
 Now let's add a juju model and deploy our charm.
 ```
@@ -60,7 +63,7 @@ my-charm/0*  active    idle   10.1.129.139
 
 So we now have a working charm, great! However, what we don't currently have is ingress for our application configured. MicroK8s sets up networking in such a way that you can reach the IPs of units directly, but in a production Kubernetes cluster things don't work in this way. Also, we're visiting a cluster-internal IP address directly, what if we want a real hostname/IP address for this? We'll need to configure Ingress for this to be possible.
 
-Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't yet have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
+Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
 
 ## Add the Ingress relation
 
@@ -68,7 +71,7 @@ First of all, let's grab the [relation library](https://charmhub.io/nginx-ingres
 ```
 charmcraft fetch-lib charms.nginx_ingress_integrator.v0.ingress
 ```
-This has downloaded `lib/charms/nginx_ingress_integrator/v0/ingress.py`. Now we just need to update `charm/src.py`.
+This has downloaded `lib/charms/nginx_ingress_integrator/v0/ingress.py`. Now we just need to update `src/charm.py`.
 
 Add the following just after `import logging`:
 ```

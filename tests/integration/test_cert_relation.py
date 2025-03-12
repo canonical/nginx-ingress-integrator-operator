@@ -155,7 +155,7 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     new_requirer_app_name = "ingress2"
     charm = await ops_test.build_charm(".")
     await model.deploy(
-        str(charm), application_name=new_requirer_app_name, series="focal", trust=True
+        str(charm), application_name=new_requirer_app_name, series="jammy", trust=True
     )
     await model.deploy(
         "any-charm",

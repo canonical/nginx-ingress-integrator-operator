@@ -18,6 +18,7 @@ from charms.tls_certificates_interface.v4.tls_certificates import (
     TLSCertificatesRequiresV4,
 )
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
+from ops import JujuVersion
 from ops.charm import ActionEvent, CharmBase
 from ops.main import main
 from ops.model import ActiveStatus, BlockedStatus, Relation, WaitingStatus
@@ -348,7 +349,9 @@ class NginxIngressCharm(CharmBase):
         if not tls_certificates_relation:
             event.fail("Certificates relation not created.")
             return
-        provider_certificates, _ = self.certificates.get_assigned_certificates()
+        provider_certificates, _ = (
+            self.certificates.get_assigned_certificates() if self._has_secrets() else ([], None)
+        )
         for provider_cert in provider_certificates:
             if provider_cert.certificate.common_name == hostname:
                 provider_cert_json = json.loads(provider_cert.to_json())
@@ -407,7 +410,9 @@ class NginxIngressCharm(CharmBase):
         certs: Dict[Union[str, None], Union[str, None]] = {}
         if not hasattr(self, "certificates"):
             return certs
-        provider_certs, _ = self.certificates.get_assigned_certificates()
+        provider_certs, _ = (
+            self.certificates.get_assigned_certificates() if self._has_secrets() else ([], None)
+        )
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
             certs[hostname] = str(provider_cert.certificate)
@@ -418,11 +423,21 @@ class NginxIngressCharm(CharmBase):
         keys: Dict[Union[str, None], Union[str, None]] = {}
         if not hasattr(self, "certificates"):
             return keys
-        provider_certs, private_key = self.certificates.get_assigned_certificates()
+        provider_certs, private_key = (
+            self.certificates.get_assigned_certificates() if self._has_secrets() else ([], None)
+        )
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
             keys[hostname] = str(private_key)
         return keys
+
+    def _has_secrets(self) -> bool:
+        """Check if the Juju environment support secrets.
+
+        Returns:
+            true if the Juju environment supports secrets, false otherwise.
+        """
+        return JujuVersion.from_environ().has_secrets
 
 
 if __name__ == "__main__":  # pragma: no cover

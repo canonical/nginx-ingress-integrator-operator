@@ -112,7 +112,7 @@ C4Context
         Container_Boundary(charm-lib, "Charm Libraries") {
             Component(nginx-route-lib, "nginx_ingress_integrator.v0.nginx_route")
             Component(tls-certificates-lib, "tls_certificates_interface.v4.tls_certificates")
-            Component(ingress-lib, "traefik_l8s.v2.ingress")
+            Component(ingress-lib, "traefik_k8s.v2.ingress")
         }
         
         Container_Boundary(charm, "Charm Logic") {

@@ -157,7 +157,7 @@ async def build_and_deploy_ingress(model: Model, ops_test: OpsTest):
         """
         charm = await ops_test.build_charm(".")
         return await model.deploy(
-            str(charm), application_name="ingress", series="focal", trust=True
+            str(charm), application_name="ingress", series="jammy", trust=True
         )
 
     return _build_and_deploy_ingress

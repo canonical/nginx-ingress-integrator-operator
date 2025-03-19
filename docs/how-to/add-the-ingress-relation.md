@@ -1,4 +1,4 @@
-# How to add the Ingress relation.
+# How to add Ingress
 
 The `ingress` relation is preferred over the `nginx-route` relation if you want to use generic features. If you need
 something nginx-specific such as owasp-modsecurity-crs, then please follow the [nginx-route relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) tutorial instead.

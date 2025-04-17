@@ -415,7 +415,7 @@ class NginxIngressCharm(CharmBase):
         )
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
-            certs[hostname] = str(provider_cert.certificate)
+            certs[hostname] = str(provider_cert.chain)
         return certs
 
     def _get_tls_keys(self) -> Dict[Union[str, None], Union[str, None]]:

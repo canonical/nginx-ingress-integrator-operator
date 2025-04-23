@@ -415,7 +415,13 @@ class NginxIngressCharm(CharmBase):
         )
         for provider_cert in provider_certs:
             hostname = provider_cert.certificate.common_name
-            certs[hostname] = "\n".join(reversed([cert.raw for cert in provider_cert.chain]))
+            chain_reversed = (
+                provider_cert.chain[-1].raw.strip() == provider_cert.certificate.raw.strip()
+            )
+            chain = [cert.raw for cert in provider_cert.chain]
+            if chain_reversed:
+                chain.reverse()
+            certs[hostname] = "\n\n".join(chain)
         return certs
 
     def _get_tls_keys(self) -> Dict[Union[str, None], Union[str, None]]:

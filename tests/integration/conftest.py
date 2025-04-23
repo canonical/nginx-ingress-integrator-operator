@@ -148,6 +148,7 @@ async def build_and_deploy_ingress(model: Model, ops_test: OpsTest, pytestconfig
     Args:
         model: Juju model for the test.
         ops_test: Operator Framework for the test.
+        pytestconfig: pytest config.
     """
 
     async def _build_and_deploy_ingress():

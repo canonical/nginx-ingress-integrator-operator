@@ -127,7 +127,7 @@ async def test_ingress_connectivity_different_backend(model: Model):
     await model.applications["ingress"].set_config({"backend-protocol": "FCGI"})
     await model.wait_for_idle(status="active")
     response = requests_get("http://127.0.0.1/ok", host_header="any")
-    assert response.status_code == 500
+    assert response.status_code == 502
     # Undo the change and check again
     await model.applications["ingress"].set_config({"backend-protocol": "HTTP"})
     await model.wait_for_idle(status="active")

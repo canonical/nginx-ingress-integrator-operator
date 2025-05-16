@@ -144,7 +144,6 @@ async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
 @pytest.mark.usefixtures("build_and_deploy")
 async def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
     model: Model,
-    ops_test: OpsTest,
     run_action,
 ):
     """
@@ -153,10 +152,6 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     assert: the process of deployment, integration and certificate provision is successful.
     """
     new_requirer_app_name = "ingress2"
-    charm = await ops_test.build_charm(".")
-    await model.deploy(
-        str(charm), application_name=new_requirer_app_name, series="jammy", trust=True
-    )
     await model.deploy(
         "any-charm",
         application_name=ANY_APP_NAME_2,

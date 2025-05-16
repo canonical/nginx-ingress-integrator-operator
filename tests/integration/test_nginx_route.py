@@ -124,7 +124,7 @@ async def test_ingress_connectivity_different_backend(model: Model):
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    await model.applications["ingress"].set_config({"backend-protocol": "AJP"})
+    await model.applications["ingress"].set_config({"backend-protocol": "FCGI"})
     await model.wait_for_idle(status="active")
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.status_code == 500

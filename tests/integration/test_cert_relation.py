@@ -145,6 +145,7 @@ async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
 async def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
     model: Model,
     run_action,
+    build_and_deploy_ingress,
 ):
     """
     arrange: given charm has been built, deployed and integrated with a dependent application.
@@ -152,6 +153,7 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     assert: the process of deployment, integration and certificate provision is successful.
     """
     new_requirer_app_name = "ingress2"
+    await build_and_deploy_ingress(application_name=new_requirer_app_name)
     await model.deploy(
         "any-charm",
         application_name=ANY_APP_NAME_2,

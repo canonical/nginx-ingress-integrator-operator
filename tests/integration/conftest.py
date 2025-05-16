@@ -151,7 +151,7 @@ async def build_and_deploy_ingress(model: Model, ops_test: OpsTest, pytestconfig
         pytestconfig: pytest config.
     """
 
-    async def _build_and_deploy_ingress():
+    async def _build_and_deploy_ingress(application_name: str = "ingress"):
         """Build and deploy the Ingress charm.
 
         Returns:
@@ -161,7 +161,7 @@ async def build_and_deploy_ingress(model: Model, ops_test: OpsTest, pytestconfig
         if not charm:
             charm = await ops_test.build_charm(".")
         return await model.deploy(
-            str(charm), application_name="ingress", series="jammy", trust=True
+            str(charm), application_name=application_name, series="jammy", trust=True
         )
 
     return _build_and_deploy_ingress

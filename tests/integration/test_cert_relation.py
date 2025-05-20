@@ -93,7 +93,7 @@ async def build_and_deploy(
     await model.deploy(
         SELF_SIGNED_CERTIFICATES_CHARM_NAME,
         application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
-        channel="beta",
+        channel="latest/beta",
     )
 
     await model.wait_for_idle(

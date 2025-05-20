@@ -22,7 +22,6 @@ If there's a particular area of documentation that you'd like to see that's miss
 # Contents
 
 1. [Tutorial](Tutorial)
-  1. [Getting started](tutorial/getting-started.md)
 1. [How to](how-to)
   1. [Secure an Ingress with TLS](how-to/secure-an-ingress-with-tls.md)
   1. [Add the Ingress relation to a charm](how-to/add-the-ingress-relation.md)

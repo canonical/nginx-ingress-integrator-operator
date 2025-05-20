@@ -208,10 +208,10 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         backend_protocol = cast(
             str, self._get_config_or_relation_data("backend-protocol", "HTTP")
         ).upper()
-        if backend_protocol not in ("HTTP", "HTTPS", "GRPC", "GRPCS", "AJP", "FCGI"):
+        if backend_protocol not in ("HTTP", "HTTPS", "GRPC", "GRPCS", "FCGI"):
             raise InvalidIngressError(
                 f"invalid backend protocol {backend_protocol!r}, "
-                f"valid values: HTTP, HTTPS, GRPC, GRPCS, AJP, FCGI"
+                f"valid values: HTTP, HTTPS, GRPC, GRPCS, FCGI"
             )
         return backend_protocol
 

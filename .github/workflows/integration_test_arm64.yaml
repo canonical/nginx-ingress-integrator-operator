@@ -13,6 +13,6 @@ jobs:
       juju-channel: 3.6/stable
       self-hosted-runner: true
       self-hosted-runner-arch: arm64
-      self-hosted-runner-label: "edge"
+      self-hosted-runner-label: "large"
       builder-runner-label: arm64
       extra-arguments: -x --model-arch=arm64

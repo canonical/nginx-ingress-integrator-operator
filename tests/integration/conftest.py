@@ -8,6 +8,7 @@
 from pathlib import Path
 
 import kubernetes
+import pytest
 import pytest_asyncio
 import yaml
 from juju.model import Model
@@ -141,23 +142,26 @@ async def wait_ingress_annotation(ops_test: OpsTest, get_ingress_annotation):
 
 
 @pytest_asyncio.fixture(scope="module")
-async def build_and_deploy_ingress(model: Model, ops_test: OpsTest):
+async def build_and_deploy_ingress(model: Model, ops_test: OpsTest, pytestconfig: pytest.Config):
     """Create an async function to build the nginx ingress integrator charm then deploy it.
 
     Args:
         model: Juju model for the test.
         ops_test: Operator Framework for the test.
+        pytestconfig: pytest config.
     """
 
-    async def _build_and_deploy_ingress():
+    async def _build_and_deploy_ingress(application_name: str = "ingress"):
         """Build and deploy the Ingress charm.
 
         Returns:
             The fully deployed Ingress charm.
         """
-        charm = await ops_test.build_charm(".")
+        charm = pytestconfig.getoption("--charm-file")
+        if not charm:
+            charm = await ops_test.build_charm(".")
         return await model.deploy(
-            str(charm), application_name="ingress", series="jammy", trust=True
+            str(charm), application_name=application_name, series="jammy", trust=True
         )
 
     return _build_and_deploy_ingress

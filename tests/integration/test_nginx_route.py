@@ -116,18 +116,18 @@ async def test_ingress_connectivity_different_backend(model: Model):
     """
     arrange: given charm has been built and deployed.
     act: change the backend protocol.
-    assert: HTTP request should be forwarded to the application via AJP
-        resulting in HTTP status code 500 Internal Server Error.
+    assert: HTTP request should be forwarded to the application via GRPC
+        resulting in HTTP status code 502 Bad Gateway.
     """
     # First check if is OK
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    await model.applications["ingress"].set_config({"backend-protocol": "AJP"})
+    await model.applications["ingress"].set_config({"backend-protocol": "GRPC"})
     await model.wait_for_idle(status="active")
     response = requests_get("http://127.0.0.1/ok", host_header="any")
-    assert response.status_code == 500
+    assert response.status_code == 502
     # Undo the change and check again
     await model.applications["ingress"].set_config({"backend-protocol": "HTTP"})
     await model.wait_for_idle(status="active")

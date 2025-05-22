@@ -30,7 +30,7 @@ If there's a particular area of documentation that you'd like to see that's miss
   1. [Support multiple relations](how-to/support-multiple-relations.md)
 1. [Reference](reference)
   1. [Actions](https://charmhub.io/nginx-ingress-integrator/actions)
-  1. [Configurations](https://charmhub.io/nginx-ingress-integrator/configuration)
+  1. [Configurations](https://charmhub.io/nginx-ingress-integrator/configurations)
   1. [Integrations](reference/Integrations.md)
   1. [Libraries](https://charmhub.io/nginx-ingress-integrator/libraries/ingress)
 1. [Explanation](explanation)

@@ -9,3 +9,4 @@ Each revision is versioned by the date of the revision.
 ### 2025-06-10
 
 - Add changelog for tracking user-relevant changes.
+- Fix Vale errors caught in local audit of the documentation.

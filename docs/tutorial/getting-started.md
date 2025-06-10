@@ -3,18 +3,18 @@
 
 ## What you'll do
 
-- Deploy the nginx-ingress-integrator charm
+- Deploy the `nginx-ingress-integrator` charm
 - Relate it to another charm
 - Inspect the ingress it creates.
 
-You'll then also look at changing that ingress via a juju configuration update.
+You'll then also look at changing that ingress via a Juju configuration update.
 
 ## Requirements
 
 You will need:
 
 * A laptop or desktop running Ubuntu (or you can use a VM).
-* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. Make sure the ingress add-on is enabled by running `microk8s enable ingress`.
+* [Juju and MicroK8s](https://juju.is/docs/olm/microk8s) installed. Make sure the ingress add-on is enabled by running `microk8s enable ingress`.
 
 ## Deploy this charm
 

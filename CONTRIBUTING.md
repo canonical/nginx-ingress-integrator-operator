@@ -11,7 +11,8 @@ This document explains the processes and practices recommended for contributing 
    * code quality
    * test coverage
    * user experience for Juju administrators of this charm.
-* Please help us out in ensuring easy to review branches by rebasing your pull request branch onto the `main` branch. This also avoids merge commits and creates a linear Git commit history.
+* Once your pull request is approved, we squash and merge your pull request branch onto
+  the `main` branch. This creates a linear Git commit history.
 
 ## Developing
 

@@ -1,4 +1,7 @@
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
+<!-- "Operator" is part of the name -->
 # Nginx Ingress Integrator Operator
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) deploying and managing external access to HTTP/HTTPS services in a
 Kubernetes cluster via an Nginx Ingress resource. This charm requires the Kubernetes cluster in question to have an
@@ -23,10 +26,10 @@ Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/gettin
 
 ### Basic operations
 
-#### Secure an Ingress with TLS
+#### Secure an ingress with TLS
 Refer to [How to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) for step-by-step instructions.
 
-#### Add the Ingress relation
+#### Add the ingress relation
 Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-ingress-relation) for step-by-step instructions.
 
 

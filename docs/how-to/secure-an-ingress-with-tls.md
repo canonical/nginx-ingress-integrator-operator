@@ -6,13 +6,13 @@ You will need:
 
 * A laptop or desktop running Ubuntu (or you can use a VM).
 
-* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
+* [Juju and MicroK8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
 
 * [Charmcraft](https://juju.is/docs/sdk/install-charmcraft) installed.
 
-* A working Nginx-ingress-integrator deployment.
+* A working `nginx-ingress-integrator` deployment.
 
-* Openssl installed.
+* OpenSSL installed.
 
 ## Creating the TLS secret
 
@@ -54,7 +54,7 @@ microk8s kubectl describe secrets/my-tls-secret
 
 ```
 
-At last, relate the nginx-ingress-integrator charm with the microk8s TLS secret by setting the config option:
+At last, relate the `nginx-ingress-integrator` charm with the MicroK8s TLS secret by setting the config option:
 
 ```
 

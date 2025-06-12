@@ -2,7 +2,7 @@ A [Juju](https://juju.is/) [charm](https://juju.is/docs/olm/charmed-operators) d
 
 This charm simplifies exposing services running inside a Kubernetes cluster to external clients. It offers TLS termination as well as easy configuration of a number of advanced features including rate limiting, restricting access to specific client IP source ranges, and OWASP ModSecurity Core Rule Set (CRS).
 
-As such, the charm makes it easy for charm developers to provide external access to their HTTP workloads in Kubernetes by easy integration offered via [the charm's nginx_route library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route).
+As such, the charm makes it easy for charm developers to provide external access to their HTTP workloads in Kubernetes by easy integration offered via [the charm's `nginx_route` library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route).
 
 For DevOps and SRE teams, providing ingress for charms that support a relation to this charm will be possible via a simple `juju relate` command.
 
@@ -21,8 +21,8 @@ If there's a particular area of documentation that you'd like to see that's miss
 
 # Contents
 
-1. [Tutorial](Tutorial)
-  1. [Getting started](Tutorial/getting-started.md)
+1. [Tutorial](tutorial)
+  1. [Getting started](tutorial/getting-started.md)
 1. [How-to](how-to)
   1. [Secure an Ingress with TLS](how-to/secure-an-ingress-with-tls.md)
   1. [Add the Ingress relation to a charm](how-to/add-the-ingress-relation.md)

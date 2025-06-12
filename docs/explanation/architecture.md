@@ -21,7 +21,7 @@ nginx-ingress-integrator-0       1/1     Running   0          3h47m
 
 This shows there is only one container for the charm code itself.
 
-## Structure of the Nginx Ingress Integrator
+## Structure of the charm
 
 The Nginx Ingress Integrator receives ingress requests from application charms 
 via either the [`ingress` integration](https://github.com/canonical/charm-relation-interfaces/tree/main/interfaces/ingress/v2) 
@@ -45,7 +45,7 @@ The Nginx Ingress Integrator can also integrate with `tls-certificate` provider
 charms and use the certificates provided by these charms as the server 
 certificates for ingress.
 
-### Nginx Ingress Integrator's handling of `ingress` integration
+### Handling of `ingress` integration
 
 The `ingress` integration is a universal integration that may be used in 
 Juju VM models or Juju Kubernetes models, unlike the `nginx-route` integration, 

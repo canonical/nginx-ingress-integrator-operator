@@ -1,13 +1,13 @@
 # How to add the Nginx-route relation
 
-The `nginx-route` relation is preferred over the `ingress`` relation if you want to use nginx-specific features, such as owasp-modsecurity-crs. If you need
+The `nginx-route` relation is preferred over the `ingress` relation if you want to use nginx-specific features, such as owasp-modsecurity-crs. If you need
 something more generic then please follow the [ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-ingress-relation) tutorial instead.
 
 ## Requirements
 
 You will need:
 * A laptop or desktop running Ubuntu (or you can use a VM).
-* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
+* [Juju and MicroK8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
 * [Charmcraft](https://juju.is/docs/sdk/install-charmcraft) installed.
 * A code editor of your choice.
 
@@ -42,7 +42,7 @@ charmcraft pack
 ```
 This will build the charm inside an LXC container. The output is the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
-Add a juju model and deploy the charm.
+Add a Juju model and deploy the charm.
 ```
 juju add-model ingress-test
 juju deploy ./my-charm_ubuntu-22.04-amd64.charm --resource httpbin-image=kennethreitz/httpbin
@@ -71,9 +71,8 @@ charmcraft fetch-lib charms.nginx_ingress_integrator.v0.nginx_route
 ```
 This has downloaded `lib/charms/nginx_ingress_integrator/v0/nginx_route.py`. Now we just need to update `src/charm.py`.
 
-Add the following just after `import logging`:
+Add the following line just after `import logging`:
 ```
-# Add this just after `import logging`.
 from charms.nginx_ingress_integrator.v0.nginx_route import require_nginx_route
 ```
 Then add the following to the end of your charm's `__init__` method:
@@ -116,9 +115,8 @@ Now we just wait until `juju status` reports `active idle` for both applications
 ```
 ${ingress-ip}    my-charm
 ```
-We can also take a look at the configured ingress resource as follows (with sample output):
+We can also take a look at the configured ingress resource by running `microk8s kubectl describe ingress -n ingress-test`. The output should be similar to the following:
 ```
-$ microk8s kubectl describe ingress -n ingress-test
 Name:             my-charm-ingress
 Labels:           app.juju.is/created-by=nginx-ingress-integrator
                   nginx-ingress-integrator.charm.juju.is/managed-by=nginx-ingress-integrator

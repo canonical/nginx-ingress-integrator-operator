@@ -1,4 +1,4 @@
-# How to add Ingress
+# How to add ingress
 
 The `ingress` relation is preferred over the `nginx-route` relation if you want to use generic features. If you need
 something nginx-specific such as owasp-modsecurity-crs, then please follow the [nginx-route relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) tutorial instead.
@@ -7,7 +7,7 @@ something nginx-specific such as owasp-modsecurity-crs, then please follow the [
 
 You will need:
 * A laptop or desktop running Ubuntu (or you can use a VM).
-* [Juju and Microk8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
+* [Juju and MicroK8s](https://juju.is/docs/olm/microk8s) installed. We'll also want to make sure the ingress add-on is enabled, which we can do by running `microk8s enable ingress`.
 * [Charmcraft](https://juju.is/docs/sdk/install-charmcraft) installed.
 * A code editor of your choice.
 
@@ -42,7 +42,7 @@ charmcraft pack
 ```
 This will build the charm inside an LXC container for you. The output will tell you the location of the built charm. For example, `my-charm_ubuntu-22.04-amd64.charm`.
 
-Now let's add a juju model and deploy our charm.
+Now let's add a Juju model and deploy our charm.
 ```
 juju add-model ingress-test
 juju deploy ./my-charm_ubuntu-22.04-amd64.charm --resource httpbin-image=kennethreitz/httpbin
@@ -65,7 +65,7 @@ So we now have a working charm, great! However, what we don't currently have is 
 
 Also, you may notice that you can visit the Unit IP address in a browser, but not the App IP address. Why is that? The reason is that the App IP address refers to a [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/) so as you add other units to the charm they would in theory be reachable through the same IP. However, Juju doesn't have a mechanism for a charm to define what port that Service should be configured with, and this why we can't use it to browse the web site (which is listening on port 80).
 
-## Add the Ingress relation
+## Add the ingress relation
 
 First of all, let's grab the [relation library](https://charmhub.io/nginx-ingress-integrator/libraries/ingress). We can do this by running this:
 ```
@@ -119,9 +119,8 @@ Now we just wait until `juju status` reports `active idle` for both applications
 ```
 ${ingress-ip}    my-charm
 ```
-We can also take a look at the configured ingress resource as follows (with sample output):
+We can also take a look at the configured ingress resource by running `microk8s kubectl describe ingress -n ingress-test`. The output should look similar to the following:
 ```
-$ microk8s kubectl describe ingress -n ingress-test
 Name:             my-charm-ingress
 Labels:           app.juju.is/created-by=nginx-ingress-integrator
                   nginx-ingress-integrator.charm.juju.is/managed-by=nginx-ingress-integrator

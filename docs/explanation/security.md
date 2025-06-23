@@ -19,18 +19,18 @@ See [how to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integr
 
 - Use TLS certificates to encrypt traffic.
 
-## Denial-of-service(DoS) attack
+## Denial-of-service (DoS) attack
 
 This type of attack refers to attackers overloading a service by issuing many requests in a short period of time.
-Hoping to exhaust its resources, e.g., memory, CPU cycles.
+Attackers hope to exhaust the service's resources, e.g., memory and CPU cycles.
 
 The common way to deal with this type of attack is by limiting the number of requests per IP address.
 While it does not prevent all forms of DoS attacks, it is generally an effective mitigation strategy.
 
-The charm offers configuration to set rate-limit by IP address, and an allowlist to exempt IP addresses from rate-limit.
-The allowlist is meant for trusted IP addresses, and might issue lots of requests.
+The charm offers configuration to set a rate-limit by IP address, and an allow list to exempt IP addresses from the rate-limit.
+The allow list is meant for trusted IP addresses, and might issue lots of requests.
 
 ### Good practices
 
-- Set a reasonable rate limit via the [limit-rps charm configuration](https://charmhub.io/nginx-ingress-integrator/configurations#limit-rps).
-- Use the allowlist if needed via the [limit-whitelist charm configuration](https://charmhub.io/nginx-ingress-integrator/configurations#limit-whitelist)
+- Set a reasonable rate limit via the [`limit-rps` charm configuration](https://charmhub.io/nginx-ingress-integrator/configurations#limit-rps).
+- Use the allow list if needed via the [`limit-whitelist` charm configuration](https://charmhub.io/nginx-ingress-integrator/configurations#limit-whitelist)

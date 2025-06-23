@@ -11,11 +11,14 @@ Outdated dependencies can contain known vulnerabilities for attackers to exploit
 ### Good practices
 
 The dependencies used by the charm is tied to the charm revision.
-Updating the charm will ensure the latest security patch are used.
+Updating the charm will ensure the latest version of the dependencies are used.
+
+Using the latest version of Juju will ensure the latest security fix for Juju is applied as well.
 
 ### Summary
 
 - Regularly update the charm revision.
+- Regularly update the Juju version.
 
 ## Machine-in-the-middle attack
 

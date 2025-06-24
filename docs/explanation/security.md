@@ -10,7 +10,7 @@ Outdated dependencies can contain known vulnerabilities for attackers to exploit
 
 ### Good practices
 
-The dependencies used by the charm is tied to the charm revision.
+The dependencies used by the charm are tied to the charm revision.
 Updating the charm will ensure the latest version of the dependencies are used.
 
 Using the latest version of Juju will ensure the latest security fix for Juju is applied as well.
@@ -31,7 +31,7 @@ Encrypting these requests would help to prevent any machine-in-the-middle attack
 
 ### Good practices
 
-This can be achieved by giving a TLS certificate to the charm, configuring it to accept HTTPS request over the unencrypted HTTP request.
+Encryption can be achieved by giving a TLS certificate to the charm, configuring it to accept HTTPS request over the unencrypted HTTP request.
 See [how to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) for how to achieve this.
 
 ### Summary

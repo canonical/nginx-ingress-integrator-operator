@@ -46,6 +46,26 @@ def test_basic(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     assert endpoints.metadata.name == service.metadata.name
 
 
+def test_proxy_buffer_size(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation.
+    act: update the proxy buffer size configuration.
+    assert: ingress proxy buffer size annotation is set appropriately.
+    """
+    harness.begin()
+    ingress_relation.update_app_data(ingress_relation.gen_example_app_data())
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-buffer-size"] == "4k"
+
+    harness.update_config({"proxy-buffer-size": 16})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+    assert ingress.metadata.annotations["nginx.ingress.kubernetes.io/proxy-buffer-size"] == "16k"
+
+
 def test_proxy_timeout(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     """
     arrange: set up test harness and ingress relation.

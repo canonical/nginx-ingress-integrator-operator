@@ -287,6 +287,12 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         ).replace("\\n", "\n")
 
     @property
+    def proxy_buffer_size(self) -> str:
+        """Return the proxy-buffer-size to use for k8s ingress."""
+        proxy_buffer_size = self._get_config_or_relation_data("proxy-buffer-size", 4)
+        return f"{proxy_buffer_size}k"
+
+    @property
     def proxy_read_timeout(self) -> str:
         """Return the proxy-read-timeout to use for k8s ingress."""
         return str(self._get_config_or_relation_data("proxy-read-timeout", 60))
@@ -551,6 +557,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
     owasp_modsecurity_crs: bool
     owasp_modsecurity_custom_rules: str
     path_routes: List[str]
+    proxy_buffer_size: str
     proxy_read_timeout: str
     proxy_send_timeout: str
     proxy_connect_timeout: str
@@ -598,6 +605,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
             owasp_modsecurity_crs=essence.owasp_modsecurity_crs,
             owasp_modsecurity_custom_rules=essence.owasp_modsecurity_custom_rules,
             path_routes=essence.path_routes,
+            proxy_buffer_size=essence.proxy_buffer_size,
             proxy_read_timeout=essence.proxy_read_timeout,
             proxy_send_timeout=essence.proxy_send_timeout,
             proxy_connect_timeout=essence.proxy_connect_timeout,

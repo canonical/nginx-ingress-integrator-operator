@@ -7,6 +7,7 @@ import dataclasses
 import ipaddress
 import logging
 import re
+from mmap import PAGESIZE
 from typing import List, Optional, Union, cast
 
 import ops
@@ -17,6 +18,7 @@ from consts import BOOLEAN_CONFIG_FIELDS
 from exceptions import InvalidIngressError
 
 logger = logging.getLogger(__name__)
+PAGESIZE_KB = PAGESIZE >> 10
 
 
 class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
@@ -289,7 +291,12 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
     @property
     def proxy_buffer_size(self) -> str:
         """Return the proxy-buffer-size to use for k8s ingress."""
-        proxy_buffer_size = self._get_config_or_relation_data("proxy-buffer-size", 4)
+        proxy_buffer_size = cast(int, self._get_config_or_relation_data("proxy-buffer-size", 4))
+        if proxy_buffer_size == 0:
+            raise InvalidIngressError("proxy-buffer-size must be larger than 0")
+        is_page_size_multiple = (proxy_buffer_size % PAGESIZE_KB) == 0
+        if not is_page_size_multiple:
+            logger.warning("proxy-buffer-size should be a multiple of %d", PAGESIZE_KB)
         return f"{proxy_buffer_size}k"
 
     @property

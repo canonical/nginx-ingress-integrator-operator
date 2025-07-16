@@ -126,6 +126,11 @@ config:
         Comma separated list of the routes under the hostname that you wish to map to the relation.
         Example: "/admin,/portal" will map example.test/admin and example.test/portal only.
       type: string
+    proxy-buffer-size:
+      default: 4
+      description: |
+        Max allowed response headers size (in kilobytes) for responses from the proxied server.
+      type: int
     proxy-read-timeout:
       default: 60
       description: Timeout in seconds for reading a response from the proxied server.

@@ -27,6 +27,7 @@ You can get a working setup by using a Multipass VM as outlined in the [Set up y
 ## Set up the environment
 
 To be able to work inside the Multipass VM first you need to log in with the following command:
+
 ```bash
 multipass shell my-juju-vm
 ```
@@ -77,16 +78,16 @@ The `database` interface is required since `mysql-k8s` charm provides multiple c
 Run `juju status` to see the current status of the deployment. The output should be similar to the following:
 
 ```
-Model               Controller          Cloud/Region        Version  SLA          Timestamp
-wordpress-tutorial  microk8s-localhost  microk8s/localhost  3.5.3    unsupported  18:48:09Z
+Model                   Controller          Cloud/Region        Version  SLA          Timestamp
+nginx-ingress-tutorial  microk8s-localhost  microk8s/localhost  3.6.8    unsupported  11:25:46Z
 
-App            Version                  Status  Scale  Charm          Channel        Rev  Address         Exposed  Message
-mysql-k8s      8.0.37-0ubuntu0.22.04.3  active      1  mysql-k8s      8.0/stable     180  10.152.183.254  no
-wordpress-k8s  6.4.3                    active      1  wordpress-k8s  latest/stable   87  10.152.183.56   no
+App            Version                  Status  Scale  Charm          Channel        Rev  Address        Exposed  Message
+mysql-k8s      8.0.41-0ubuntu0.22.04.1  active      1  mysql-k8s      8.0/stable     255  10.152.183.65  no       
+wordpress-k8s  6.8.1                    active      1  wordpress-k8s  latest/stable  144  10.152.183.71  no       
 
-Unit              Workload  Agent  Address       Ports  Message
-mysql-k8s/0*      active    idle   10.1.200.163         Primary
-wordpress-k8s/0*  active    idle   10.1.200.161
+Unit              Workload  Agent  Address      Ports  Message
+mysql-k8s/0*      active    idle   10.1.43.140         Primary
+wordpress-k8s/0*  active    idle   10.1.43.138         
 ```
 
 The deployment finishes when the status shows "Active" for both the WordPress and MySQL charms.
@@ -108,7 +109,20 @@ juju integrate wordpress-k8s nginx-ingress-integrator
 Run `juju status` to see the current status of the deployment. The 
 output should be similar to the following:
 
+```
+Model                   Controller          Cloud/Region        Version  SLA          Timestamp
+nginx-ingress-tutorial  microk8s-localhost  microk8s/localhost  3.6.8    unsupported  11:27:23Z
 
+App                       Version                  Status   Scale  Charm                     Channel        Rev  Address         Exposed  Message
+mysql-k8s                 8.0.41-0ubuntu0.22.04.1  active       1  mysql-k8s                 8.0/stable     255  10.152.183.65   no       
+nginx-ingress-integrator  24.2.0                   waiting      1  nginx-ingress-integrator  latest/stable  153  10.152.183.202  no       installing agent
+wordpress-k8s             6.8.1                    active       1  wordpress-k8s             latest/stable  144  10.152.183.71   no       
+
+Unit                         Workload  Agent  Address      Ports  Message
+mysql-k8s/0*                 active    idle   10.1.43.140         Primary
+nginx-ingress-integrator/0*  active    idle   10.1.43.141         Ingress IP(s): 127.0.0.1
+wordpress-k8s/0*             active    idle   10.1.43.138         
+```
 
 The deployment finishes when the status shows
 "Ingress IP(s): 127.0.0.1" on `nginx-ingress-integrator`. The IP 

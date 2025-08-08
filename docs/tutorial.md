@@ -23,6 +23,7 @@ You can get a working setup by using a Multipass VM as outlined in the [Set up y
 - Deploy the `nginx-ingress-integrator` charm
 - Relate the `nginx-ingress-integrator` charm with the `wordpress-k8s` charm
 - Test the ingress it creates.
+- Configure the hostname for host-based routing
 
 ## Set up the environment
 
@@ -144,3 +145,37 @@ curl -H "Host: wordpress-k8s" http://127.0.0.1
 The output should be the HTML code of the WordPress front page, 
 indicating that the request was successfully forwarded to WordPress by
 the ingress created by `nginx-ingress-integrator`.
+
+# Configure the ingress hostname
+
+You can use the `service-hostname` configuration of the
+`nginx-ingress-integrator` charm to change the hostname used for
+[host-based routing](https://kubernetes.github.io/ingress-nginx/user-guide/basic-usage/).
+
+Now update the `service-hostname` configuration to a new value:
+
+```
+juju config nginx-ingress-integrator service-hostname=wordpress.test
+```
+
+Wait until everything is active and idle. Now, if you use the original
+default hostname to access the WordPress service behind the ingress, it
+will return a 404 Not Found response.
+
+```
+curl -H "Host: wordpress-k8s" http://127.0.0.1
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx</center>
+</body>
+</html>
+```
+
+But if you use the new hostname (`wordpress.test`) we just set, you can
+access WordPress without any problem:
+
+```
+curl -H "Host: wordpress.test" http://127.0.0.1
+```

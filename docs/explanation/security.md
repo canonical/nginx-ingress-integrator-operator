@@ -1,4 +1,4 @@
-# Security in NGINX Ingress Integrator charm
+# Security overview
 
 This document describes the security design of the NGINX Ingress Integrator charm.
 The charm manages an [NGINX web server](https://nginx.org/) as an ingress proxy.
@@ -38,7 +38,9 @@ See [how to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integr
 
 - Use TLS certificates to encrypt traffic.
 
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
 ## Denial-of-service (DoS) attack
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 This type of attack refers to attackers overloading a service by issuing many requests in a short period of time.
 Attackers hope to exhaust the service's resources, e.g., memory and CPU cycles.

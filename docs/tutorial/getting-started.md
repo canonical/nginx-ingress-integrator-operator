@@ -1,47 +1,132 @@
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
+# Deploy the Nginx ingress integrator charm for the first time
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
 
-# Quick guide
+The `nginx-ingress-integrator` charm helps other charms configure Nginx
+ingress in Kubernetes clusters. This tutorial will walk you through each
+step of deploying the `nginx-ingress-integrator` charm to provide 
+ingress for the WordPress web application, which is provided by the
+`wordpress-k8s` charm.
+
+## What you'll need
+- A working station, e.g., a laptop, with AMD64 architecture.
+- Juju 3 installed. For more information about how to install Juju, see [Get started with Juju](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/tutorial/).
+- Juju bootstrapped to a MicroK8s controller: `juju bootstrap microk8s tutorial-controller`
+
+[note]
+You can get a working setup by using a Multipass VM as outlined in the [Set up your test environment](https://canonical-juju.readthedocs-hosted.com/en/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/#set-things-up) guide.
+[/note]
 
 ## What you'll do
 
+- Deploy the `wordpress-k8s` charm
 - Deploy the `nginx-ingress-integrator` charm
-- Relate it to another charm
-- Inspect the ingress it creates.
+- Relate the `nginx-ingress-integrator` charm with the `wordpress-k8s` charm
+- Test the ingress it creates.
 
-You'll then also look at changing that ingress via a Juju configuration update.
+## Set up the environment
 
-## Requirements
-
-You will need:
-
-* A laptop or desktop running Ubuntu (or you can use a VM).
-* [Juju and MicroK8s](https://juju.is/docs/olm/microk8s) installed. Make sure the ingress add-on is enabled by running `microk8s enable ingress`.
-
-## Deploy this charm
-
-To deploy the charm and relate it to
-[the Hello Kubecon charm](https://charmhub.io/hello-kubecon) within a Juju Kubernetes model:
-
-    juju deploy nginx-ingress-integrator
-    juju deploy hello-kubecon --revision=18 --channel=stable
-    juju relate nginx-ingress-integrator hello-kubecon
-    # If your cluster has RBAC enabled you'll be prompted to run the following:
-    juju trust nginx-ingress-integrator --scope cluster
-
-Once the deployment has completed and the "hello-kubecon" workload state in
-`juju status` has changed to "active" you can test the application in
-a browser. 
-
-To do so, find the IP address of the ingress controller, which you can do by running `microk8s kubectl get pods -n ingress -o wide`:
+To be able to work inside the Multipass VM first you need to log in with the following command:
+```bash
+multipass shell my-juju-vm
 ```
-NAME                                      READY   STATUS    RESTARTS       AGE   IP             NODE        NOMINATED NODE   READINESS GATES
-nginx-ingress-microk8s-controller-c4vp9   1/1     Running   2 (119s ago)   17h   10.1.129.161   finistere   <none>           <none>
+
+[note]
+If you're working locally, you don't need to do this step.
+[/note]
+
+To manage resources effectively and to separate this tutorial's workload from
+your usual work, create a new model in the MicroK8s controller using the following command:
+
+
 ```
-Adding 10.1.129.161 hello-kubecon to /etc/hosts lets you visit http://hello-kubecon and see the hello-kubecon charm in action!
+juju add-model nginx-ingress-tutorial
+```
 
-Now let's look at how to change our ingress using Juju configuration.
-## Change configuration
-In the output above you'll see some default settings for the charm, including `nginx.ingress.kubernetes.io/proxy-body-size': '20m'`. The charm controls this via the [`max-body-size` configuration option](https://charmhub.io/nginx-ingress-integrator/configure#max-body-size). You can easily change this by running:
+You will also need to install Nginx ingress in the Kubernetes cluster.
+This can be achieved by enable the ingress plugin in MicroK8s using the
+following command.
 
-    juju config nginx-ingress-integrator max-body-size=10
+```
+sudo microk8s enable ingress
+```
 
-If you re-run the `describe-ingresses` action above, you'll see that the annotation has been updated to `'nginx.ingress.kubernetes.io/proxy-body-size': '10m'`.
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
+## Deploy WordPress K8s charm
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
+
+Deployment of WordPress requires a relational database. The integration with the
+`mysql` [interface](https://juju.is/docs/sdk/integration) is required by the wordpress-k8s
+charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used.
+
+Start off by deploying the WordPress charm. By default it will deploy the latest stable release of
+the `wordpress-k8s` charm.
+
+```
+juju deploy wordpress-k8s
+```
+
+The following commands deploy the mysql-k8s charm and integrate it with the wordpress-k8s charm.
+
+```
+juju deploy mysql-k8s --trust
+juju integrate wordpress-k8s mysql-k8s:database
+```
+The `database` interface is required since `mysql-k8s` charm provides multiple compatible interfaces.
+
+Run `juju status` to see the current status of the deployment. The output should be similar to the following:
+
+```
+Model               Controller          Cloud/Region        Version  SLA          Timestamp
+wordpress-tutorial  microk8s-localhost  microk8s/localhost  3.5.3    unsupported  18:48:09Z
+
+App            Version                  Status  Scale  Charm          Channel        Rev  Address         Exposed  Message
+mysql-k8s      8.0.37-0ubuntu0.22.04.3  active      1  mysql-k8s      8.0/stable     180  10.152.183.254  no
+wordpress-k8s  6.4.3                    active      1  wordpress-k8s  latest/stable   87  10.152.183.56   no
+
+Unit              Workload  Agent  Address       Ports  Message
+mysql-k8s/0*      active    idle   10.1.200.163         Primary
+wordpress-k8s/0*  active    idle   10.1.200.161
+```
+
+The deployment finishes when the status shows "Active" for both the WordPress and MySQL charms.
+
+<!-- vale Canonical.007-Headings-sentence-case = NO -->
+# Deploy the Nginx ingress integrator
+<!-- vale Canonical.007-Headings-sentence-case = YES -->
+
+The following commands deploy the `nginx-ingress-integrator` charm and
+integrate it with the `wordpress-k8s` charm. `--trust` is needed because
+the `nginx-ingress-integrator` charm requires elevated permission to 
+create ingress-related resources in Kubernetes clusters.
+
+```
+juju deploy nginx-ingress-integrator --trust
+juju integrate wordpress-k8s nginx-ingress-integrator
+```
+
+Run `juju status` to see the current status of the deployment. The 
+output should be similar to the following:
+
+
+
+The deployment finishes when the status shows
+"Ingress IP(s): 127.0.0.1" on `nginx-ingress-integrator`. The IP 
+addresses may differ based on your Kubernetes cluster setup.
+
+# Test the ingress
+
+You can use `curl`, a command-line HTTP client, to access the deployed 
+WordPress instances via the Kubernetes ingress created by the 
+`nginx-ingress-integrator`. In the following example, the ingress 
+address is `127.0.0.1`, but it may vary based on your Kubernetes cluster
+setup. If unknown, you can find the ingress address in the 
+`nginx-ingress-integrator` charm status message.
+
+```
+curl -H "Host: wordpress-k8s" http://127.0.0.1
+```
+
+The output should be the HTML code of the WordPress front page, 
+indicating that the request was successfully forwarded to WordPress by
+the ingress created by `nginx-ingress-integrator`.

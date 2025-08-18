@@ -3,9 +3,9 @@
 The `nginx-route` relation is preferred over the `ingress` relation if you want to use nginx-specific features, such as owasp-modsecurity-crs. If you need
 something more generic then please follow the [ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-ingress-relation) tutorial instead.
 
-## Add the nginx-route relation to your charm code
+## Add the `nginx-route` relation to your charm code
 
-First download the [nginx-route charm library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route)
+First download the [`nginx-route` charm library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route)
 by running:
 
 ```
@@ -32,10 +32,10 @@ require_nginx_route(
 )
 ```
 
-## Update your charm metadata for nginx-route relation
+## Update your charm metadata
 
 In this above example, a new configuration option of `external-hostname`
-was used to configuring ingress. Let's update `config.yaml` to add this
+was used to configure ingress. Update `config.yaml` to add this
 configuration option.
 
 ```
@@ -47,7 +47,7 @@ configuration option.
     type: string
 ```
 
-Now we just need to add the relation definition to `metadata.yaml`. Add the following to the end of that file:
+Now add the relation definition to `metadata.yaml`. Add the following to the end of that file:
 
 ```
 requires:
@@ -55,7 +55,7 @@ requires:
     interface: nginx-route
 ```
 
-## Verify the nginx-route relation
+## Verify the relation
 
 Rebuild your charm and run a charm upgrade.
 
@@ -64,8 +64,8 @@ charmcraft pack
 juju refresh my-charm --path=./my-charm_ubuntu-22.04-amd64.charm
 ```
 
-And now we can deploy the Nginx Ingress Integrator and relate to your 
-charm using nginx-route relation:
+Now deploy the Nginx Ingress Integrator and relate to your 
+charm using the `nginx-route` relation:
 
 ```
 juju deploy nginx-ingress-integrator --trust

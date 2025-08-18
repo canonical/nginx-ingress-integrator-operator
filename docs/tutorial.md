@@ -58,7 +58,7 @@ sudo microk8s enable ingress
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 Deployment of WordPress requires a relational database. The integration with the
-`mysql` [interface](https://juju.is/docs/sdk/integration) is required by the wordpress-k8s
+`mysql` [interface](https://juju.is/docs/sdk/integration) is required by the `wordpress-k8s`
 charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used.
 
 Start off by deploying the WordPress charm. By default it will deploy the latest stable release of
@@ -68,13 +68,13 @@ the `wordpress-k8s` charm.
 juju deploy wordpress-k8s
 ```
 
-The following commands deploy the mysql-k8s charm and integrate it with the wordpress-k8s charm.
+Now deploy the `mysql-k8s` charm and integrate it with the `wordpress-k8s` charm.
 
 ```
 juju deploy mysql-k8s --trust
 juju integrate wordpress-k8s mysql-k8s:database
 ```
-The `database` interface is required since `mysql-k8s` charm provides multiple compatible interfaces.
+The `database` interface is required since the `mysql-k8s` charm provides multiple compatible interfaces.
 
 Run `juju status` to see the current status of the deployment. The output should be similar to the following:
 
@@ -94,7 +94,7 @@ wordpress-k8s/0*  active    idle   10.1.43.138
 The deployment finishes when the status shows "Active" for both the WordPress and MySQL charms.
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
-# Deploy the Nginx ingress integrator
+## Deploy the Nginx ingress integrator
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 The following commands deploy the `nginx-ingress-integrator` charm and
@@ -129,7 +129,7 @@ The deployment finishes when the status shows
 "Ingress IP(s): 127.0.0.1" on `nginx-ingress-integrator`. The IP 
 addresses may differ based on your Kubernetes cluster setup.
 
-# Test the ingress
+## Test the ingress
 
 You can use `curl`, a command-line HTTP client, to access the deployed 
 WordPress instances via the Kubernetes ingress created by the 
@@ -146,9 +146,9 @@ The output should be the HTML code of the WordPress front page,
 indicating that the request was successfully forwarded to WordPress by
 the ingress created by `nginx-ingress-integrator`.
 
-# Configure the ingress hostname
+## Configure the ingress hostname
 
-You can use the `service-hostname` configuration of the
+Now let's use the `service-hostname` configuration of the
 `nginx-ingress-integrator` charm to change the hostname used for
 [host-based routing](https://kubernetes.github.io/ingress-nginx/user-guide/basic-usage/).
 
@@ -158,7 +158,7 @@ Now update the `service-hostname` configuration to a new value:
 juju config nginx-ingress-integrator service-hostname=wordpress.test
 ```
 
-Wait until everything is active and idle. Now, if you use the original
+Wait until everything is active and idle by monitoring `juju status`. Now, if you use the original
 default hostname to access the WordPress service behind the ingress, it
 will return a 404 Not Found response.
 

@@ -363,7 +363,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
 
-        return cast(str, self._get_relation("rewrite-target", "/"))
+        return cast(str, self._get_relation_data_or_config("rewrite-target", "/"))
 
     @property
     def service_namespace(self) -> str:
@@ -496,7 +496,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
 
-        return cast(str, self._get_relation("path-routes", "/")).split(",")
+        return cast(str, self._get_relation_data_or_config("path-routes", "/")).split(",")
 
     @property
     def session_cookie_max_age(self) -> int:

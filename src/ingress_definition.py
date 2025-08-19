@@ -316,16 +316,54 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def rewrite_enabled(self) -> bool:
-        """Return whether rewriting should be enabled from config or relation."""
-        value = self._get_config_or_relation_data("rewrite-enabled", True)
+        """
+        Return whether rewriting should be enabled from config, per-app ingress
+        relation (strip_prefix), or nginx-route relation, in that order.
+        """
+        value = self._get_config("rewrite-enabled")
         # config data is typed, relation data is a string
         # Convert to string, then compare to a known value.
-        return str(value).lower() == "true"
+        if value is not None:
+            return str(value).lower() == "true"
+
+        if self.is_ingress_relation:
+            try:
+                return (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        value = self._get_relation("rewrite-enabled")
+        if value is not None:
+            return str(value).lower() == "true"
+
+        return False
 
     @property
     def rewrite_target(self) -> str:
-        """Return the rewrite target from config or relation."""
-        return cast(str, self._get_config_or_relation_data("rewrite-target", "/"))
+        """Return the rewrite target from config, per-app ingress
+        relation (strip_prefix), or nginx-route relation, in that order."""
+        value = self._get_config("rewrite-target")
+        if value is not None:
+            return cast(str, value)
+
+        if self.is_ingress_relation:
+            try:
+                strip_prefix = (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+                if strip_prefix:
+                    return "/$2"  # matches regex capture group in path_route
+                return "/"
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        return cast(str, self._get_relation("rewrite-target", "/"))
 
     @property
     def service_namespace(self) -> str:
@@ -440,14 +478,25 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
     @property
     def path_routes(self) -> List[str]:
         """Return the path routes to use for the k8s ingress."""
+        value = self._get_config("path-routes")
+        if value is not None:
+            return cast(str, value).split(",")
+
         if self.is_ingress_relation:
-            return cast(
-                str,
-                self._get_config_or_relation_data(
-                    "path-routes", f"/{self.service_namespace}-{self.service_name}"
-                ),
-            ).split(",")
-        return cast(str, self._get_config_or_relation_data("path-routes", "/")).split(",")
+            try:
+                strip_prefix = (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+                base = f"/{self.service_namespace}-{self.service_name}"
+                if strip_prefix:
+                    return [f"{base}(/|$)(.*)"]
+                return [base]
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        return cast(str, self._get_relation("path-routes", "/")).split(",")
 
     @property
     def session_cookie_max_age(self) -> int:

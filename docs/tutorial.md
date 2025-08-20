@@ -57,6 +57,11 @@ sudo microk8s enable ingress
 ## Deploy WordPress K8s charm
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
+Nginx ingress integrator provides ingress to other charms. In this 
+tutorial, we will use the WordPress charm as the backend application to
+demonstrate the Nginx ingress integrator charm's capability to configure
+ingress.
+
 Deployment of WordPress requires a relational database. The integration with the
 `mysql` [interface](https://juju.is/docs/sdk/integration) is required by the `wordpress-k8s`
 charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used.
@@ -179,3 +184,7 @@ access WordPress without any problem:
 ```
 curl -H "Host: wordpress.test" http://127.0.0.1
 ```
+
+## Clean up the environment Congratulations! You've completed the Nginx
+ingress integrator tutorial. You can clean up your environment by 
+following this guide: [Tear down your test environment](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/howto/manage-your-deployment/manage-your-deployment-environment/#tear-things-down)

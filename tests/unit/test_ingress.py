@@ -229,3 +229,30 @@ def test_pathroutes(k8s_stub: K8sStub, harness: Harness, ingress_relation):
     expected_data = f'{{"url": "http://example.com/{harness.charm.model.name}-app"}}'
     # We have added an invalid path route, so the charm should be blocked.
     assert ingress_relation.relation.data[harness.charm.app].get("ingress") == expected_data
+
+
+def test_strip_prefix(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation with strip_prefix.
+    act: update the ingress relation with strip_prefix=True.
+    assert: rewrite-enabled=True, rewrite-target, and path-routes are set up correctly.
+    """
+    harness.begin()
+    app_data = ingress_relation.gen_example_app_data()
+    app_data["strip-prefix"] = "true"
+    ingress_relation.update_app_data(app_data)
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+
+    # rewrite-enabled should be True
+    annotations = ingress.metadata.annotations
+    assert annotations["nginx.ingress.kubernetes.io/rewrite-enabled"] == "true"
+
+    # rewrite-target annotation should point to /$2
+    assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/$2"
+
+    # path should include regex for strip-prefix
+    path = ingress.spec.rules[0].http.paths[0].path
+    assert path.endswith("(/|$)(.*)")

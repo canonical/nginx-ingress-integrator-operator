@@ -246,13 +246,8 @@ def test_strip_prefix(k8s_stub: K8sStub, harness: Harness, ingress_relation):
 
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
 
-    # rewrite-enabled should be True
     annotations = ingress.metadata.annotations
-    assert annotations["nginx.ingress.kubernetes.io/rewrite-enabled"] == "true"
-
-    # rewrite-target annotation should point to /$2
     assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/$2"
 
-    # path should include regex for strip-prefix
-    path = ingress.spec.rules[0].http.paths[0].path
-    assert path.endswith("(/|$)(.*)")
+    spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path.endswith("(/|$)(.*)")

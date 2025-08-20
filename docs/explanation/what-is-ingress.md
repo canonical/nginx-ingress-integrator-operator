@@ -17,7 +17,7 @@ The reason for offering both relation and direct `juju config` support is that p
 
 Using the relation, the charm supports the following features:
 
-* Rate limiting (with an allowlist for exclusions by a CIDR).
+* Rate limiting (with an <!-- vale off -->allowlist<!-- vale on --> for exclusions by a CIDR).
 * Setting maximum allowed body size for file uploads.
 * Configuring retrying of errors against the next server.
 * A session cookie to use for cookie-based session affinity, and the age of that cookie.

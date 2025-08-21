@@ -90,15 +90,15 @@ async def test_ingress_relation(
     assert response.text == "http://any/path"
 
     # --- strip_prefix=True ---
-    # src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
-    # await ingress.set_config({"service-hostname": "any"})
-    # await deploy_any_charm(json.dumps(src_overwrite))
-    # await model.wait_for_idle()
-    # # await model.add_relation("any:ingress", "ingress:ingress")
+    src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
+    await ingress.set_config({"service-hostname": "any"})
+    await deploy_any_charm(json.dumps(src_overwrite))
+    await model.wait_for_idle()
+    # await model.add_relation("any:ingress", "ingress:ingress")
 
-    # await model.wait_for_idle(status="active")
-    # await run_action("any", "rpc", method="start_server")
+    await model.wait_for_idle(status="active")
+    await run_action("any", "rpc", method="start_server")
 
-    # response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
-    # assert response.status_code == 200
-    # assert response.text == "http://any/"
+    response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
+    assert response.status_code == 200
+    assert response.text == "http://any/"

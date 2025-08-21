@@ -127,9 +127,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
         return None
 
-    def _get_relation(
-        self, field: str, fallback: Union[str, float, int, bool, None] = None
-    ) -> Union[str, float, int, bool, None]:
+    def _get_relation(self, field: str, fallback: Union[str, None] = None) -> Union[str, None]:
         """Get data from the relation, if any.
 
         Args:

@@ -369,6 +369,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                 )
                 if strip_prefix:
                     return "/$2"  # matches regex capture group in path_route
+                return "/"
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
 

@@ -16,8 +16,9 @@ The charm can be configured via a relation, or via `juju config` directly. See t
 The reason for offering both relation and direct `juju config` support is that providing the relation means charm authors can make the experience better for end users by implementing the relation. If a charm doesn’t implement the relation it can still be used with this charm and configured manually.
 
 Using the relation, the charm supports the following features:
-
-* Rate limiting (with an <!-- vale off -->allowlist<!-- vale on --> for exclusions by a CIDR).
+<!-- vale off -->
+* Rate limiting (with an allowlist for exclusions by a CIDR).
+<!-- vale on -->
 * Setting maximum allowed body size for file uploads.
 * Configuring retrying of errors against the next server.
 * A session cookie to use for cookie-based session affinity, and the age of that cookie.

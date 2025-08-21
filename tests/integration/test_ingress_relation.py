@@ -75,7 +75,7 @@ async def test_ingress_relation(
         "any_charm.py": make_any_charm_source(strip_prefix=False),
     }
 
-    _, ingress = await asyncio.gather(
+    charm, ingress = await asyncio.gather(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
     )
@@ -91,10 +91,9 @@ async def test_ingress_relation(
 
     # --- strip_prefix=True ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
-    # await ingress.set_config({"service-hostname": "any"})
-    await deploy_any_charm(json.dumps(src_overwrite))
+    await ingress.set_config({"path-routes": None})
+    await charm.set_config({"src_overwrite": src_overwrite})
     await model.wait_for_idle()
-    # await model.add_relation("any:ingress", "ingress:ingress")
 
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")

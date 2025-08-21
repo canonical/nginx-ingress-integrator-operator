@@ -316,7 +316,13 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def rewrite_enabled(self) -> bool:
-        """Return whether rewriting should be enabled from config or relation."""
+        """Return whether rewriting should be enabled from config or relation.
+
+        Return whether rewriting should be enabled following this priority rules:
+        - If rewrite-enabled is enabled in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on rewrite-enabled attribute
+        """
         value = self._get_config("rewrite-enabled")
         # config data is typed, relation data is a string
         # Convert to string, then compare to a known value.
@@ -341,7 +347,13 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def rewrite_target(self) -> str:
-        """Return the rewrite target from config or relation."""
+        """Return the rewrite target from config or relation.
+
+        Return the rewrite target following this priority rules:
+        - If rewrite-target exists in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on rewrite-target attribute
+        """
         value = self._get_config("rewrite-target")
         if value:
             return cast(str, value)
@@ -473,7 +485,13 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def path_routes(self) -> List[str]:
-        """Return the path routes to use for the k8s ingress."""
+        """Return the path routes to use for the k8s ingress.
+
+        Return path routes following this priority rules:
+        - If path routes in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on path routes attribute
+        """
         value = self._get_config("path-routes")
         if value:
             return cast(str, value).split(",")

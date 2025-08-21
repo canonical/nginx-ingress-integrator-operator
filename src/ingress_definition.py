@@ -127,16 +127,23 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
         return None
 
-    def _get_relation(self, field: str) -> Union[str, None]:
+    def _get_relation(
+        self, field: str, fallback: Union[str, float, int, bool, None] = None
+    ) -> Union[str, float, int, bool, None]:
         """Get data from the relation, if any.
 
         Args:
             field: Relation field.
+            fallback: Value to return if the field is not found.
 
         Returns:
             The field's content.
         """
-        return self.relation.data[cast(Application, self.relation.app)].get(field)
+        data = self.relation.data[cast(Application, self.relation.app)].get(field)
+        if data is not None:
+            return data
+
+        return fallback
 
     def _get_config_or_relation_data(
         self, field: str, fallback: Union[str, float, int, bool, None]
@@ -340,10 +347,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
 
         value = self._get_relation("rewrite-enabled")
-        if value:
-            return str(value).lower() == "true"
-
-        return False
+        return value is not None and str(value).lower() == "true"
 
     @property
     def rewrite_target(self) -> str:
@@ -367,11 +371,10 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                 )
                 if strip_prefix:
                     return "/$2"  # matches regex capture group in path_route
-                return "/"
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
 
-        return cast(str, self._get_relation_data_or_config("rewrite-target", "/"))
+        return cast(str, self._get_relation("rewrite-target", "/"))
 
     @property
     def service_namespace(self) -> str:

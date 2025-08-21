@@ -67,19 +67,18 @@ async def test_ingress_relation(
         application with ingress relation for test purposes.
     assert: HTTP request should be forwarded to the application.
     """
-    # --- strip_prefix=False ---
+    # --- strip_prefix=True ---
     src_overwrite = {
         "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
             encoding="utf-8"
         ),
-        "any_charm.py": make_any_charm_source(strip_prefix=False),
+        "any_charm.py": make_any_charm_source(strip_prefix=True),
     }
-
     charm, ingress = await asyncio.gather(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
     )
-    await ingress.set_config({"service-hostname": "any", "path-routes": "/path"})
+    await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")
@@ -87,17 +86,16 @@ async def test_ingress_relation(
 
     response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
     assert response.status_code == 200
-    assert response.text == "http://any/path"
+    assert response.text == "http://any/"
 
-    # --- strip_prefix=True ---
-    src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
-    await ingress.set_config({"path-routes": ""})
+    # --- strip_prefix=False ---
+    src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=False)
+    await ingress.set_config({"path-routes": "/path"})
     await charm.set_config({"src_overwrite": src_overwrite})
     await model.wait_for_idle()
-
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
     assert response.status_code == 200
-    assert response.text == "http://any/"
+    assert response.text == "http://any/path"

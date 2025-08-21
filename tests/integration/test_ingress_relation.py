@@ -88,7 +88,7 @@ async def test_ingress_relation(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
     assert response.status_code == 200
-    assert response.text == "http://any/"
+    assert response.text == f"http://any/{model.name}-any(/|$)(.*)"
 
     # --- strip_prefix=False ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=False)

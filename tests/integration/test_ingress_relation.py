@@ -92,8 +92,8 @@ async def test_ingress_relation(
 
     # --- strip_prefix=False ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=False)
-    await charm.set_config({"src_overwrite": src_overwrite})
     await ingress.set_config({"rewrite-enabled": "false"})
+    await charm.set_config({"src_overwrite": src_overwrite})
     await model.wait_for_idle()
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")

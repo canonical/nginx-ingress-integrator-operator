@@ -40,7 +40,6 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
                 )
 
             def start_server(self):
-                import pathlib
                 import os
                 import signal
                 www_dir = pathlib.Path("/tmp/www")
@@ -86,7 +85,7 @@ async def test_ingress_relation(
         ),
         "any_charm.py": make_any_charm_source(strip_prefix=False),
     }
-    charm, ingress = await asyncio.gather(
+    _, ingress = await asyncio.gather(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
     )
@@ -103,10 +102,18 @@ async def test_ingress_relation(
     assert response.status_code == 200
     assert response.text == f"http://any/{model.name}-any"
 
+    # tear down
+    await model.remove_application("ingress")
+    await model.wait_for_idle()
+
     # --- strip_prefix=True ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
-    await charm.set_config({"src_overwrite": src_overwrite})
-    await model.remove_relation("any:ingress", "ingress:ingress")
+    _, ingress = await asyncio.gather(
+        deploy_any_charm(json.dumps(src_overwrite)),
+        build_and_deploy_ingress(),
+    )
+
+    await ingress.set_config({"service-hostname": "any"})
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")

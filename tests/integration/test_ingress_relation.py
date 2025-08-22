@@ -40,6 +40,9 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
                 )
 
             def start_server(self):
+                import pathlib
+                import os
+                import signal
                 www_dir = pathlib.Path("/tmp/www")
                 www_dir.mkdir(exist_ok=True)
                 file_path = {file_path_expr}

@@ -21,7 +21,7 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
     Return:
         str: The source code of the any-charm.
     """
-    file_path_expr = 'www_dir / "path" / "ok"' if not strip_prefix else 'www_dir / "ok"'
+    file_path_expr = 'www_dir / "test-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
 
     any_charm_py = textwrap.dedent(
         f"""\
@@ -92,14 +92,16 @@ async def test_ingress_relation(
 
     # --- strip_prefix=False ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=False)
-    await ingress.set_config(
-        {"path-routes": "/path", "rewrite-enabled": "false", "rewrite-target": "/path/ok"}
-    )
     await charm.set_config({"src_overwrite": src_overwrite})
+    await ingress.set_config({"rewrite-enabled": "false"})
     await model.wait_for_idle()
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
+    print(ingress)
 
-    response = requests.get("http://127.0.0.1/path/ok", headers={"Host": "any"}, timeout=5)
+    response = requests.get(
+        f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
+    )
+    print(response)
     assert response.status_code == 200
-    assert response.text == "http://any/path"
+    assert response.text == f"http://any/{model.name}-any"

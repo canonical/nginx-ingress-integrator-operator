@@ -84,12 +84,10 @@ async def test_ingress_relation(
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
-    print(ingress)
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    print(response)
     assert response.status_code == 200
     assert response.text == f"http://any/{model.name}-any"
 
@@ -99,11 +97,9 @@ async def test_ingress_relation(
     await model.wait_for_idle()
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
-    print(ingress)
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    print(response)
     assert response.status_code == 200
     assert response.text == f"http://any/{model.name}-any(/|$)(.*)"

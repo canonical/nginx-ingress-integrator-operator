@@ -21,7 +21,7 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
     Return:
         str: The source code of the any-charm.
     """
-    file_path_expr = 'www_dir / "test-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
+    file_path_expr = 'www_dir / "testing-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
 
     any_charm_py = textwrap.dedent(
         f"""\

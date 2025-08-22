@@ -35,7 +35,6 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.ingress = IngressPerAppRequirer(self, port=8080, strip_prefix={strip_prefix})
-                self.unit.status = ops.BlockedStatus("Waiting for ingress relation")
                 self.framework.observe(
                     self.on.ingress_relation_changed, self._on_ingress_relation_changed
                 )
@@ -95,7 +94,6 @@ async def test_ingress_relation(
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
     await charm.set_config({"src_overwrite": src_overwrite})
     await model.wait_for_idle()
-    await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")
     await run_action("any", "rpc", method="start_server")
 

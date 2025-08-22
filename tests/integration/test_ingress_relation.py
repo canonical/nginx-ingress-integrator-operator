@@ -93,7 +93,7 @@ async def test_ingress_relation(
     # --- strip_prefix=False ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=False)
     await ingress.set_config(
-        {"path-routes": "/path", "rewrite-enabled": "false", "rewrite-target": "/"}
+        {"path-routes": "/path", "rewrite-enabled": "false", "rewrite-target": "/path/ok"}
     )
     await charm.set_config({"src_overwrite": src_overwrite})
     await model.wait_for_idle()

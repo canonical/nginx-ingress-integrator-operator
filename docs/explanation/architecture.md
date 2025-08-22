@@ -27,7 +27,7 @@ The Nginx Ingress Integrator receives ingress requests from application charms
 via either the [`ingress` integration](https://github.com/canonical/charm-relation-interfaces/tree/main/interfaces/ingress/v2) 
 or the [`nginx-route` integration](https://github.com/canonical/charm-relation-interfaces/tree/main/interfaces/nginx_route/v0). 
 The `ingress` integration is more prevalent, as it is the same integration 
-supported by many other charms, including the [`traefik-k8s` charm](charmhub.io/traefik-k8s). 
+supported by many other charms, including the [`traefik-k8s` charm](https://charmhub.io/traefik-k8s). 
 The `nginx-route` integration is more specific to the Nginx Ingress Integrator 
 but offers more customization of the ingress specification.
 
@@ -81,7 +81,7 @@ The `src/charm.py` is the default entry point for a charm and has the
 the base class from which all Charms are formed, defined by [Ops](https://juju.is/docs/sdk/ops)
 (Python framework for developing charms).
 
-> See more in the Juju docs: [Charm](https://juju.is/docs/sdk/constructs#heading--charm)
+> See more in the Juju docs: [Charm](https://documentation.ubuntu.com/juju/3.6/reference/charm/)
 
 The `__init__` method guarantees that the charm observes all events relevant to 
 its operation and handles them.

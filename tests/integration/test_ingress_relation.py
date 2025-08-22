@@ -45,10 +45,20 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
                 file_path = {file_path_expr}
                 file_path.parent.mkdir(exist_ok=True)
                 file_path.write_text(str(self.ingress.url))
+
+                pid_file = pathlib.Path("/tmp/any.pid")
+                if pid_file.exists():
+                    try:
+                        os.kill(int(pid_file.read_text(encoding="utf8")), signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    pid_file.unlink()
+
                 proc_http = subprocess.Popen(
                     ["python3", "-m", "http.server", "-d", www_dir, "8080"],
                     start_new_session=True,
                 )
+                pid_file.write_text(str(proc_http.pid), encoding="utf8")
 
             def _on_ingress_relation_changed(self, event):
                 self.unit.status = ops.ActiveStatus()

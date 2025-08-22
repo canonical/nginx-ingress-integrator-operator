@@ -104,7 +104,6 @@ async def test_ingress_relation(
 
     # tear down
     await model.remove_application("ingress")
-    await model.wait_for_idle()
 
     # --- strip_prefix=True ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)

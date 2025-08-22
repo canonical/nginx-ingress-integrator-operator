@@ -103,6 +103,7 @@ async def test_ingress_relation(
     assert response.text == f"http://any/{model.name}-any"
 
     # tear down
+    await model.remove_application("any")
     await model.remove_application("ingress")
 
     # --- strip_prefix=True ---

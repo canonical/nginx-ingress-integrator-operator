@@ -105,6 +105,9 @@ async def test_ingress_relation(
     # tear down
     await model.remove_application("any")
     await model.remove_application("ingress")
+    await model.block_until(
+        lambda: "any" not in model.applications and "ingress" not in model.applications
+    )
 
     # --- strip_prefix=True ---
     src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)

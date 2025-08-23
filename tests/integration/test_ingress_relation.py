@@ -23,10 +23,12 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
     """
     file_path_expr = 'www_dir / "testing-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
 
-    any_charm_py = textwrap.dedent(
+    return textwrap.dedent(
         f"""\
         import pathlib
         import subprocess
+        import os
+        import signal
         import ops
         from any_charm_base import AnyCharmBase
         from ingress import IngressPerAppRequirer
@@ -40,10 +42,9 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
                 )
 
             def start_server(self):
-                import os
-                import signal
                 www_dir = pathlib.Path("/tmp/www")
                 www_dir.mkdir(exist_ok=True)
+
                 file_path = {file_path_expr}
                 file_path.parent.mkdir(exist_ok=True)
                 file_path.write_text(str(self.ingress.url))
@@ -66,25 +67,23 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
                 self.unit.status = ops.ActiveStatus()
         """
     )
-    return any_charm_py
 
 
-async def test_ingress_relation(
-    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress
-):
-    """
-    assert: None
-    action: Build and deploy nginx-ingress-integrator charm, also deploy and relate an any-charm
-        application with ingress relation for test purposes.
-    assert: HTTP request should be forwarded to the application.
-    """
-    # --- strip_prefix=False ---
+async def _deploy_and_test_ingress(
+    model: Model,
+    deploy_any_charm,
+    run_action,
+    build_and_deploy_ingress,
+    strip_prefix: bool,
+) -> None:
+    """Helper function to deploy ingress and any-charm, run HTTP test, and clean up."""
     src_overwrite = {
         "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
             encoding="utf-8"
         ),
-        "any_charm.py": make_any_charm_source(strip_prefix=False),
+        "any_charm.py": make_any_charm_source(strip_prefix=strip_prefix),
     }
+
     _, ingress = await asyncio.gather(
         deploy_any_charm(json.dumps(src_overwrite)),
         build_and_deploy_ingress(),
@@ -94,36 +93,46 @@ async def test_ingress_relation(
     await model.wait_for_idle()
     await model.add_relation("any:ingress", "ingress:ingress")
     await model.wait_for_idle(status="active")
+
     await run_action("any", "rpc", method="start_server")
 
     response = requests.get(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
-    assert response.status_code == 200
-    assert response.text == f"http://any/{model.name}-any"
 
-    # tear down
+    expected_text = (
+        f"http://any/{model.name}-any"
+        if not strip_prefix
+        else f"http://any/{model.name}-any(/|$)(.*)"
+    )
+    assert response.status_code == 200
+    assert response.text == expected_text
+
     await model.remove_application("any")
     await model.remove_application("ingress")
     await model.block_until(
         lambda: "any" not in model.applications and "ingress" not in model.applications
     )
 
+
+async def test_ingress_relation(
+    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress
+):
+    """Test the ingress relation with both strip_prefix settings."""
+    # --- strip_prefix=False ---
+    await _deploy_and_test_ingress(
+        model=model,
+        deploy_any_charm=deploy_any_charm,
+        run_action=run_action,
+        build_and_deploy_ingress=build_and_deploy_ingress,
+        strip_prefix=False,
+    )
+
     # --- strip_prefix=True ---
-    src_overwrite["any_charm.py"] = make_any_charm_source(strip_prefix=True)
-    _, ingress = await asyncio.gather(
-        deploy_any_charm(json.dumps(src_overwrite)),
-        build_and_deploy_ingress(),
+    await _deploy_and_test_ingress(
+        model=model,
+        deploy_any_charm=deploy_any_charm,
+        run_action=run_action,
+        build_and_deploy_ingress=build_and_deploy_ingress,
+        strip_prefix=True,
     )
-
-    await ingress.set_config({"service-hostname": "any"})
-    await model.wait_for_idle()
-    await model.add_relation("any:ingress", "ingress:ingress")
-    await model.wait_for_idle(status="active")
-    await run_action("any", "rpc", method="start_server")
-
-    response = requests.get(
-        f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
-    )
-    assert response.status_code == 200
-    assert response.text == f"http://any/{model.name}-any(/|$)(.*)"

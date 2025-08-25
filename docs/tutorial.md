@@ -63,7 +63,7 @@ demonstrate the Nginx ingress integrator charm's capability to configure
 ingress.
 
 Deployment of WordPress requires a relational database. The integration with the
-`mysql` [interface](https://juju.is/docs/sdk/integration) is required by the `wordpress-k8s`
+`mysql` [interface](https://documentation.ubuntu.com/juju/3.6/reference/relation/) is required by the `wordpress-k8s`
 charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used.
 
 Start off by deploying the WordPress charm. By default it will deploy the latest stable release of

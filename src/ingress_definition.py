@@ -138,10 +138,8 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
             The field's content.
         """
         data = self.relation.data[cast(Application, self.relation.app)].get(field)
-        if data is not None:
-            return data
 
-        return fallback
+        return data if data is not None else fallback
 
     def _get_config_or_relation_data(
         self, field: str, fallback: Union[str, float, int, bool, None]

@@ -8,6 +8,7 @@ import json
 import pathlib
 import textwrap
 
+import pytest
 import requests
 from juju.model import Model
 
@@ -69,14 +70,14 @@ def make_any_charm_source(strip_prefix: bool = False) -> str:
     )
 
 
-async def _deploy_and_test_ingress(
-    model: Model,
-    deploy_any_charm,
-    run_action,
-    build_and_deploy_ingress,
-    strip_prefix: bool,
-) -> None:
-    """Helper function to deploy ingress and any-charm, run HTTP test, and clean up."""
+@pytest.mark.parametrize("strip_prefix", [False, True])
+async def test_ingress_relation(
+    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress, strip_prefix: bool
+):
+    """Test the ingress relation with both strip_prefix settings.
+
+    Deploy ingress and any-charm, run HTTP test, and clean up.
+    """
     src_overwrite = {
         "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
             encoding="utf-8"
@@ -112,27 +113,4 @@ async def _deploy_and_test_ingress(
     await model.remove_application("ingress")
     await model.block_until(
         lambda: "any" not in model.applications and "ingress" not in model.applications
-    )
-
-
-async def test_ingress_relation(
-    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress
-):
-    """Test the ingress relation with both strip_prefix settings."""
-    # --- strip_prefix=False ---
-    await _deploy_and_test_ingress(
-        model=model,
-        deploy_any_charm=deploy_any_charm,
-        run_action=run_action,
-        build_and_deploy_ingress=build_and_deploy_ingress,
-        strip_prefix=False,
-    )
-
-    # --- strip_prefix=True ---
-    await _deploy_and_test_ingress(
-        model=model,
-        deploy_any_charm=deploy_any_charm,
-        run_action=run_action,
-        build_and_deploy_ingress=build_and_deploy_ingress,
-        strip_prefix=True,
     )

@@ -185,6 +185,8 @@ access WordPress without any problem:
 curl -H "Host: wordpress.test" http://127.0.0.1
 ```
 
-## Clean up the environment Congratulations! You've completed the Nginx
+## Clean up the environment 
+
+Congratulations! You've completed the Nginx
 ingress integrator tutorial. You can clean up your environment by 
 following this guide: [Tear down your test environment](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/howto/manage-your-deployment/manage-your-deployment-environment/#tear-things-down)

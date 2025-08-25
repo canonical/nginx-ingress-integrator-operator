@@ -36,4 +36,5 @@ header:
     - 'zap_rules.tsv'
     - 'lib/**'
     - 'tests/files/*'
+    - '.lycheeignore'
   comment: on-failure

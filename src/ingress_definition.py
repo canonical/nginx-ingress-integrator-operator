@@ -127,16 +127,19 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
         return None
 
-    def _get_relation(self, field: str) -> Union[str, None]:
+    def _get_relation(self, field: str, fallback: Union[str, None] = None) -> Union[str, None]:
         """Get data from the relation, if any.
 
         Args:
             field: Relation field.
+            fallback: Value to return if the field is not found.
 
         Returns:
             The field's content.
         """
-        return self.relation.data[cast(Application, self.relation.app)].get(field)
+        data = self.relation.data[cast(Application, self.relation.app)].get(field)
+
+        return data if data is not None else fallback
 
     def _get_config_or_relation_data(
         self, field: str, fallback: Union[str, float, int, bool, None]
@@ -316,16 +319,59 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def rewrite_enabled(self) -> bool:
-        """Return whether rewriting should be enabled from config or relation."""
-        value = self._get_config_or_relation_data("rewrite-enabled", True)
+        """Return whether rewriting should be enabled from config or relation.
+
+        Return whether rewriting should be enabled following this priority rules:
+        - If rewrite-enabled is enabled in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on rewrite-enabled attribute
+        """
+        value = self._get_config("rewrite-enabled")
         # config data is typed, relation data is a string
         # Convert to string, then compare to a known value.
-        return str(value).lower() == "true"
+        if value is not None:
+            return str(value).lower() == "true"
+
+        if self.is_ingress_relation:
+            try:
+                return (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        value = self._get_relation("rewrite-enabled")
+        return value is not None and str(value).lower() == "true"
 
     @property
     def rewrite_target(self) -> str:
-        """Return the rewrite target from config or relation."""
-        return cast(str, self._get_config_or_relation_data("rewrite-target", "/"))
+        """Return the rewrite target from config or relation.
+
+        Return the rewrite target following this priority rules:
+        - If rewrite-target exists in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on rewrite-target attribute
+        """
+        value = self._get_config("rewrite-target")
+        if value:
+            return cast(str, value)
+
+        if self.is_ingress_relation:
+            try:
+                strip_prefix = (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+                if strip_prefix:
+                    return "/$2"  # matches regex capture group in path_route
+                return "/"
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        return cast(str, self._get_relation("rewrite-target", "/"))
 
     @property
     def service_namespace(self) -> str:
@@ -439,15 +485,32 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def path_routes(self) -> List[str]:
-        """Return the path routes to use for the k8s ingress."""
+        """Return the path routes to use for the k8s ingress.
+
+        Return path routes following this priority rules:
+        - If path routes in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on path routes attribute
+        """
+        value = self._get_config("path-routes")
+        if value:
+            return cast(str, value).split(",")
+
         if self.is_ingress_relation:
-            return cast(
-                str,
-                self._get_config_or_relation_data(
-                    "path-routes", f"/{self.service_namespace}-{self.service_name}"
-                ),
-            ).split(",")
-        return cast(str, self._get_config_or_relation_data("path-routes", "/")).split(",")
+            try:
+                strip_prefix = (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+                base = f"/{self.service_namespace}-{self.service_name}"
+                if strip_prefix:
+                    return [f"{base}(/|$)(.*)"]
+                return [base]
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        return cast(str, self._get_relation_data_or_config("path-routes", "/")).split(",")
 
     @property
     def session_cookie_max_age(self) -> int:

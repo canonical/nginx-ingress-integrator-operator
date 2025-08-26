@@ -312,6 +312,8 @@ class NginxIngressCharm(CharmBase):
         if len(pathroutes) > 1:
             self._ingress_provider.wipe_ingress_data(self._get_nginx_relation())
             raise InvalidIngressError("Ingress relation does not support multiple pathroutes.")
+
+        # Remove the suffix "(/|$)(.*)" if present so that the URL is clean
         if pathroutes[0].endswith("(/|$)(.*)"):
             pathroutes[0] = pathroutes[0][:-9]
         return f"{prefix}://{hostname}{pathroutes[0]}"

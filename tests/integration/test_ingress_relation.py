@@ -13,16 +13,19 @@ import requests
 from juju.model import Model
 
 
-def make_any_charm_source(strip_prefix: bool = False) -> str:
+def make_any_charm_source(strip_prefix: bool = False, model_name: str = "testing") -> str:
     """Generate the source code for the any-charm with ingress relation.
 
     Args:
         strip_prefix: Whether to strip the prefix from the URL path.
+        model_name: The name of the Juju model.
 
     Return:
         str: The source code of the any-charm.
     """
-    file_path_expr = 'www_dir / "testing-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
+    file_path_expr = (
+        f'www_dir / "{model_name}-any" / "ok"' if not strip_prefix else 'www_dir / "ok"'
+    )
 
     return textwrap.dedent(
         f"""\
@@ -82,7 +85,7 @@ async def test_ingress_relation(
         "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
             encoding="utf-8"
         ),
-        "any_charm.py": make_any_charm_source(strip_prefix=strip_prefix),
+        "any_charm.py": make_any_charm_source(strip_prefix, model.name),
     }
 
     _, ingress = await asyncio.gather(
@@ -101,11 +104,7 @@ async def test_ingress_relation(
         f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
     )
 
-    expected_text = (
-        f"http://any/{model.name}-any"
-        if not strip_prefix
-        else f"http://any/{model.name}-any(/|$)(.*)"
-    )
+    expected_text = f"http://any/{model.name}-any"
     assert response.status_code == 200
     assert response.text == expected_text
 

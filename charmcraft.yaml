@@ -162,7 +162,7 @@ config:
     use-regex:
       default: false
       description: >-
-        Enable regex matching in Ingress paths (NGINX specific).
+        Enable regex matching in Ingress paths.
         Normally derived automatically when strip-prefix is enabled,
         but can be set explicitly for advanced path routing.
       type: boolean

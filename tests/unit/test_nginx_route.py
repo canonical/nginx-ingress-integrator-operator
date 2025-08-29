@@ -484,6 +484,55 @@ def test_no_rewrite_no_strip(k8s_stub: K8sStub, harness: Harness, nginx_route_re
     assert "(" not in spec.path and ")" not in spec.path
 
 
+def test_use_regex_config(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):
+    """
+    arrange: set up test harness and nginx-route relation with use-regex config enabled.
+    act: update the relation with use-regex=True.
+    assert: use-regex=True and pathType=ImplementationSpecific.
+    """
+    harness.begin()
+    rel_data = nginx_route_relation.gen_example_app_data()
+    rel_data["rewrite-enabled"] = "true"
+    rel_data["rewrite-target"] = "/"
+    nginx_route_relation.update_app_data(rel_data)
+    nginx_route_relation.update_unit_data(nginx_route_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com", "use-regex": True})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+
+    annotations = ingress.metadata.annotations
+    assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"
+    assert annotations["nginx.ingress.kubernetes.io/use-regex"] == "true"
+
+    spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path_type == "ImplementationSpecific"
+
+
+def test_use_regex_relation(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):
+    """
+    arrange: set up test harness and nginx-route relation with use-regex relation enabled.
+    act: update the relation with use-regex=True.
+    assert: use-regex=True and pathType=ImplementationSpecific.
+    """
+    harness.begin()
+    rel_data = nginx_route_relation.gen_example_app_data()
+    rel_data["use-regex"] = "true"
+    rel_data["rewrite-enabled"] = "true"
+    rel_data["rewrite-target"] = "/"
+    nginx_route_relation.update_app_data(rel_data)
+    nginx_route_relation.update_unit_data(nginx_route_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+
+    annotations = ingress.metadata.annotations
+    assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"
+    assert annotations["nginx.ingress.kubernetes.io/use-regex"] == "true"
+
+    spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path_type == "ImplementationSpecific"
+
+
 def test_session_cookie_max_age(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):
     """
     arrange: set up test harness and nginx-route relation.

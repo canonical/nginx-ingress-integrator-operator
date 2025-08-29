@@ -375,7 +375,14 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
     @property
     def use_regex(self) -> bool:
-        """Return whether regex matching should be enabled."""
+        """Return whether regex matching should be enabled.
+
+        Return the value following this priority rules:
+        - If use-regex exists in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Based on the rewrite-enabled attribute
+        - Otherwise (if the relation is nginx-route) based on the use-regex attribute
+        """
         value = self._get_config("use-regex")
         if value is not None:
             return str(value).lower() == "true"

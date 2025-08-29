@@ -159,6 +159,12 @@ config:
       default: ""
       description: The path to rewrite requests to. If not set, rewrite-target will be "/".
       type: string
+    use-regex:
+      description: >-
+        Enable regex matching in Ingress paths.
+        Derived automatically when strip-prefix is enabled or dynamic rewrite is needed.
+        Can be set explicitly for advanced path routing.
+      type: boolean
     service-hostname:
       default: ""
       description: The hostname of the service to create an ingress for.

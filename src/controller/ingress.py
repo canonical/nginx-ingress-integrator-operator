@@ -5,6 +5,7 @@
 
 import logging
 import time
+from enum import Enum
 from typing import Dict, List, Optional
 
 import kubernetes.client
@@ -14,6 +15,18 @@ from controller.resource import ResourceController, _map_k8s_auth_exception
 from ingress_definition import IngressDefinition
 
 LOGGER = logging.getLogger(__name__)
+
+
+class PathType(str, Enum):
+    """Path types supported by Kubernetes Ingress.
+
+    Attributes:
+        PREFIX: Prefix matching.
+        IMPLEMENTATION_SPECIFIC: Implementation-specific matching (only when use-regex=True).
+    """
+
+    PREFIX = "Prefix"
+    IMPLEMENTATION_SPECIFIC = "ImplementationSpecific"
 
 
 class IngressController(
@@ -112,7 +125,9 @@ class IngressController(
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
                 path=path,
-                path_type="Prefix",
+                path_type=(
+                    PathType.IMPLEMENTATION_SPECIFIC if definition.use_regex else PathType.PREFIX
+                ),
                 backend=kubernetes.client.V1IngressBackend(
                     service=kubernetes.client.V1IngressServiceBackend(
                         name=definition.k8s_service_name,
@@ -166,6 +181,8 @@ class IngressController(
             )
         if definition.rewrite_enabled:
             annotations["nginx.ingress.kubernetes.io/rewrite-target"] = definition.rewrite_target
+        if definition.use_regex:
+            annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
         if definition.session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"

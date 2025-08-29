@@ -112,7 +112,7 @@ class IngressController(
         ingress_paths = [
             kubernetes.client.V1HTTPIngressPath(
                 path=path,
-                path_type="Prefix",
+                path_type="ImplementationSpecific" if definition.use_regex else "Prefix",
                 backend=kubernetes.client.V1IngressBackend(
                     service=kubernetes.client.V1IngressServiceBackend(
                         name=definition.k8s_service_name,
@@ -166,6 +166,8 @@ class IngressController(
             )
         if definition.rewrite_enabled:
             annotations["nginx.ingress.kubernetes.io/rewrite-target"] = definition.rewrite_target
+        if definition.use_regex:
+            annotations["nginx.ingress.kubernetes.io/use-regex"] = "true"
         if definition.session_cookie_max_age:
             annotations["nginx.ingress.kubernetes.io/affinity"] = "cookie"
             annotations["nginx.ingress.kubernetes.io/affinity-mode"] = "balanced"

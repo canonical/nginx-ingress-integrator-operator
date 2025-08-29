@@ -248,6 +248,60 @@ def test_strip_prefix(k8s_stub: K8sStub, harness: Harness, ingress_relation):
 
     annotations = ingress.metadata.annotations
     assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/$2"
+    assert annotations["nginx.ingress.kubernetes.io/use-regex"] == "true"
 
     spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path_type == "ImplementationSpecific"
     assert spec.path.endswith("(/|$)(.*)")
+
+
+def test_rewrite_enabled_static(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation with rewrite-enabled only.
+    act: update relation with rewrite-enabled=True and explicit rewrite-target="/".
+    assert: rewrite-target is static, pathType is Prefix, no regex.
+    """
+    harness.begin()
+    app_data = ingress_relation.gen_example_app_data()
+    ingress_relation.update_app_data(app_data)
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config(
+        {"service-hostname": "example.com", "rewrite-enabled": True, "rewrite-target": "/"}
+    )
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+
+    annotations = ingress.metadata.annotations
+    assert annotations["nginx.ingress.kubernetes.io/rewrite-target"] == "/"
+    assert "nginx.ingress.kubernetes.io/use-regex" not in annotations
+
+    spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path_type == "Prefix"
+    assert spec.path == f"/{harness.charm.model.name}-app"
+
+
+def test_no_rewrite_no_strip(k8s_stub: K8sStub, harness: Harness, ingress_relation):
+    """
+    arrange: set up test harness and ingress relation with neither strip-prefix nor rewrite.
+    act: update relation without rewrite-enabled and without strip-prefix.
+    assert: no rewrite annotations and pathType=Prefix.
+    """
+    harness.begin()
+    app_data = ingress_relation.gen_example_app_data()
+    # explicitly ensure no rewrite flags
+    app_data.pop("rewrite-enabled", None)
+    app_data.pop("rewrite-target", None)
+    ingress_relation.update_app_data(app_data)
+    ingress_relation.update_unit_data(ingress_relation.gen_example_unit_data())
+    harness.update_config({"service-hostname": "example.com"})
+
+    ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
+
+    annotations = ingress.metadata.annotations
+    assert "nginx.ingress.kubernetes.io/rewrite-target" not in annotations
+    assert "nginx.ingress.kubernetes.io/use-regex" not in annotations
+
+    spec = ingress.spec.rules[0].http.paths[0]
+    assert spec.path_type == "Prefix"
+    # should be plain prefix path, no regex bits
+    assert "(" not in spec.path and ")" not in spec.path

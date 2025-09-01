@@ -380,7 +380,6 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         Return the value following this priority rules:
         - If use-regex exists in charm config
         - If the relation is an ingress relation, based on the strip-prefix attribute
-        - Based on the rewrite-enabled attribute
         - Otherwise (if the relation is nginx-route) based on the use-regex attribute
         """
         value = self._get_config("use-regex")
@@ -398,9 +397,6 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
                     return True
             except DataValidationError as exc:
                 raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
-
-        if self.rewrite_enabled and "$" in self.rewrite_target:
-            return True
 
         value = self._get_relation("use-regex")
         return value is not None and str(value).lower() == "true"

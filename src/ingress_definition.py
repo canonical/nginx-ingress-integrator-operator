@@ -374,6 +374,34 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         return cast(str, self._get_relation("rewrite-target", "/"))
 
     @property
+    def use_regex(self) -> bool:
+        """Return whether regex matching should be enabled.
+
+        Return the value following this priority rules:
+        - If use-regex exists in charm config
+        - If the relation is an ingress relation, based on the strip-prefix attribute
+        - Otherwise (if the relation is nginx-route) based on the use-regex attribute
+        """
+        value = self._get_config("use-regex")
+        if value is not None:
+            return str(value).lower() == "true"
+
+        if self.is_ingress_relation:
+            try:
+                strip_prefix = (
+                    cast(IngressPerAppProvider, self.ingress_provider)
+                    .get_data(self.relation)
+                    .app.strip_prefix
+                )
+                if strip_prefix:
+                    return True
+            except DataValidationError as exc:
+                raise InvalidIngressError(msg=f"{exc}, cause: {exc.__cause__!r}") from exc
+
+        value = self._get_relation("use-regex")
+        return value is not None and str(value).lower() == "true"
+
+    @property
     def service_namespace(self) -> str:
         """Return the namespace to operate on."""
         if self.is_ingress_relation:
@@ -634,6 +662,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
     retry_errors: str
     rewrite_enabled: bool
     rewrite_target: str
+    use_regex: bool
     service_hostname: str
     service_name: str
     service_namespace: str
@@ -682,6 +711,7 @@ class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-ins
             retry_errors=essence.retry_errors,
             rewrite_enabled=essence.rewrite_enabled,
             rewrite_target=essence.rewrite_target,
+            use_regex=essence.use_regex,
             service_hostname=essence.service_hostname,
             service_name=essence.service_name,
             service_namespace=essence.service_namespace,

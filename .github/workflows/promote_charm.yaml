@@ -30,4 +30,5 @@ jobs:
       origin-channel: ${{ github.event.inputs.origin-channel }}
       destination-channel: ${{ github.event.inputs.destination-channel }}
       base-architecture:  ${{ github.event.inputs.base-architecture }}
+      base-channel: 22.04
     secrets: inherit

@@ -127,6 +127,8 @@ that can be used for linting and formatting code when you're preparing contribut
 * ``tox -e fmt``: Runs formatting using ``black`` and ``isort``.
 * ``tox -e lint``: Runs a range of static code analysis to check the code.
 * ``tox -e static``: Runs other checks such as ``bandit`` for security issues.
+* ``tox -e unit``: Runs the unit tests.
+* ``tox -e integration``: Runs the integration tests.
 
 ### Build the rock and charm
 

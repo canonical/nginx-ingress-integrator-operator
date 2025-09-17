@@ -30,7 +30,7 @@ Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/gettin
 Refer to [How to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) for step-by-step instructions.
 
 #### Add the ingress relation
-Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-ingress-relation) for step-by-step instructions.
+Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) for step-by-step instructions.
 
 
 ## Integrations

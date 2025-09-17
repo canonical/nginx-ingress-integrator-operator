@@ -35,5 +35,5 @@ If there's a particular area of documentation that you'd like to see that's miss
   1. [Libraries](https://charmhub.io/nginx-ingress-integrator/libraries/ingress)
 1. [Explanation](explanation)
   1. [Architecture](explanation/architecture.md)
+  1. [Security](explanation/security.md)
   1. [What is Ingress?](explanation/what-is-ingress.md)
-  1. [Roadmap](explanation/roadmap.md)

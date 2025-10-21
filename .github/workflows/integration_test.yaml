@@ -19,3 +19,9 @@ jobs:
       modules: '["test_ingress_relation", "test_nginx_route"]'
       juju-channel: 2.9/stable
       test-tox-env: integration-juju2
+  allure-report:
+    if: always() && !cancelled()
+    needs:
+      - integration-tests
+      - integration-tests-juju2
+    uses: canonical/operator-workflows/.github/workflows/allure_report.yaml@main

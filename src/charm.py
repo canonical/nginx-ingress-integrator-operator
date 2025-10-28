@@ -2,8 +2,6 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=protected-access,too-few-public-methods,too-many-lines
-
 """Nginx-ingress-integrator charm file."""
 
 import json

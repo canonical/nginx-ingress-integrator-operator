@@ -1,0 +1,59 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"
+    arrange: sample certificate charm has been deployed.
+    act: integrate the sample certificate provider charm to the given charm.
+    assert: the integration is successful.
+    ","25028","test_given_charms_deployed_when_relate_then_status_is_active","tests.integration","2025-10-28","passed","2025-10-28","","test_cert_relation","",""
+"
+    arrange: given charm has been built, deployed and integrated with a dependent application.
+    act: deploy another instance of the given charm.
+    assert: the process of deployment, integration and certificate provision is successful.
+    ","148537","test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs","tests.integration","2025-10-28","passed","2025-10-28","","test_cert_relation","",""
+"
+    arrange: given charm has been built and deployed,
+    act: update the additional-hostnames option in the nginx-route relation using any-charm.
+    assert: HTTP request with the additional-hostnames value as the host header should be
+        forwarded to the application correctly. And the additional-hostnames should exist
+        in the nginx-route relation data.
+    ","3038","test_update_additional_hosts","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""
+"
+    arrange: given charm has been built and deployed.
+    act: update the service-hostname option in any-charm.
+    assert: HTTP request with the service-hostname value as the host header should be forwarded
+        to the application correctly.
+    ","4","test_update_service_hostname","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""
+"Test the ingress relation with both strip_prefix settings.
+
+    Deploy ingress and any-charm, run HTTP test, and clean up.
+    ","117760","test_ingress_relation[True]","tests.integration","2025-10-28","passed","2025-10-28","","test_ingress_relation","",""
+"Test the ingress relation with both strip_prefix settings.
+
+    Deploy ingress and any-charm, run HTTP test, and clean up.
+    ","98243","test_ingress_relation[False]","tests.integration","2025-10-28","passed","2025-10-28","","test_ingress_relation","",""
+"
+    arrange: given charm has been built and deployed.
+    act: change the backend protocol.
+    assert: HTTP request should be forwarded to the application via GRPC
+        resulting in HTTP status code 502 Bad Gateway.
+    ","153812","test_ingress_connectivity_different_backend","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""
+"
+    arrange: given charm has been built, deployed and related to a certificate provider.
+    act: get the current certificates provided.
+    assert: the given charm has been provided a certificate successfully.
+    ","2032","test_given_charms_deployed_when_relate_then_requirer_received_certs","tests.integration","2025-10-28","passed","2025-10-28","","test_cert_relation","",""
+"
+    arrange: given charm has been built and deployed.
+    act: update the nginx-route relation data with service-name missing.
+    assert: Nginx ingress integrator charm should enter blocked status.
+    ","17123","test_missing_field","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""
+"
+    arrange: given charm has been built and deployed.
+    act: access ingress IP address with correct host name in HTTP headers.
+    assert: HTTP request should be forwarded to the application, while a HTTP request without the
+        correct Host header should return with a response of 404 NOT FOUND.
+    ","9","test_ingress_connectivity","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""
+"
+    arrange: given charm has been built and deployed.
+    act: change the backend protocol.
+    assert: unit status is blocked.
+    ","37197","test_ingress_connectivity_invalid_backend","tests.integration","2025-10-28","passed","2025-10-28","","test_nginx_route","",""

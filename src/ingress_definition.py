@@ -635,7 +635,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
 
 
 @dataclasses.dataclass
-class IngressDefinition:  # pylint: disable=too-many-public-methods,too-many-instance-attributes
+class IngressDefinition:  # pylint: disable=too-many-instance-attributes
     """Class containing ingress definition collected from the Charm configuration or relation.
 
     See config.yaml for descriptions of each property.

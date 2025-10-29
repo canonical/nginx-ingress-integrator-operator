@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 
 # mypy: disable-error-code="union-attr"
-# pylint: disable=redefined-outer-name,subprocess-run-check,consider-using-with,duplicate-code
+# pylint: disable=subprocess-run-check,consider-using-with,duplicate-code
 
 """General configuration module for integration tests."""
 from pathlib import Path
@@ -25,8 +25,8 @@ NEW_INGRESS = "any-other-ingress"
 NEW_PORT = 18080
 
 
-@fixture(scope="module")
-def metadata():
+@fixture(scope="module", name="metadata")
+def metadata_fixture():
     """Provide charm metadata."""
     yield yaml.safe_load(Path("./metadata.yaml").read_text(encoding="utf8"))
 
@@ -96,8 +96,8 @@ def wait_for_ingress(ops_test: OpsTest):
     return _wait_for_ingress
 
 
-@fixture(scope="module")
-def get_ingress_annotation(ops_test: OpsTest):
+@fixture(scope="module", name="get_ingress_annotation")
+def get_ingress_annotation_fixture(ops_test: OpsTest):
     """Create a function that will retrieve all annotation from a ingress by its name."""
     assert ops_test.model
     kubernetes.config.load_kube_config()

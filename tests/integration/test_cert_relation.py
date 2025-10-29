@@ -1,7 +1,7 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=redefined-outer-name,unused-argument,duplicate-code
+# pylint: disable=unused-argument,duplicate-code
 
 """Integration test relation file."""
 
@@ -70,7 +70,6 @@ def gen_src_overwrite(
 @pytest_asyncio.fixture(scope="module")
 async def build_and_deploy(
     model: Model,
-    ops_test: OpsTest,
     deploy_any_charm,
     run_action,
     build_and_deploy_ingress,

@@ -1,0 +1,33 @@
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  any/0 [idle] active: 
+  ingress/0 [executing] active: Ingress IP(s): 127.0.0.1
+[32mINFO    [0m pytest_operator.plugin:plugin.py:951 Model status:
+
+Model    Controller                Cloud/Region        Version  SLA          Timestamp
+testing  github-pr-7687e-microk8s  microk8s/localhost  3.6.11   unsupported  19:39:31Z
+
+App      Version  Status   Scale  Charm                     Channel      Rev  Address         Exposed  Message
+any               active       1  any-charm                 latest/beta  100  10.152.183.54   no       
+ingress  24.2.0   blocked      1  nginx-ingress-integrator                 0  10.152.183.100  no       Missing fields for nginx-route: service-name
+
+Unit        Workload  Agent  Address      Ports  Message
+any/0*      active    idle   10.1.126.9          
+ingress/0*  blocked   idle   10.1.126.10         Missing fields for nginx-route: service-name
+
+[32mINFO    [0m pytest_operator.plugin:plugin.py:957 Juju error logs:
+
+unit-ingress-0: 19:36:01 ERROR unit.ingress/0.juju-log Invalid ingress definition
+unit-ingress-0: 19:36:01 ERROR unit.ingress/0.juju-log Invalid ingress definition
+unit-ingress-0: 19:36:01 ERROR unit.ingress/0.juju-log Invalid ingress definition
+Traceback (most recent call last):
+  File "/var/lib/juju/agents/unit-ingress-0/charm/./src/charm.py", line 270, in _update_ingress
+    definition = self._get_definition_from_relation(relation)
+  File "/var/lib/juju/agents/unit-ingress-0/charm/./src/charm.py", line 181, in _get_definition_from_relation
+    ingress_definition = IngressDefinition.from_essence(definition_essence)
+  File "/var/lib/juju/agents/unit-ingress-0/charm/src/ingress_definition.py", line 694, in from_essence
+    backend_protocol=essence.backend_protocol,
+  File "/var/lib/juju/agents/unit-ingress-0/charm/src/ingress_definition.py", line 217, in backend_protocol
+    raise InvalidIngressError(
+exceptions.InvalidIngressError: invalid backend protocol 'FAKE', valid values: HTTP, HTTPS, GRPC, GRPCS, FCGI
+
+[32mINFO    [0m pytest_operator.plugin:plugin.py:1039 Forgetting model main...

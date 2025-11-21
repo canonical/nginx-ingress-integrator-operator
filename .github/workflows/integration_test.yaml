@@ -24,7 +24,7 @@ jobs:
       juju-channel: 2.9/stable
       test-tox-env: integration-juju2
   allure-report:
-    if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+    if: ${{ !cancelled() && github.event_name == 'schedule' }}
     needs:
     - integration-tests
     - integration-tests-juju2

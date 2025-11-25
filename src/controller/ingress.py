@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s ingress controller."""
 
-
 import logging
 import time
 from enum import Enum
@@ -29,9 +28,7 @@ class PathType(str, Enum):
     IMPLEMENTATION_SPECIFIC = "ImplementationSpecific"
 
 
-class IngressController(
-    ResourceController[kubernetes.client.V1Ingress]
-):  # pylint: disable=inherit-non-class
+class IngressController(ResourceController[kubernetes.client.V1Ingress]):  # pylint: disable=inherit-non-class
     """Kubernetes Ingress resource controller."""
 
     def __init__(

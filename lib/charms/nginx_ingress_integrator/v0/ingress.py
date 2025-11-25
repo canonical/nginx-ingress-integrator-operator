@@ -206,7 +206,7 @@ class IngressRequires(Object):
         config_dict.update(
             (key, config_dict[old_key])
             for old_key, key in RELATION_INTERFACES_MAPPINGS.items()
-            if old_key in config_dict and config_dict[old_key]
+            if config_dict.get(old_key)
         )
         return config_dict
 

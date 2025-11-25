@@ -3,7 +3,6 @@
 
 """nginx-ingress-integrator charm unit tests."""
 
-
 import textwrap
 
 import kubernetes.client

@@ -7,22 +7,22 @@ on:
 
 jobs:
   integration-tests:
-    uses: 
-      canonical/operator-workflows/.github/workflows/integration_test.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
       channel: 1.34-strict/stable
       modules: '["test_cert_relation", "test_ingress_relation", "test_nginx_route"]'
       juju-channel: 3.6/stable
+      with-uv: true
   integration-tests-juju2:
-    uses: 
-      canonical/operator-workflows/.github/workflows/integration_test.yaml@main
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
       channel: 1.24/stable
       modules: '["test_ingress_relation", "test_nginx_route"]'
       juju-channel: 2.9/stable
       test-tox-env: integration-juju2
+      with-uv: true
   allure-report:
     if: ${{ !cancelled() && github.event_name == 'schedule' }}
     needs:

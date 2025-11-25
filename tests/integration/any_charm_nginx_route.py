@@ -5,6 +5,7 @@
 # pylint: disable=import-error,consider-using-with,duplicate-code
 
 """This code snippet is used to be loaded into any-charm which is used for integration tests."""
+
 import json
 import os
 import pathlib

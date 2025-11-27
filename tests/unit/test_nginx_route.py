@@ -106,12 +106,12 @@ def test_additional_hostnames(k8s_stub: K8sStub, harness: Harness, nginx_route_r
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
     rules = ingress.spec.rules
     assert len(rules) == 2
-    assert set(r.host for r in rules) == {"example.com", "www.example.com"}
+    assert {r.host for r in rules} == {"example.com", "www.example.com"}
     harness.update_config({"additional-hostnames": "example.net,example.org"})
     ingress = k8s_stub.get_ingresses(TEST_NAMESPACE)[0]
     rules = ingress.spec.rules
     assert len(rules) == 3
-    assert set(r.host for r in rules) == {"example.com", "example.net", "example.org"}
+    assert {r.host for r in rules} == {"example.com", "example.net", "example.org"}
 
 
 def test_backend_protocol(k8s_stub: K8sStub, harness: Harness, nginx_route_relation):

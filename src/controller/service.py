@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s service controller."""
 
-
 import typing
 
 import kubernetes.client
@@ -11,9 +10,7 @@ from controller.resource import ResourceController, _map_k8s_auth_exception
 from ingress_definition import IngressDefinition
 
 
-class ServiceController(
-    ResourceController[kubernetes.client.V1Service]
-):  # pylint: disable=inherit-non-class
+class ServiceController(ResourceController[kubernetes.client.V1Service]):  # pylint: disable=inherit-non-class
     """Kubernetes Service resource controller."""
 
     def __init__(self, namespace: str, labels: typing.Dict[str, str]) -> None:

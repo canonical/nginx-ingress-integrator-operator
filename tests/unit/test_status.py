@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 """nginx-ingress-integrator charm unit tests."""
+
 import pytest
 from ops.testing import Harness
 

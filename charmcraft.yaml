@@ -217,14 +217,7 @@ platforms:
 
 parts:
   charm:
+    source: .
+    plugin: uv
     build-snaps:
-      - rustup
-    override-build: |
-      rustup default stable
-      craftctl default
-    build-packages:
-      - build-essential
-      - python3-dev
-      - pkg-config
-      - libffi-dev
-      - libssl-dev
+    - astral-uv

@@ -1,5 +1,0 @@
-kubernetes==24.2.0 # last version with DiscoveryV1beta1Api
-ops==3.4.0
-jsonschema==4.25.1
-cryptography==46.0.3
-pydantic ==2.12.5

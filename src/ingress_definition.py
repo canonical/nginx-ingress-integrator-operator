@@ -455,9 +455,7 @@ class IngressDefinitionEssence:  # pylint: disable=too-many-public-methods
         result = re.fullmatch(
             "[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*", hostname
         )
-        if result:
-            return True
-        return False
+        return bool(result)
 
     @property
     def service_hostname(self) -> str:

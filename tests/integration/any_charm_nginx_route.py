@@ -5,6 +5,7 @@
 # pylint: disable=import-error,consider-using-with,duplicate-code
 
 """This code snippet is used to be loaded into any-charm which is used for integration tests."""
+
 import json
 import os
 import pathlib
@@ -66,12 +67,12 @@ class AnyCharm(AnyCharmBase):
         if pid_file.exists():
             os.kill(int(pid_file.read_text(encoding="utf8")), signal.SIGKILL)
             pid_file.unlink()
-        log_file_object = pathlib.Path("/tmp/any.log").open("wb+")
-        proc_http = subprocess.Popen(
-            ["python3", "-m", "http.server", "-d", www_dir, str(port)],
-            start_new_session=True,
-            stdout=log_file_object,
-            stderr=log_file_object,
-        )
-        pid_file.write_text(str(proc_http.pid), encoding="utf8")
+        with pathlib.Path("/tmp/any.log").open("wb+") as log_file_object:
+            proc_http = subprocess.Popen(
+                ["python3", "-m", "http.server", "-d", www_dir, str(port)],
+                start_new_session=True,
+                stdout=log_file_object,
+                stderr=log_file_object,
+            )
+            pid_file.write_text(str(proc_http.pid), encoding="utf8")
         return port

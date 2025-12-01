@@ -70,6 +70,7 @@ juju config nginx-ingress-integrator service-hostname='my-charm.example.com'
 # 'http://my-charm.example.com'.
 ```
 """
+
 import logging
 import typing
 import weakref
@@ -88,7 +89,7 @@ LIBAPI = 0
 # to 0 if you are raising the major API version
 LIBPATCH = 7
 
-__all__ = ["require_nginx_route", "provide_nginx_route"]
+__all__ = ["provide_nginx_route", "require_nginx_route"]
 
 logger = logging.getLogger(__name__)
 
@@ -173,7 +174,7 @@ class NginxRouteRequirer(ops.framework.Object):
 # C901 is ignored since the method has too many ifs but wouldn't be
 # necessarily good to reduce to smaller methods.
 # E501: line too long
-def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,too-many-arguments # noqa: C901,E501
+def require_nginx_route(  # pylint: disable=too-many-locals,too-many-branches,too-many-arguments # noqa: C901
     *,
     charm: ops.charm.CharmBase,
     service_hostname: str,

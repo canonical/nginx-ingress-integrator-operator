@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s endpoint controller."""
 
-
 from typing import Dict, List
 
 import kubernetes.client

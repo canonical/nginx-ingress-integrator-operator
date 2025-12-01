@@ -3,7 +3,6 @@
 
 """nginx-ingress-integrator charm unit test fixtures."""
 
-
 import copy
 import unittest.mock
 from collections import defaultdict

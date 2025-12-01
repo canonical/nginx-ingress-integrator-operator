@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s endpoint slice controller."""
 
-
 from typing import Dict, List
 
 import kubernetes.client
@@ -11,9 +10,7 @@ from controller.resource import ResourceController, _map_k8s_auth_exception
 from ingress_definition import IngressDefinition
 
 
-class EndpointSliceController(
-    ResourceController[kubernetes.client.V1EndpointSlice]
-):  # pylint: disable=inherit-non-class
+class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSlice]):  # pylint: disable=inherit-non-class
     """Kubernetes EndpointSlice resource controller."""
 
     def __init__(self, namespace: str, labels: Dict[str, str]) -> None:

@@ -5,6 +5,7 @@
 # pylint: disable=subprocess-run-check,consider-using-with,duplicate-code
 
 """General configuration module for integration tests."""
+
 from pathlib import Path
 
 import kubernetes

@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s secret controller."""
 
-
 import logging
 import typing
 

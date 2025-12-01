@@ -314,7 +314,7 @@ class IngressBaseProvides(Object):
 
         relation_name = event.relation.name
 
-        assert event.app is not None  # nosec
+        assert event.app is not None  # nosec  # noqa: S101
         if not event.relation.data[event.app]:
             LOGGER.info(
                 "%s hasn't finished configuring, waiting until relation is changed again.",

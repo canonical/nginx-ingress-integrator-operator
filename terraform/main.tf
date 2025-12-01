@@ -2,8 +2,7 @@
 # See LICENSE file for licensing details.
 
 resource "juju_application" "nginx_ingress_integrator" {
-  name  = var.app_name
-  model = var.model
+  name = var.app_name
 
   charm {
     name     = "nginx-ingress-integrator"
@@ -12,7 +11,8 @@ resource "juju_application" "nginx_ingress_integrator" {
     revision = var.revision
   }
 
-  config = var.config
-  units  = var.units
-  trust  = true
+  config     = var.config
+  units      = var.units
+  trust      = true
+  model_uuid = var.model_uuid
 }

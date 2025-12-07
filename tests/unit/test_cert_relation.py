@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-from charms.tls_certificates_interface.v4.tls_certificates import (
+from charmlibs.interfaces.tls_certificates import (
     Certificate,
     CertificateAvailableEvent,
     PrivateKey,

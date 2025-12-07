@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
 from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from charms.tls_certificates_interface.v4.tls_certificates import (
+from charmlibs.interfaces.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,

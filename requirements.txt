@@ -3,3 +3,4 @@ ops==3.4.0
 jsonschema==4.25.1
 cryptography==46.0.3
 pydantic ==2.12.5
+charmlibs-interfaces-tls-certificates==1.2.0

@@ -9,12 +9,12 @@ import logging
 from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
-from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from charmlibs.interfaces.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,
 )
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops import JujuVersion
 from ops.charm import ActionEvent, CharmBase

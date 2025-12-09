@@ -162,7 +162,7 @@ class TestCertificatesRelation(unittest.TestCase):
             private_key,
         )
         self.harness.set_leader(True)
-        _, tls_rel_id, _ = self.set_up_all_relations()
+        _, _tls_rel_id, _ = self.set_up_all_relations()
         self.harness.disable_hooks()
         charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
         event = MagicMock(spec=ActionEvent)
@@ -214,14 +214,14 @@ class TestCertificatesRelation(unittest.TestCase):
         act: when the _on_get_certificate_action method is executed
         assert: the charm gets the certificate appropriately.
         """
-        provider_cert_mock, private_key = self.generate_certificates()
+        _provider_cert_mock, private_key = self.generate_certificates()
         self.harness.charm.certificates = MagicMock()
         self.harness.charm.certificates.get_assigned_certificates.return_value = (
             [],
             private_key,
         )
         self.harness.set_leader(True)
-        _, tls_rel_id, _ = self.set_up_all_relations()
+        _, _tls_rel_id, _ = self.set_up_all_relations()
         self.harness.disable_hooks()
         charm: NginxIngressCharm = typing.cast(NginxIngressCharm, self.harness.charm)
         event = MagicMock(spec=ActionEvent)

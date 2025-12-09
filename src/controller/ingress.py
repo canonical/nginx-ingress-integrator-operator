@@ -2,7 +2,7 @@
 # See LICENSE file for licensing details.
 """nginx-ingress-integrator k8s ingress controller."""
 
-
+import contextlib
 import logging
 import time
 from enum import Enum
@@ -29,9 +29,7 @@ class PathType(str, Enum):
     IMPLEMENTATION_SPECIFIC = "ImplementationSpecific"
 
 
-class IngressController(
-    ResourceController[kubernetes.client.V1Ingress]
-):  # pylint: disable=inherit-non-class
+class IngressController(ResourceController[kubernetes.client.V1Ingress]):  # pylint: disable=inherit-non-class
     """Kubernetes Ingress resource controller."""
 
     def __init__(
@@ -208,7 +206,7 @@ class IngressController(
                     secret_name=f"{self._labels[CREATED_BY_LABEL]}-cert-tls-secret-{hostname}",
                 )
                 for hostname in hostnames
-                if hostname in definition.tls_cert.keys()
+                if hostname in definition.tls_cert
             ]
         else:
             annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "false"
@@ -281,11 +279,9 @@ class IngressController(
         ips = []
         while time.time() < deadline:
             ingresses = self._list_resource()
-            try:
+            # We have no IPs yet if TypeError is raised.
+            with contextlib.suppress(TypeError):
                 ips = [x.status.load_balancer.ingress[0].ip for x in ingresses]
-            except TypeError:
-                # We have no IPs yet.
-                pass
             if ips:
                 break
             LOGGER.info("Sleeping for %s seconds to wait for ingress IP", 1)

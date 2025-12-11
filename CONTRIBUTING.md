@@ -1,19 +1,24 @@
 # Contributing
 
-This document explains the processes and practices recommended for contributing enhancements to the Nginx Ingress Integrator Operator charm.
+This document explains the processes and practices recommended for contributing enhancements to the Nginx Ingress Integrator charm.
 
 ## Overview
 
-- Generally, before developing enhancements to this charm, you should consider [opening an issue](https://github.com/canonical/nginx-ingress-integrator-operator/issues) explaining your use case.
-- If you would like to chat with us about your use-cases or proposed implementation, you can reach us at [Canonical Matrix public channel](https://matrix.to/#/#charmhub-charmdev:ubuntu.com) or [Discourse](https://discourse.charmhub.io/).
-- Familiarizing yourself with the [Juju documentation](https://canonical-juju.readthedocs-hosted.com/en/latest/user/howto/manage-charms/) will help you a lot when working on new features or bug fixes.
+- Generally, before developing enhancements to this charm, you should consider [opening an issue
+  ](https://github.com/canonical/nginx-ingress-integrator-operator/issues) explaining your use case.
+- If you would like to chat with us about your use-cases or proposed implementation, you can reach
+  us at [Canonical Matrix public channel](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
+  or [Discourse](https://discourse.charmhub.io/).
+- Familiarizing yourself with the [Juju documentation](https://documentation.ubuntu.com/juju/3.6/howto/manage-charms/)
+  will help you a lot when working on new features or bug fixes.
 - All enhancements require review before being merged. Code review typically examines
-   - code quality
-   - test coverage
-   - user experience for Juju operators of this charm.
+  - code quality
+  - test coverage
+  - user experience for Juju operators of this charm.
 - Once your pull request is approved, we squash and merge your pull request branch onto
   the `main` branch. This creates a linear Git commit history.
-- For further information on contributing, please refer to our [Contributing Guide](https://github.com/canonical/is-charms-contributing-guide).
+- For further information on contributing, please refer to our
+  [Contributing Guide](https://github.com/canonical/is-charms-contributing-guide).
 
 ## Code of conduct
 
@@ -23,7 +28,7 @@ When contributing, you must abide by the
 ## Changelog
 
 Please ensure that any new feature, fix, or significant change is documented by
-adding an entry to the [CHANGELOG.md](https://github.com/canonical/nginx-ingress-integrator-operator/blob/main/docs/changelog.md) file. Use the date of the
+adding an entry to the [CHANGELOG.md](./docs/changelog.md) file. Use the date of the
 contribution as the header for new entries.
 
 To learn more about changelog best practices, visit [Keep a Changelog](https://keepachangelog.com/).
@@ -83,8 +88,8 @@ we use the [Canonical contributor license agreement](https://assets.ubuntu.com/v
 
 #### Canonical contributor agreement
 
-Canonical welcomes contributions to the Nginx Ingress Integrator Operator charm. Please check out our
-[contributor agreement](https://canonical.com/legal/contributors) if you're interested in contributing to the solution.
+Canonical welcomes contributions to the Nginx Ingress Integrator charm. Please check out our
+[contributor agreement](https://ubuntu.com/legal/contributors) if you're interested in contributing to the solution.
 
 The CLA sign-off is simple line at the
 end of the commit message certifying that you wrote it
@@ -107,23 +112,36 @@ The code for this charm can be downloaded as follows:
 git clone https://github.com/canonical/nginx-ingress-integrator-operator
 ```
 
-You can create an environment for development with `python3-venv`.
-We will also install `tox` inside the virtual environment for testing:
+Make sure to install [`uv`](https://docs.astral.sh/uv/). For example, you can install `uv` on Ubuntu using:
 
 ```bash
-sudo apt install python3-venv
-python3 -m venv venv
-source venv/bin/activate
-pip install tox
+sudo snap install astral-uv --classic
 ```
 
-## Test
+For other systems, follow the [`uv` installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+
+Then install `tox` with its extensions, and install a range of Python versions:
+
+```bash
+uv python install
+uv tool install tox --with tox-uv
+uv tool update-shell
+```
+
+To create a development environment, run:
+
+```bash
+uv sync
+source .venv/bin/activate
+```
+
+### Test
 
 This project uses `tox` for managing test environments. There are some pre-configured environments
 that can be used for linting and formatting code when you're preparing contributions to the charm:
 
 * ``tox``: Executes all of the basic checks and tests (``lint``, ``unit``, ``static``, and ``coverage-report``).
-* ``tox -e fmt``: Runs formatting using ``black`` and ``isort``.
+* ``tox -e fmt``: Runs formatting using ``ruff``.
 * ``tox -e lint``: Runs a range of static code analysis to check the code.
 * ``tox -e static``: Runs other checks such as ``bandit`` for security issues.
 * ``tox -e unit``: Runs the unit tests.
@@ -131,8 +149,8 @@ that can be used for linting and formatting code when you're preparing contribut
 
 ### Build the rock and charm
 
-Use [Rockcraft](https://documentation.ubuntu.com/rockcraft/en/latest/) to create an
-OCI image for the Nginx Ingress Integrator Operator app, and then upload the image to a MicroK8s registry,
+Use [Rockcraft](https://documentation.ubuntu.com/rockcraft/stable/) to create an
+OCI image for the Nginx Ingress Integrator app, and then upload the image to a MicroK8s registry,
 which stores OCI archives so they can be downloaded and deployed.
 
 Enable the MicroK8s registry:
@@ -163,6 +181,6 @@ charmcraft pack
 juju add-model charm-dev
 # Enable DEBUG logging
 juju model-config logging-config="<root>=INFO;unit=DEBUG"
-# Deploy the charm (assuming you're on amd64)
-juju deploy ./nginx-ingress-integrator_ubuntu-22.04-amd64.charm 
+# Deploy the charm
+juju deploy ./nginx-ingress-integrator*.charm
 ```

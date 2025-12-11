@@ -1,4 +1,0 @@
-kubernetes==24.2.0 # last version with DiscoveryV1beta1Api
-ops==3.4.0
-pydantic ==2.12.5
-charmlibs-interfaces-tls-certificates==1.2.0

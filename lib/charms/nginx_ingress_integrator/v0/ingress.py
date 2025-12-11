@@ -206,7 +206,7 @@ class IngressRequires(Object):
         config_dict.update(
             (key, config_dict[old_key])
             for old_key, key in RELATION_INTERFACES_MAPPINGS.items()
-            if old_key in config_dict and config_dict[old_key]
+            if config_dict.get(old_key)
         )
         return config_dict
 
@@ -314,7 +314,7 @@ class IngressBaseProvides(Object):
 
         relation_name = event.relation.name
 
-        assert event.app is not None  # nosec
+        assert event.app is not None  # nosec  # noqa: S101
         if not event.relation.data[event.app]:
             LOGGER.info(
                 "%s hasn't finished configuring, waiting until relation is changed again.",

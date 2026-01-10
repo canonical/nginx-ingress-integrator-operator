@@ -1,0 +1,51 @@
+[32mINFO    [0m juju.model:__init__.py:2301 Deploying local:jammy/nginx-ingress-integrator-1
+[32mINFO    [0m juju.model:__init__.py:2301 Deploying ch:amd64/noble/any-charm-124
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  ingress/0 [idle] active: Ingress IP(s): 127.0.0.1
+  any/0 [idle] active: 
+  self-signed-certificates/0 [idle] active: 
+  ingress2/0 [allocating] waiting: installing agent
+  any2/0 [allocating] waiting: installing agent
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  any2/0 [idle] active: 
+[33mWARNING [0m juju.model:__init__.py:1683 relate is deprecated and will be removed. Use integrate instead.
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  ingress/0 [idle] active: Ingress IP(s): 127.0.0.1
+  any/0 [idle] active: 
+  self-signed-certificates/0 [idle] active: 
+  ingress2/0 [executing] waiting: waiting for relation
+  any2/0 [executing] active: 
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  ingress2/0 [executing] waiting: Waiting for ingress IP availability
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  ingress2/0 [executing] waiting: Waiting for ingress IP availability
+[33mWARNING [0m juju.model:__init__.py:1683 relate is deprecated and will be removed. Use integrate instead.
+[32mINFO    [0m juju.model:__init__.py:3254 Waiting for model:
+  self-signed-certificates/0 [idle] active: 
+  ingress2/0 [executing] active: Ingress IP(s): 127.0.0.1
+[32mINFO    [0m tests.integration.test_cert_relation:test_cert_relation.py:189 Certificate received
+[32mINFO    [0m pytest_operator.plugin:plugin.py:951 Model status:
+
+Model    Controller                Cloud/Region        Version  SLA          Timestamp
+testing  github-pr-ffe65-microk8s  microk8s/localhost  3.6.12   unsupported  15:18:41Z
+
+App                       Version  Status  Scale  Charm                     Channel      Rev  Address         Exposed  Message
+any                                active      1  any-charm                 latest/beta  124  10.152.183.118  no       
+any2                               active      1  any-charm                 latest/beta  124  10.152.183.254  no       
+ingress                   24.2.0   active      1  nginx-ingress-integrator                 0  10.152.183.69   no       Ingress IP(s): 127.0.0.1
+ingress2                  24.2.0   active      1  nginx-ingress-integrator                 1  10.152.183.99   no       Ingress IP(s): 127.0.0.1
+self-signed-certificates           active      1  self-signed-certificates  1/stable     317  10.152.183.175  no       
+
+Unit                         Workload  Agent  Address       Ports  Message
+any2/0*                      active    idle   10.1.141.145         
+any/0*                       active    idle   10.1.141.142         
+ingress2/0*                  active    idle   10.1.141.144         Ingress IP(s): 127.0.0.1
+ingress/0*                   active    idle   10.1.141.141         Ingress IP(s): 127.0.0.1
+self-signed-certificates/0*  active    idle   10.1.141.143         
+
+[32mINFO    [0m pytest_operator.plugin:plugin.py:957 Juju error logs:
+
+unit-self-signed-certificates-0: 15:15:47 ERROR unit.self-signed-certificates/0.juju-log certificates:3: At least 1 matching relation ID not found with the relation name 'send-ca-cert'
+unit-self-signed-certificates-0: 15:18:15 ERROR unit.self-signed-certificates/0.juju-log certificates:7: At least 1 matching relation ID not found with the relation name 'send-ca-cert'
+
+[32mINFO    [0m pytest_operator.plugin:plugin.py:1039 Forgetting model main...

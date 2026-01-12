@@ -298,16 +298,16 @@ wheels = [
 
 [[package]]
 name = "charmlibs-interfaces-tls-certificates"
-version = "1.2.0"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "ops" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/61/78/92c123d5e78c0e5d677f549fc103ba782a903a3a64767c309b1623c262fa/charmlibs_interfaces_tls_certificates-1.2.0.tar.gz", hash = "sha256:cdfc9bdee251830db80a5fcb11affaf53f840aeb06e19ff6b5c4304153ef8419", size = 122490, upload-time = "2025-12-06T10:29:20.173Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/c6/98bdbea34a6889774ce7fde1dc7f1fc16a603900d4530c34779503900ec4/charmlibs_interfaces_tls_certificates-1.3.0.tar.gz", hash = "sha256:db9ccd7af335b51c69c3f82ff4637a77adbfa017e2dc137bed2fcee30839547d", size = 126761, upload-time = "2025-12-17T18:24:31.131Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/52/58fe2d50b77c76b6c399729292bcedb2ef7d241cac2a92f0675f19e143bc/charmlibs_interfaces_tls_certificates-1.2.0-py3-none-any.whl", hash = "sha256:65a83b69487c67817d7a74195c1c7e828d6e69c85a60a37310254f59db9ad692", size = 21208, upload-time = "2025-12-06T10:29:18.576Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/9f/5511c063bed2f3cb7deb40100de9675deb144bf121026af361ba2487087c/charmlibs_interfaces_tls_certificates-1.3.0-py3-none-any.whl", hash = "sha256:20463ff94e9b45d54cbccc5b2dde43ab486f3805461a65d9c11e66c2ce8f1261", size = 22577, upload-time = "2025-12-17T18:24:29.753Z" },
 ]
 
 [[package]]
@@ -600,7 +600,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -1200,7 +1200,7 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.2.0" },
+    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.3.0" },
     { name = "kubernetes", specifier = "==24.2" },
     { name = "ops", specifier = "==3.5.0" },
     { name = "pydantic", specifier = "==2.12.4" },

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-01-12
+
+- Switched from legacy Charmhub-hosted TLS certificates lib to `charmlibs.interfaces.tls_certificates`.
+
 ## 2025-12-17
 
 - Moved architecture.md from Explanation to Reference category.

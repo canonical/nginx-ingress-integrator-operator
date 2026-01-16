@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
   "cryptography==46.0.3",
   "jsonschema==4.26.0",
-  "kubernetes==24.2",
+  "kubernetes==35.0.0",
   "ops==3.5.0",
   "pydantic==2.12.4",
 ]

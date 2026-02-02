@@ -9,12 +9,12 @@ import logging
 from typing import Any, Dict, List, Optional, Union, cast
 
 import kubernetes.client
-from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
-from charms.tls_certificates_interface.v4.tls_certificates import (
+from charmlibs.interfaces.tls_certificates import (
     CertificateRequestAttributes,
     Mode,
     TLSCertificatesRequiresV4,
 )
+from charms.nginx_ingress_integrator.v0.nginx_route import provide_nginx_route
 from charms.traefik_k8s.v2.ingress import IngressPerAppProvider
 from ops import JujuVersion
 from ops.charm import ActionEvent, CharmBase
@@ -399,7 +399,7 @@ class NginxIngressCharm(CharmBase):
         relation = self.model.get_relation(TLS_CERT)
         return relation
 
-    def _get_certificate_requests(self) -> List[str]:
+    def _get_certificate_requests(self) -> List[CertificateRequestAttributes]:
         """Get the certificate requests for the charm."""
         hostnames = self.get_all_hostnames()
         return [

@@ -125,22 +125,6 @@ commands = [
 ]
 dependency_groups = [ "integration" ]
 
-[env.integration-juju2]
-description = "Run integration tests"
-commands = [
-  [
-    "pytest",
-    "-v",
-    "--tb",
-    "native",
-    "--ignore={[vars]tst_path}unit",
-    "--log-cli-level=INFO",
-    "-s",
-    { replace = "posargs", extend = "true" },
-  ],
-]
-dependency_groups = [ "integration-juju2" ]
-
 [env.lint-fix]
 description = "Apply coding style standards to code"
 commands = [

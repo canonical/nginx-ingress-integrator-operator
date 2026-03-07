@@ -142,9 +142,7 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
     juju.integrate(f"{ANY_APP_NAME_2}:nginx-route", relation_name)
     juju.wait(jubilant.all_agents_idle)
 
-    juju.integrate(
-        TLS_CERTIFICATES_PROVIDER_APP_NAME, f"{new_requirer_app_name}:certificates"
-    )
+    juju.integrate(TLS_CERTIFICATES_PROVIDER_APP_NAME, f"{new_requirer_app_name}:certificates")
     juju.wait(
         lambda s: jubilant.all_active(
             s, TLS_CERTIFICATES_PROVIDER_APP_NAME, new_requirer_app_name

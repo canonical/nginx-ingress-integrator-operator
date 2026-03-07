@@ -80,8 +80,7 @@ def wait_for_ingress(juju: jubilant.Juju):
         deadline = time.time() + 10 * 60
         while time.time() < deadline:
             names = [
-                ingress.metadata.name
-                for ingress in kube.list_namespaced_ingress(juju.model).items
+                ingress.metadata.name for ingress in kube.list_namespaced_ingress(juju.model).items
             ]
             if ingress_name in names:
                 return

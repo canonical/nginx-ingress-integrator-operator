@@ -12,7 +12,7 @@ import pytest
 import requests
 
 
-def make_any_charm_source(strip_prefix: bool = False, model_name: str = "testing") -> str:
+def make_any_charm_source(strip_prefix: bool = False, model_name: str | None = "testing") -> str:
     """Generate the source code for the any-charm with ingress relation.
 
     Args:

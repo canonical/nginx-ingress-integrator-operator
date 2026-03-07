@@ -57,9 +57,17 @@ integration = [
   "pytest",
   "pytest-jubilant",
 ]
+integration-juju2 = [
+  "allure-pytest>=2.8.18",
+  "allure-pytest-collection-report @ git+https://github.com/canonical/data-platform-workflows@v24.0.0#subdirectory=python/pytest_plugins/allure_pytest_collection_report",
+  "jubilant-backports",
+  "pytest",
+  "pytest-jubilant",
+]
 
 [tool.uv]
 package = false
+conflicts = [ [ { group = "integration" }, { group = "integration-juju2" } ] ]
 
 [tool.ruff]
 target-version = "py310"

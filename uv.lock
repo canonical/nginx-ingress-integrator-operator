@@ -307,16 +307,16 @@ wheels = [
 
 [[package]]
 name = "charmlibs-interfaces-tls-certificates"
-version = "1.7.0"
+version = "1.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "ops" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/fa/9c20a264c42adcad31293e4588e421c53ae24c105199e4e1c9d7374a4e64/charmlibs_interfaces_tls_certificates-1.7.0.tar.gz", hash = "sha256:7fe79c78fab51a864c96d8d731049479610a014152a75dd585568ad268ecaafa", size = 145552, upload-time = "2026-02-19T10:43:57.758Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/7e/166af1e71f2bf96482845a1806dc345cbc5507134a99ccbbae297f174e4b/charmlibs_interfaces_tls_certificates-1.8.1.tar.gz", hash = "sha256:f2bfabf3a3b4c18034941771733177b30e4742c06d7742d4bb30da6ead953f43", size = 148059, upload-time = "2026-02-27T13:46:50.086Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/13/e37838eb262a18c138851d7c3632678525bc2af886fb06fc75627018745c/charmlibs_interfaces_tls_certificates-1.7.0-py3-none-any.whl", hash = "sha256:a810191f804d6875704390f57ed46775ad94a0d9932785c71d9459f30db30f6d", size = 26728, upload-time = "2026-02-19T10:43:56.441Z" },
+    { url = "https://files.pythonhosted.org/packages/95/17/1d1b0083800f4cc20f42e5d2763521d93975376499565c62da5276a80629/charmlibs_interfaces_tls_certificates-1.8.1-py3-none-any.whl", hash = "sha256:8e8fe047e02515d76f57a1d019056d72ce8c859c2ffb39a1e379cfc11fc048e6", size = 28208, upload-time = "2026-02-27T13:46:48.959Z" },
 ]
 
 [[package]]
@@ -1135,7 +1135,7 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.7.0" },
+    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.8.1" },
     { name = "kubernetes", specifier = "==24.2" },
     { name = "ops", specifier = "==3.6.0" },
     { name = "pydantic", specifier = "==2.12.4" },

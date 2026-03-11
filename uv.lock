@@ -307,16 +307,16 @@ wheels = [
 
 [[package]]
 name = "charmlibs-interfaces-tls-certificates"
-version = "1.7.0"
+version = "1.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "ops" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/fa/9c20a264c42adcad31293e4588e421c53ae24c105199e4e1c9d7374a4e64/charmlibs_interfaces_tls_certificates-1.7.0.tar.gz", hash = "sha256:7fe79c78fab51a864c96d8d731049479610a014152a75dd585568ad268ecaafa", size = 145552, upload-time = "2026-02-19T10:43:57.758Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/7e/166af1e71f2bf96482845a1806dc345cbc5507134a99ccbbae297f174e4b/charmlibs_interfaces_tls_certificates-1.8.1.tar.gz", hash = "sha256:f2bfabf3a3b4c18034941771733177b30e4742c06d7742d4bb30da6ead953f43", size = 148059, upload-time = "2026-02-27T13:46:50.086Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/13/e37838eb262a18c138851d7c3632678525bc2af886fb06fc75627018745c/charmlibs_interfaces_tls_certificates-1.7.0-py3-none-any.whl", hash = "sha256:a810191f804d6875704390f57ed46775ad94a0d9932785c71d9459f30db30f6d", size = 26728, upload-time = "2026-02-19T10:43:56.441Z" },
+    { url = "https://files.pythonhosted.org/packages/95/17/1d1b0083800f4cc20f42e5d2763521d93975376499565c62da5276a80629/charmlibs_interfaces_tls_certificates-1.8.1-py3-none-any.whl", hash = "sha256:8e8fe047e02515d76f57a1d019056d72ce8c859c2ffb39a1e379cfc11fc048e6", size = 28208, upload-time = "2026-02-27T13:46:48.959Z" },
 ]
 
 [[package]]
@@ -658,7 +658,7 @@ name = "hvac"
 version = "2.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "requests", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
+    { name = "requests" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/e2/57/b46c397fb3842cfb02a44609aa834c887f38dd75f290c2fc5a34da4b2fee/hvac-2.4.0.tar.gz", hash = "sha256:e0056ad9064e7923e874e6769015b032580b639e29246f5ab1044f7959c1c7e0", size = 332543, upload-time = "2025-10-30T12:57:47.512Z" }
 wheels = [
@@ -798,65 +798,27 @@ wheels = [
 
 [[package]]
 name = "juju"
-version = "2.9.49.1"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.11'",
-    "python_full_version < '3.11'",
-]
-dependencies = [
-    { name = "kubernetes", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "macaroonbakery", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "paramiko", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "pyasn1", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "pyrfc3339", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "pyyaml", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "theblues", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "toposort", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "typing-inspect", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "websockets", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/49/6412759bd2baa4ff348f5414e894de2287d20cb7a516bb7cf12439da925b/juju-2.9.49.1.tar.gz", hash = "sha256:380f6c63e8634645cfb742133a3828b1bf7b3a698fb14aecef031a3d3052b2b2", size = 822723, upload-time = "2024-12-05T06:46:57.597Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7b/6a/5dfe681316f1685259cdc248f99feb6414f01dd629e63cf2709456f58782/juju-2.9.49.1-py3-none-any.whl", hash = "sha256:fc5180b64d91046ec38d6412feec30393451cdd4c653a5ae0063148fa818bf55", size = 812820, upload-time = "2024-12-05T06:46:54.954Z" },
-]
-
-[[package]]
-name = "juju"
 version = "3.6.1.3"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.11'",
-    "python_full_version < '3.11'",
-]
 dependencies = [
-    { name = "backports-datetime-fromisoformat", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "backports-strenum", marker = "(python_full_version < '3.11' and extra == 'group-33-nginx-ingress-integrator-operator-integration') or (python_full_version < '3.11' and extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2') or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
-    { name = "hvac", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "kubernetes", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "macaroonbakery", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "packaging", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "paramiko", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "pyasn1", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "pyyaml", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "toposort", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "typing-extensions", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "typing-inspect", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "websockets", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
+    { name = "backports-datetime-fromisoformat" },
+    { name = "backports-strenum", marker = "python_full_version < '3.11' or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
+    { name = "hvac" },
+    { name = "kubernetes" },
+    { name = "macaroonbakery" },
+    { name = "packaging" },
+    { name = "paramiko" },
+    { name = "pyasn1" },
+    { name = "pyyaml" },
+    { name = "toposort" },
+    { name = "typing-extensions" },
+    { name = "typing-inspect" },
+    { name = "websockets" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/91/ac/42ed7565d1b031856fb7e8884089acb3eab5aa6a2dabfee3fcf09660f885/juju-3.6.1.3.tar.gz", hash = "sha256:2fcf510fa35b387abb382da3a8b2227f38852ae7e9dc1058afb228588e1aec51", size = 305052, upload-time = "2025-07-11T02:15:59.237Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/86/13/e31f9b9c24e723a161bc3b75729acb109d80bf3f75f937e4c3d408f19e5a/juju-3.6.1.3-py3-none-any.whl", hash = "sha256:87469500a0a4e6a3976ddf0595e316379868d5cea96e15af2d2d4b94188f76e5", size = 287075, upload-time = "2025-07-11T02:15:57.118Z" },
 ]
-
-[[package]]
-name = "jujubundlelib"
-version = "0.5.7"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyyaml", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/57/57/039c6b7e6a01df336f38549eec0836b61166f012528449e37a0ced4e9ddc/jujubundlelib-0.5.7.tar.gz", hash = "sha256:7e2b1a679faab13c4d56256e31e0cc616d55841abd32598951735bf395ca47e3", size = 30500, upload-time = "2021-11-12T15:01:12.733Z" }
 
 [[package]]
 name = "kubernetes"
@@ -1099,14 +1061,14 @@ fmt = [
 integration = [
     { name = "allure-pytest" },
     { name = "allure-pytest-collection-report" },
-    { name = "juju", version = "3.6.1.3", source = { registry = "https://pypi.org/simple" } },
+    { name = "juju" },
     { name = "protobuf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-operator" },
 ]
 integration-juju2 = [
-    { name = "juju", version = "2.9.49.1", source = { registry = "https://pypi.org/simple" } },
+    { name = "juju" },
     { name = "protobuf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1135,10 +1097,10 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.7.0" },
+    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.8.1" },
     { name = "kubernetes", specifier = "==24.2" },
     { name = "ops", specifier = "==3.6.0" },
-    { name = "pydantic", specifier = "==2.12.4" },
+    { name = "pydantic", specifier = "==2.12.5" },
 ]
 
 [package.metadata.requires-dev]
@@ -1157,7 +1119,7 @@ integration = [
     { name = "pytest-operator" },
 ]
 integration-juju2 = [
-    { name = "juju", specifier = "==2.9.49.1" },
+    { name = "juju", specifier = "==3.6.1.3" },
     { name = "protobuf" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1393,7 +1355,7 @@ wheels = [
 
 [[package]]
 name = "pydantic"
-version = "2.12.4"
+version = "2.12.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-types" },
@@ -1401,9 +1363,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/ad/a17bc283d7d81837c061c49e3eaa27a45991759a1b7eae1031921c6bd924/pydantic-2.12.4.tar.gz", hash = "sha256:0f8cb9555000a4b5b617f66bfd2566264c4984b27589d3b845685983e8ea85ac", size = 821038, upload-time = "2025-11-05T10:50:08.59Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/44/36f1a6e523abc58ae5f928898e4aca2e0ea509b5aa6f6f392a5d882be928/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49", size = 821591, upload-time = "2025-11-26T15:11:46.471Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/2f/e68750da9b04856e2a7ec56fc6f034a5a79775e9b9a81882252789873798/pydantic-2.12.4-py3-none-any.whl", hash = "sha256:92d3d202a745d46f9be6df459ac5a064fdaa3c1c4cd8adcfa332ccf3c05f871e", size = 463400, upload-time = "2025-11-05T10:50:06.732Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d", size = 463580, upload-time = "2025-11-26T15:11:44.605Z" },
 ]
 
 [[package]]
@@ -1641,8 +1603,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipdb" },
     { name = "jinja2" },
-    { name = "juju", version = "2.9.49.1", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "juju", version = "3.6.1.3", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration' or extra != 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
+    { name = "juju" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pyyaml" },
@@ -1856,17 +1817,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/96/5b/496f8abebd10c3301
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/40/8561ce06dc46fd17242c7724ab25b257a2ac1b35f4ebf551b40ce6105cfa/stevedore-5.6.0-py3-none-any.whl", hash = "sha256:4a36dccefd7aeea0c70135526cecb7766c4c84c473b1af68db23d541b6dc1820", size = 54428, upload-time = "2025-11-20T10:06:05.946Z" },
 ]
-
-[[package]]
-name = "theblues"
-version = "0.5.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jujubundlelib", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "macaroonbakery", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-    { name = "requests", marker = "extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9e/44/09471b2abf1cc22a427a8d49e4cfa9049bc18ea2c99d318faffc37b367a3/theblues-0.5.2.tar.gz", hash = "sha256:a9aded6b151c67d83eb9adcbcb38640872d9f29db985053259afd2fc012e5ed9", size = 18826, upload-time = "2019-10-15T14:07:51.719Z" }
 
 [[package]]
 name = "tomli"

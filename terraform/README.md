@@ -46,6 +46,7 @@ No modules.
 
 | Name | Version |
 |------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | ~> 1.12 |
 | <a name="requirement_juju"></a> [juju](#requirement\_juju) | ~> 1.0 |
 
 ## Providers

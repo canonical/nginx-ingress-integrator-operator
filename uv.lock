@@ -1,6 +1,10 @@
 version = 1
 revision = 3
 requires-python = ">=3.10"
+resolution-markers = [
+    "python_full_version >= '3.11'",
+    "python_full_version < '3.11'",
+]
 conflicts = [[
     { package = "nginx-ingress-integrator-operator", group = "integration" },
     { package = "nginx-ingress-integrator-operator", group = "integration-juju2" },
@@ -181,16 +185,16 @@ wheels = [
 
 [[package]]
 name = "charmlibs-interfaces-tls-certificates"
-version = "1.7.0"
+version = "1.8.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "ops" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/da/fa/9c20a264c42adcad31293e4588e421c53ae24c105199e4e1c9d7374a4e64/charmlibs_interfaces_tls_certificates-1.7.0.tar.gz", hash = "sha256:7fe79c78fab51a864c96d8d731049479610a014152a75dd585568ad268ecaafa", size = 145552, upload-time = "2026-02-19T10:43:57.758Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/7e/166af1e71f2bf96482845a1806dc345cbc5507134a99ccbbae297f174e4b/charmlibs_interfaces_tls_certificates-1.8.1.tar.gz", hash = "sha256:f2bfabf3a3b4c18034941771733177b30e4742c06d7742d4bb30da6ead953f43", size = 148059, upload-time = "2026-02-27T13:46:50.086Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/13/e37838eb262a18c138851d7c3632678525bc2af886fb06fc75627018745c/charmlibs_interfaces_tls_certificates-1.7.0-py3-none-any.whl", hash = "sha256:a810191f804d6875704390f57ed46775ad94a0d9932785c71d9459f30db30f6d", size = 26728, upload-time = "2026-02-19T10:43:56.441Z" },
+    { url = "https://files.pythonhosted.org/packages/95/17/1d1b0083800f4cc20f42e5d2763521d93975376499565c62da5276a80629/charmlibs_interfaces_tls_certificates-1.8.1-py3-none-any.whl", hash = "sha256:8e8fe047e02515d76f57a1d019056d72ce8c859c2ffb39a1e379cfc11fc048e6", size = 28208, upload-time = "2026-02-27T13:46:48.959Z" },
 ]
 
 [[package]]
@@ -474,7 +478,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'group-33-nginx-ingress-integrator-operator-integration' and extra == 'group-33-nginx-ingress-integrator-operator-integration-juju2')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -698,6 +702,7 @@ integration-juju2 = [
     { name = "allure-pytest" },
     { name = "allure-pytest-collection-report" },
     { name = "jubilant-backports" },
+    { name = "protobuf" },
     { name = "pytest" },
     { name = "pytest-jubilant" },
 ]
@@ -724,10 +729,10 @@ unit = [
 
 [package.metadata]
 requires-dist = [
-    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.7.0" },
+    { name = "charmlibs-interfaces-tls-certificates", specifier = "==1.8.1" },
     { name = "kubernetes", specifier = "==24.2" },
     { name = "ops", specifier = "==3.6.0" },
-    { name = "pydantic", specifier = "==2.12.4" },
+    { name = "pydantic", specifier = "==2.12.5" },
 ]
 
 [package.metadata.requires-dev]
@@ -747,6 +752,7 @@ integration-juju2 = [
     { name = "allure-pytest", specifier = ">=2.8.18" },
     { name = "allure-pytest-collection-report", git = "https://github.com/canonical/data-platform-workflows?subdirectory=python%2Fpytest_plugins%2Fallure_pytest_collection_report&rev=v24.0.0" },
     { name = "jubilant-backports" },
+    { name = "protobuf" },
     { name = "pytest" },
     { name = "pytest-jubilant" },
 ]
@@ -859,6 +865,21 @@ wheels = [
 ]
 
 [[package]]
+name = "protobuf"
+version = "7.34.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/00/04a2ab36b70a52d0356852979e08b44edde0435f2115dc66e25f2100f3ab/protobuf-7.34.0.tar.gz", hash = "sha256:3871a3df67c710aaf7bb8d214cc997342e63ceebd940c8c7fc65c9b3d697591a", size = 454726, upload-time = "2026-02-27T00:30:25.421Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/c4/6322ab5c8f279c4c358bc14eb8aefc0550b97222a39f04eb3c1af7a830fa/protobuf-7.34.0-cp310-abi3-macosx_10_9_universal2.whl", hash = "sha256:8e329966799f2c271d5e05e236459fe1cbfdb8755aaa3b0914fa60947ddea408", size = 429248, upload-time = "2026-02-27T00:30:14.924Z" },
+    { url = "https://files.pythonhosted.org/packages/45/99/b029bbbc61e8937545da5b79aa405ab2d9cf307a728f8c9459ad60d7a481/protobuf-7.34.0-cp310-abi3-manylinux2014_aarch64.whl", hash = "sha256:9d7a5005fb96f3c1e64f397f91500b0eb371b28da81296ae73a6b08a5b76cdd6", size = 325753, upload-time = "2026-02-27T00:30:17.247Z" },
+    { url = "https://files.pythonhosted.org/packages/cc/79/09f02671eb75b251c5550a1c48e7b3d4b0623efd7c95a15a50f6f9fc1e2e/protobuf-7.34.0-cp310-abi3-manylinux2014_s390x.whl", hash = "sha256:4a72a8ec94e7a9f7ef7fe818ed26d073305f347f8b3b5ba31e22f81fd85fca02", size = 340200, upload-time = "2026-02-27T00:30:18.672Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/57/89727baef7578897af5ed166735ceb315819f1c184da8c3441271dbcfde7/protobuf-7.34.0-cp310-abi3-manylinux2014_x86_64.whl", hash = "sha256:964cf977e07f479c0697964e83deda72bcbc75c3badab506fb061b352d991b01", size = 324268, upload-time = "2026-02-27T00:30:20.088Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/3e/38ff2ddee5cc946f575c9d8cc822e34bde205cf61acf8099ad88ef19d7d2/protobuf-7.34.0-cp310-abi3-win32.whl", hash = "sha256:f791ec509707a1d91bd02e07df157e75e4fb9fbdad12a81b7396201ec244e2e3", size = 426628, upload-time = "2026-02-27T00:30:21.555Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/71/7c32eaf34a61a1bae1b62a2ac4ffe09b8d1bb0cf93ad505f42040023db89/protobuf-7.34.0-cp310-abi3-win_amd64.whl", hash = "sha256:9f9079f1dde4e32342ecbd1c118d76367090d4aaa19da78230c38101c5b3dd40", size = 437901, upload-time = "2026-02-27T00:30:22.836Z" },
+    { url = "https://files.pythonhosted.org/packages/a4/e7/14dc9366696dcb53a413449881743426ed289d687bcf3d5aee4726c32ebb/protobuf-7.34.0-py3-none-any.whl", hash = "sha256:e3b914dd77fa33fa06ab2baa97937746ab25695f389869afdf03e81f34e45dc7", size = 170716, upload-time = "2026-02-27T00:30:23.994Z" },
+]
+
+[[package]]
 name = "pyasn1"
 version = "0.6.1"
 source = { registry = "https://pypi.org/simple" }
@@ -899,7 +920,7 @@ wheels = [
 
 [[package]]
 name = "pydantic"
-version = "2.12.4"
+version = "2.12.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-types" },
@@ -907,9 +928,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/ad/a17bc283d7d81837c061c49e3eaa27a45991759a1b7eae1031921c6bd924/pydantic-2.12.4.tar.gz", hash = "sha256:0f8cb9555000a4b5b617f66bfd2566264c4984b27589d3b845685983e8ea85ac", size = 821038, upload-time = "2025-11-05T10:50:08.59Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/44/36f1a6e523abc58ae5f928898e4aca2e0ea509b5aa6f6f392a5d882be928/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49", size = 821591, upload-time = "2025-11-26T15:11:46.471Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/2f/e68750da9b04856e2a7ec56fc6f034a5a79775e9b9a81882252789873798/pydantic-2.12.4-py3-none-any.whl", hash = "sha256:92d3d202a745d46f9be6df459ac5a064fdaa3c1c4cd8adcfa332ccf3c05f871e", size = 463400, upload-time = "2025-11-05T10:50:06.732Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d", size = 463580, upload-time = "2025-11-26T15:11:44.605Z" },
 ]
 
 [[package]]
@@ -1068,15 +1089,15 @@ wheels = [
 
 [[package]]
 name = "pytest-jubilant"
-version = "1.1"
+version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jubilant" },
     { name = "pytest" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/73/01/a089e0b323d87519e19425809062090a615cc10fdf8879ecf0ec5c5dfc36/pytest_jubilant-1.1.tar.gz", hash = "sha256:755dd5a1b4c295773a01ed3005cec1bd106a46bf51ec041ae56004dd558e8f9c", size = 12368, upload-time = "2025-07-28T06:42:44.808Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/31/2726f3a38c94036434e5744fd727e517495814692aa79f5200444dd5d18a/pytest_jubilant-1.3.0.tar.gz", hash = "sha256:93e05233172e33a76f96e162fd9aeb5161f453abd7de521183631857bb77a8ea", size = 12752, upload-time = "2026-03-13T02:04:14.435Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/e2/0d9124119c994aba4fbb48457a3dde01d5af5db1cd095be7b03bc6b21215/pytest_jubilant-1.1-py3-none-any.whl", hash = "sha256:1c643b0e64173e405988074e551dd2101805412d807c3c0e51983b52f8b198d4", size = 12040, upload-time = "2025-07-28T06:42:43.518Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/85/07093962c95599bc27ee35734951466fcb367f2ce24f8a9cac6f297a789a/pytest_jubilant-1.3.0-py3-none-any.whl", hash = "sha256:520c04f5a4a5d1d9e3729424d4f8bd6b01153c0284fb3e2fda8fe90fae79cc4a", size = 11831, upload-time = "2026-03-13T02:04:13.131Z" },
 ]
 
 [[package]]

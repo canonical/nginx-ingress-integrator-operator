@@ -16,10 +16,10 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "charmlibs-interfaces-tls-certificates==1.7.0",
+  "charmlibs-interfaces-tls-certificates==1.8.1",
   "kubernetes==24.2",
   "ops==3.6.0",
-  "pydantic==2.12.4",
+  "pydantic==2.12.5",
 ]
 
 [dependency-groups]
@@ -61,6 +61,7 @@ integration-juju2 = [
   "allure-pytest>=2.8.18",
   "allure-pytest-collection-report @ git+https://github.com/canonical/data-platform-workflows@v24.0.0#subdirectory=python/pytest_plugins/allure_pytest_collection_report",
   "jubilant-backports",
+  "protobuf",
   "pytest",
   "pytest-jubilant",
 ]

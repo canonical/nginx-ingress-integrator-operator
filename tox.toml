@@ -126,8 +126,13 @@ commands = [
 dependency_groups = [ "integration" ]
 
 [env.integration-juju2]
-description = "Run integration tests"
+description = "Run integration tests with Juju 2.x"
 commands = [
+  [
+    "python3",
+    "-c",
+    "import os, shutil, jubilant_backports as jb; sp = os.path.dirname(jb.__file__); dst = os.path.join(os.path.dirname(sp), 'jubilant'); shutil.rmtree(dst, ignore_errors=True); os.symlink(sp, dst)",
+  ],
   [
     "pytest",
     "-v",

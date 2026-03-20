@@ -1,27 +1,19 @@
 # Copyright 2025 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# pylint: disable=unused-argument,duplicate-code
-
 """Integration test relation file."""
 
-import asyncio
 import json
 import logging
 import time
 import typing
 from pathlib import Path
 
+import jubilant
 import pytest
-import pytest_asyncio
-from juju.model import Model
-from ops.model import ActiveStatus
-from pytest_operator.plugin import OpsTest
 
 LOGGER = logging.getLogger(__name__)
 
-# Mypy can't recognize the name as a string type, so we should skip the type check.
-ACTIVE_STATUS_NAME = ActiveStatus.name
 TLS_CERTIFICATES_PROVIDER_APP_NAME = "self-signed-certificates"
 SELF_SIGNED_CERTIFICATES_CHARM_NAME = "self-signed-certificates"
 INGRESS_APP_NAME = "ingress"
@@ -67,9 +59,9 @@ def gen_src_overwrite(
     return json.dumps(any_charm_src_overwrite)
 
 
-@pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(
-    model: Model,
+@pytest.fixture(scope="module")
+def build_and_deploy(
+    juju: jubilant.Juju,
     deploy_any_charm,
     run_action,
     build_and_deploy_ingress,
@@ -80,69 +72,54 @@ async def build_and_deploy(
 
     Returns: None.
     """
-    await asyncio.gather(
-        deploy_any_charm(gen_src_overwrite()),
-        build_and_deploy_ingress(),
-    )
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME, "rpc", method="start_server")
+    deploy_any_charm(gen_src_overwrite())
+    build_and_deploy_ingress()
+    juju.wait(jubilant.all_agents_idle)
+    run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:nginx-route"
-    await model.add_relation(f"{ANY_APP_NAME}:nginx-route", relation_name)
-    await model.wait_for_idle()
-    await model.deploy(
+    juju.integrate(f"{ANY_APP_NAME}:nginx-route", relation_name)
+    juju.wait(jubilant.all_agents_idle)
+    juju.deploy(
         SELF_SIGNED_CERTIFICATES_CHARM_NAME,
-        application_name=TLS_CERTIFICATES_PROVIDER_APP_NAME,
+        TLS_CERTIFICATES_PROVIDER_APP_NAME,
         channel="1/stable",
     )
-
-    await model.wait_for_idle(
-        apps=[TLS_CERTIFICATES_PROVIDER_APP_NAME],
-        status="active",
+    juju.wait(
+        lambda s: jubilant.all_active(s, TLS_CERTIFICATES_PROVIDER_APP_NAME),
         timeout=1000,
     )
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_given_charms_deployed_when_relate_then_status_is_active(
-    model: Model, ops_test: OpsTest
-):
+def test_given_charms_deployed_when_relate_then_status_is_active(juju: jubilant.Juju):
     """
     arrange: sample certificate charm has been deployed.
     act: integrate the sample certificate provider charm to the given charm.
     assert: the integration is successful.
     """
-    await model.add_relation(TLS_CERTIFICATES_PROVIDER_APP_NAME, "ingress:certificates")
-
-    await model.wait_for_idle(
-        apps=[INGRESS_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME],
-        status="active",
+    juju.integrate(TLS_CERTIFICATES_PROVIDER_APP_NAME, "ingress:certificates")
+    juju.wait(
+        lambda s: jubilant.all_active(s, INGRESS_APP_NAME, TLS_CERTIFICATES_PROVIDER_APP_NAME),
         timeout=1000,
     )
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_given_charms_deployed_when_relate_then_requirer_received_certs(
-    model: Model, ops_test: OpsTest
-):
+def test_given_charms_deployed_when_relate_then_requirer_received_certs(juju: jubilant.Juju):
     """
     arrange: given charm has been built, deployed and related to a certificate provider.
     act: get the current certificates provided.
     assert: the given charm has been provided a certificate successfully.
     """
-    requirer_unit = model.units["ingress/0"]
-
-    action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
-
-    action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
-    assert action_output["return-code"] == 0
-    assert "ca-any" in action_output and action_output["ca-any"] is not None
-    assert "certificate-any" in action_output and action_output["certificate-any"] is not None
-    assert "chain-any" in action_output and action_output["chain-any"] is not None
+    task = juju.run("ingress/0", "get-certificate", params={"hostname": "any"})
+    assert task.results.get("ca-any") is not None
+    assert task.results.get("certificate-any") is not None
+    assert task.results.get("chain-any") is not None
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
-    model: Model,
+def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_received_certs(
+    juju: jubilant.Juju,
     run_action,
     build_and_deploy_ingress,
 ):
@@ -152,43 +129,42 @@ async def test_given_additional_requirer_charm_deployed_when_relate_then_require
     assert: the process of deployment, integration and certificate provision is successful.
     """
     new_requirer_app_name = "ingress2"
-    await build_and_deploy_ingress(application_name=new_requirer_app_name)
-    await model.deploy(
+    build_and_deploy_ingress(application_name=new_requirer_app_name)
+    juju.deploy(
         "any-charm",
-        application_name=ANY_APP_NAME_2,
+        ANY_APP_NAME_2,
         channel="beta",
         config={"src-overwrite": gen_src_overwrite()},
     )
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME_2, "rpc", method="start_server")
+    juju.wait(jubilant.all_agents_idle)
+    run_action(ANY_APP_NAME_2, "rpc", method="start_server")
     relation_name = f"{new_requirer_app_name}:nginx-route"
-    await model.add_relation(f"{ANY_APP_NAME_2}:nginx-route", relation_name)
-    await model.wait_for_idle()
+    juju.integrate(f"{ANY_APP_NAME_2}:nginx-route", relation_name)
+    juju.wait(jubilant.all_agents_idle)
 
-    await model.add_relation(
-        TLS_CERTIFICATES_PROVIDER_APP_NAME, f"{new_requirer_app_name}:certificates"
-    )
-    await model.wait_for_idle(
-        apps=[
-            TLS_CERTIFICATES_PROVIDER_APP_NAME,
-            new_requirer_app_name,
-        ],
-        status="active",
+    juju.integrate(TLS_CERTIFICATES_PROVIDER_APP_NAME, f"{new_requirer_app_name}:certificates")
+    juju.wait(
+        lambda s: jubilant.all_active(
+            s, TLS_CERTIFICATES_PROVIDER_APP_NAME, new_requirer_app_name
+        ),
         timeout=1000,
     )
-    requirer_unit = model.units[f"{new_requirer_app_name}/0"]
 
     t0 = time.time()
     timeout = 600
     while time.time() - t0 < timeout:
-        action = await requirer_unit.run_action(action_name="get-certificate", hostname="any")
-        action_output = await model.get_action_output(action_uuid=action.entity_id, wait=60)
-
-        keys = ["ca-any", "certificate-any", "chain-any"]
-        if action_output["return-code"] == 0 and all(action_output.get(key) for key in keys):
-            LOGGER.info("Certificate received")
-            return
-
+        try:
+            task = juju.run(
+                f"{new_requirer_app_name}/0",
+                "get-certificate",
+                params={"hostname": "any"},
+            )
+            keys = ["ca-any", "certificate-any", "chain-any"]
+            if all(task.results.get(key) for key in keys):
+                LOGGER.info("Certificate received")
+                return
+        except jubilant.TaskError:
+            pass
         LOGGER.info("Waiting for certificate")
         time.sleep(5)
     raise TimeoutError("Timed out waiting for certificate")

@@ -3,17 +3,16 @@
 
 """Integration test for ingress relation."""
 
-import asyncio
 import json
 import pathlib
 import textwrap
 
+import jubilant
 import pytest
 import requests
-from juju.model import Model
 
 
-def make_any_charm_source(strip_prefix: bool = False, model_name: str = "testing") -> str:
+def make_any_charm_source(strip_prefix: bool = False, model_name: str | None = "testing") -> str:
     """Generate the source code for the any-charm with ingress relation.
 
     Args:
@@ -74,8 +73,12 @@ def make_any_charm_source(strip_prefix: bool = False, model_name: str = "testing
 
 
 @pytest.mark.parametrize("strip_prefix", [False, True])
-async def test_ingress_relation(
-    model: Model, deploy_any_charm, run_action, build_and_deploy_ingress, strip_prefix: bool
+def test_ingress_relation(
+    juju: jubilant.Juju,
+    deploy_any_charm,
+    run_action,
+    build_and_deploy_ingress,
+    strip_prefix: bool,
 ):
     """Test the ingress relation with both strip_prefix settings.
 
@@ -85,31 +88,26 @@ async def test_ingress_relation(
         "ingress.py": pathlib.Path("lib/charms/traefik_k8s/v2/ingress.py").read_text(
             encoding="utf-8"
         ),
-        "any_charm.py": make_any_charm_source(strip_prefix, model.name),
+        "any_charm.py": make_any_charm_source(strip_prefix, juju.model),
     }
 
-    _, ingress = await asyncio.gather(
-        deploy_any_charm(json.dumps(src_overwrite)),
-        build_and_deploy_ingress(),
-    )
+    deploy_any_charm(json.dumps(src_overwrite))
+    build_and_deploy_ingress()
 
-    await ingress.set_config({"service-hostname": "any"})
-    await model.wait_for_idle()
-    await model.add_relation("any:ingress", "ingress:ingress")
-    await model.wait_for_idle(status="active")
+    juju.config("ingress", {"service-hostname": "any"})
+    juju.wait(jubilant.all_agents_idle)
+    juju.integrate("any:ingress", "ingress:ingress")
+    juju.wait(jubilant.all_active)
 
-    await run_action("any", "rpc", method="start_server")
+    run_action("any", "rpc", method="start_server")
 
     response = requests.get(
-        f"http://127.0.0.1/{model.name}-any/ok", headers={"Host": "any"}, timeout=5
+        f"http://127.0.0.1/{juju.model}-any/ok", headers={"Host": "any"}, timeout=5
     )
 
-    expected_text = f"http://any/{model.name}-any"
+    expected_text = f"http://any/{juju.model}-any"
     assert response.status_code == 200
     assert response.text == expected_text
 
-    await model.remove_application("any")
-    await model.remove_application("ingress")
-    await model.block_until(
-        lambda: "any" not in model.applications and "ingress" not in model.applications
-    )
+    juju.remove_application("any", "ingress")
+    juju.wait(lambda s: "any" not in s.apps and "ingress" not in s.apps)

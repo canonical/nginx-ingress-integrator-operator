@@ -34,9 +34,7 @@ def pack(root: Path | str = "./") -> Path:
             f"{proc.returncode=}, {proc.stdout=}, {proc.stderr=})"
         )
     if len(packed_charms) > 1:
-        raise ValueError(
-            "This charm packed multiple artifacts; expected exactly one."
-        )
+        raise ValueError("This charm packed multiple artifacts; expected exactly one.")
     return Path(packed_charms[0]).resolve()
 
 

@@ -3,15 +3,42 @@
 
 """General configuration module for integration tests."""
 
+import shlex
+import subprocess
 import time
 from pathlib import Path
 
 import jubilant
 import kubernetes
 import pytest
-import pytest_jubilant
 import yaml
 from pytest import Config, fixture
+
+
+def pack(root: Path | str = "./") -> Path:
+    """Pack a local charm with charmcraft and return the path to the .charm file."""
+    cmd = f"charmcraft pack -p {root}"
+    proc = subprocess.run(
+        shlex.split(cmd),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    # charmcraft outputs "Packed <filename>" lines to stderr.
+    packed_charms = [
+        line.split()[1] for line in proc.stderr.strip().splitlines() if line.startswith("Packed")
+    ]
+    if not packed_charms:
+        raise ValueError(
+            f"unable to get packed charm ({cmd!r} completed with "
+            f"{proc.returncode=}, {proc.stdout=}, {proc.stderr=})"
+        )
+    if len(packed_charms) > 1:
+        raise ValueError(
+            "This charm packed multiple artifacts; expected exactly one."
+        )
+    return Path(packed_charms[0]).resolve()
+
 
 ANY_APP_NAME = "any"
 INGRESS_APP_NAME = "ingress"
@@ -147,7 +174,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
         """
         charm = pytestconfig.getoption("--charm-file")
         if not charm:
-            charm = pytest_jubilant.pack()
+            charm = pack()
         juju.deploy(str(charm), application_name, base="ubuntu@22.04", trust=True)
 
     return _build_and_deploy_ingress

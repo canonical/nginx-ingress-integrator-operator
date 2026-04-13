@@ -1,5 +1,5 @@
 .. meta::
-   :description: How-to guides for operating the nginx ingress integrator operator charm, including basic operations, upgrades, and development. 
+   :description: How-to guides for operating the nginx ingress integrator operator charm, including basic operations, upgrades, and development.
 
 .. _how_to_index:
 

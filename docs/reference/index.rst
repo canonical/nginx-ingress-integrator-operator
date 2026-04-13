@@ -36,4 +36,4 @@ a high-level deployment with any required dependencies.
     :hidden:
     :maxdepth: 1
 
-    Charm architecture <charm-architecture>
+    Charm architecture <architecture>

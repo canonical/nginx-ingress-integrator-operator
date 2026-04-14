@@ -7,7 +7,7 @@ How-to guides
 =============
 
 The following guides cover key processes and common tasks for managing and
-using the nginx ingress integrator operator charm.
+using the NGINX ingress integrator operator charm.
 
 .. vale Canonical.013-Spell-out-numbers-below-10 = NO
 .. vale Canonical.500-Repeated-words = NO

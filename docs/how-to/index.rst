@@ -26,25 +26,15 @@ basic operations you can complete with the charm.
     Secure an ingress with TLS <secure-an-ingress-with-tls>
     Support multiple relations <support-multiple-relations>
 
-Update and refresh
-------------------
+Lifecycle and development
+-------------------------
 
-The following guides provide instructions on upgrading your deployment,
-including backup and redeployment processes.
+Now that you understand the basic capabilities of the charm,
+you can dive deeper into actions around lifecycle operations
+and development.
 
 .. toctree::
-    :hidden:
     :maxdepth: 1
 
     Upgrade <upgrade>
-
-Development
------------
-
-These guides can help you with troubleshooting and contributing to the project.
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
-
     Contribute <contribute>

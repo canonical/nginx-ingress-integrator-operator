@@ -1,5 +1,5 @@
 .. meta::
-   :description: How-to guides for operating the nginx ingress integrator operator charm, including basic operations, upgrades, and development.
+   :description: How-to guides for operating the NGINX ingress integrator operator charm, including basic operations, upgrades, and development.
 
 .. _how_to_index:
 
@@ -22,7 +22,7 @@ basic operations you can complete with the charm.
 .. toctree::
     :maxdepth: 1
 
-    Add the nginx route relation <add-the-nginx-route-relation>
+    Add the NGINX route relation <add-the-nginx-route-relation>
     Secure an ingress with TLS <secure-an-ingress-with-tls>
     Support multiple relations <support-multiple-relations>
 

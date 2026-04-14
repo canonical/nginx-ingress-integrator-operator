@@ -20,7 +20,6 @@ of actions with your deployment. These guides provide instructions on
 basic operations you can complete with the charm.
 
 .. toctree::
-    :hidden:
     :maxdepth: 1
 
     Add the nginx route relation <add-the-nginx-route-relation>

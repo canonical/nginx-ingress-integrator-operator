@@ -1,4 +1,4 @@
-**This charm is under maintenance mode-only since 1 January 2026. It means that only security issues will be addressed, no new features will be implemented on the charm. Users are invited to look at https://charmhub.io/gateway-api-integrator to address their ingress needs on Kubernetes.**
+**This charm is under maintenance mode-only since 1 January 2026. It means that only security issues will be addressed, no new features will be implemented on the charm. Users are invited to look at the [Gateway API integrator charm](https://charmhub.io/gateway-api-integrator) to address their ingress needs on Kubernetes.**
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
 <!-- "Operator" is part of the name -->

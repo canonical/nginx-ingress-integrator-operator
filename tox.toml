@@ -126,7 +126,7 @@ commands = [
 dependency_groups = [ "integration" ]
 
 [env.integration-juju2]
-description = "Run integration tests"
+description = "Run integration tests with Juju 2.x"
 commands = [
   [
     "pytest",

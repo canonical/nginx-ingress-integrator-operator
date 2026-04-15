@@ -2,16 +2,14 @@
 # See LICENSE file for licensing details.
 """Integration test relation file."""
 
-import asyncio
 import json
 import time
 import typing
 from pathlib import Path
 
+import jubilant
 import pytest
-import pytest_asyncio
 import requests
-from juju.model import Model
 
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"
@@ -74,27 +72,25 @@ def requests_get(url: str, host_header: str, retry_timeout: int = 120) -> reques
         time.sleep(1)
 
 
-@pytest_asyncio.fixture(scope="module")
-async def build_and_deploy(model: Model, deploy_any_charm, run_action, build_and_deploy_ingress):
+@pytest.fixture(scope="module")
+def build_and_deploy(juju: jubilant.Juju, deploy_any_charm, run_action, build_and_deploy_ingress):
     """Build and deploy nginx-ingress-integrator charm.
 
     Also deploy and relate an any-charm application for test purposes.
 
     Returns: None.
     """
-    await asyncio.gather(
-        deploy_any_charm(gen_src_overwrite()),
-        build_and_deploy_ingress(),
-    )
-    await model.wait_for_idle()
-    await run_action(ANY_APP_NAME, "rpc", method="start_server")
+    deploy_any_charm(gen_src_overwrite())
+    build_and_deploy_ingress()
+    juju.wait(jubilant.all_agents_idle)
+    run_action(ANY_APP_NAME, "rpc", method="start_server")
     relation_name = f"{INGRESS_APP_NAME}:nginx-route"
-    await model.add_relation(f"{ANY_APP_NAME}:nginx-route", relation_name)
-    await model.wait_for_idle()
+    juju.integrate(f"{ANY_APP_NAME}:nginx-route", relation_name)
+    juju.wait(jubilant.all_agents_idle)
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_ingress_connectivity():
+def test_ingress_connectivity():
     """
     arrange: given charm has been built and deployed.
     act: access ingress IP address with correct host name in HTTP headers.
@@ -112,7 +108,7 @@ async def test_ingress_connectivity():
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_ingress_connectivity_different_backend(model: Model):
+def test_ingress_connectivity_different_backend(juju: jubilant.Juju):
     """
     arrange: given charm has been built and deployed.
     act: change the backend protocol.
@@ -124,20 +120,20 @@ async def test_ingress_connectivity_different_backend(model: Model):
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    await model.applications["ingress"].set_config({"backend-protocol": "GRPC"})
-    await model.wait_for_idle(status="active")
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "GRPC"})
+    juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.status_code == 502
     # Undo the change and check again
-    await model.applications["ingress"].set_config({"backend-protocol": "HTTP"})
-    await model.wait_for_idle(status="active")
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"})
+    juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
     assert response.status_code == 200
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_ingress_connectivity_invalid_backend(model: Model):
+def test_ingress_connectivity_invalid_backend(juju: jubilant.Juju):
     """
     arrange: given charm has been built and deployed.
     act: change the backend protocol.
@@ -148,33 +144,32 @@ async def test_ingress_connectivity_invalid_backend(model: Model):
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    await model.applications["ingress"].set_config({"backend-protocol": "FAKE"})
-    await model.wait_for_idle()
-    unit = model.applications[INGRESS_APP_NAME].units[0]
-    assert unit.workload_status == "blocked"
-    assert "invalid backend protocol" in unit.workload_status_message
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "FAKE"})
+    juju.wait(jubilant.all_agents_idle)
+    status = juju.status()
+    unit_status = status.apps[INGRESS_APP_NAME].units[f"{INGRESS_APP_NAME}/0"]
+    assert unit_status.workload_status.current == "blocked"
+    assert "invalid backend protocol" in unit_status.workload_status.message
     # Undo the change and check again
-    await model.applications["ingress"].set_config({"backend-protocol": "HTTP"})
-    await model.wait_for_idle(status="active")
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"})
+    juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
     assert response.status_code == 200
 
 
-@pytest_asyncio.fixture(name="set_service_hostname")
-async def set_service_hostname_fixture(model: Model):
+@pytest.fixture(name="set_service_hostname")
+def set_service_hostname_fixture(juju: jubilant.Juju):
     """A fixture to set service-hostname to NEW_HOSTNAME in the any-charm nginx-route relation."""
-    await model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite(service_hostname=NEW_HOSTNAME)}
-    )
-    await model.wait_for_idle(status="active")
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite(service_hostname=NEW_HOSTNAME)})
+    juju.wait(jubilant.all_active)
     yield
-    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
-    await model.wait_for_idle(status="active")
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.wait(jubilant.all_active)
 
 
 @pytest.mark.usefixtures("build_and_deploy", "set_service_hostname")
-async def test_update_service_hostname():
+def test_update_service_hostname():
     """
     arrange: given charm has been built and deployed.
     act: update the service-hostname option in any-charm.
@@ -186,23 +181,23 @@ async def test_update_service_hostname():
     assert response.status_code == 200
 
 
-@pytest_asyncio.fixture(name="set_additional_hosts")
-async def set_additional_hosts_fixture(model: Model, run_action):
+@pytest.fixture(name="set_additional_hosts")
+def set_additional_hosts_fixture(juju: jubilant.Juju, run_action):
     """A fixture to set additional-hosts to NEW_HOSTNAME in the any-charm nginx-route relation."""
-    await model.applications[ANY_APP_NAME].set_config(
-        {"src-overwrite": gen_src_overwrite(additional_hostnames=NEW_HOSTNAME)}
+    juju.config(
+        ANY_APP_NAME, {"src-overwrite": gen_src_overwrite(additional_hostnames=NEW_HOSTNAME)}
     )
-    await model.wait_for_idle(status="active")
+    juju.wait(jubilant.all_active)
     yield
-    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
-    await model.wait_for_idle(status="active")
-    action_result = await run_action(ANY_APP_NAME, "get-relation-data")
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.wait(jubilant.all_active)
+    action_result = run_action(ANY_APP_NAME, "get-relation-data")
     relation_data = json.loads(action_result["relation-data"])[0]
     assert "additional-hostnames" not in relation_data["application_data"]["any"]
 
 
 @pytest.mark.usefixtures("build_and_deploy", "set_additional_hosts")
-async def test_update_additional_hosts(run_action):
+def test_update_additional_hosts(run_action):
     """
     arrange: given charm has been built and deployed,
     act: update the additional-hostnames option in the nginx-route relation using any-charm.
@@ -213,26 +208,27 @@ async def test_update_additional_hosts(run_action):
     response = requests_get("http://127.0.0.1/ok", host_header=NEW_HOSTNAME)
     assert response.text == "ok"
     assert response.status_code == 200
-    action_result = await run_action(ANY_APP_NAME, "get-relation-data")
+    action_result = run_action(ANY_APP_NAME, "get-relation-data")
     relation_data = json.loads(action_result["relation-data"])[0]
     assert "additional-hostnames" in relation_data["application_data"]["any"]
 
 
 @pytest.mark.usefixtures("build_and_deploy")
-async def test_missing_field(model: Model, run_action):
+def test_missing_field(juju: jubilant.Juju, run_action):
     """
     arrange: given charm has been built and deployed.
     act: update the nginx-route relation data with service-name missing.
     assert: Nginx ingress integrator charm should enter blocked status.
     """
-    await model.applications[ANY_APP_NAME].set_config({"src-overwrite": gen_src_overwrite()})
-    await run_action(
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    run_action(
         ANY_APP_NAME,
         "rpc",
         method="delete_nginx_route_relation_data",
         kwargs=json.dumps({"field": "service-name"}),
     )
-    await model.wait_for_idle()
-    unit = model.applications[INGRESS_APP_NAME].units[0]
-    assert unit.workload_status == "blocked"
-    assert unit.workload_status_message == "Missing fields for nginx-route: service-name"
+    juju.wait(jubilant.all_agents_idle)
+    status = juju.status()
+    unit_status = status.apps[INGRESS_APP_NAME].units[f"{INGRESS_APP_NAME}/0"]
+    assert unit_status.workload_status.current == "blocked"
+    assert unit_status.workload_status.message == "Missing fields for nginx-route: service-name"

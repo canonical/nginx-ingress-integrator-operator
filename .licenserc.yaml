@@ -21,6 +21,7 @@ header:
   - '**/*.rule'
   - '**/*.tmpl'
   - '**/*.txt'
+  - '**/*.rst'
   - '**/*.pem'
   - '.codespellignore'
   - '.dockerignore'

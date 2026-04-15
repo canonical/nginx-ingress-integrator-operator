@@ -33,7 +33,7 @@ If there's a particular area of documentation that you'd like to see that's miss
   1. [Actions](https://charmhub.io/nginx-ingress-integrator/actions)
   1. [Architecture](reference/architecture.md)
   2. [Configurations](https://charmhub.io/nginx-ingress-integrator/configurations)
-  3. [Integrations](reference/Integrations.md)
+  3. [Integrations](reference/integrations.md)
   4. [Libraries](https://charmhub.io/nginx-ingress-integrator/libraries/ingress)
 1. [Explanation](explanation)
   2. [Security](explanation/security.md)

@@ -83,6 +83,7 @@ def build_and_deploy(
         SELF_SIGNED_CERTIFICATES_CHARM_NAME,
         TLS_CERTIFICATES_PROVIDER_APP_NAME,
         channel="1/stable",
+        log=False,
     )
     juju.wait(
         lambda s: jubilant.all_active(s, TLS_CERTIFICATES_PROVIDER_APP_NAME),
@@ -135,6 +136,7 @@ def test_given_additional_requirer_charm_deployed_when_relate_then_requirer_rece
         ANY_APP_NAME_2,
         channel="beta",
         config={"src-overwrite": gen_src_overwrite()},
+        log=False,
     )
     juju.wait(jubilant.all_agents_idle)
     run_action(ANY_APP_NAME_2, "rpc", method="start_server")

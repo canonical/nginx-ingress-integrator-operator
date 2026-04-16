@@ -94,7 +94,7 @@ def test_ingress_relation(
     deploy_any_charm(json.dumps(src_overwrite))
     build_and_deploy_ingress()
 
-    juju.config("ingress", {"service-hostname": "any"})
+    juju.config("ingress", {"service-hostname": "any"}, log=False)
     juju.wait(jubilant.all_agents_idle)
     juju.integrate("any:ingress", "ingress:ingress")
     juju.wait(jubilant.all_active)

@@ -173,7 +173,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
         charm = pytestconfig.getoption("--charm-file")
         if not charm:
             charm = pack()
-        juju.deploy(str(charm), application_name, base="ubuntu@22.04", trust=True)
+        juju.deploy(str(charm), application_name, base="ubuntu@22.04", trust=True, log=False)
 
     return _build_and_deploy_ingress
 
@@ -196,6 +196,7 @@ def deploy_any_charm(juju: jubilant.Juju):
             "any",
             channel="beta",
             config={"python-packages": "pydantic<2.0", "src-overwrite": src_overwrite},
+            log=False,
         )
 
     return _deploy_any_charm

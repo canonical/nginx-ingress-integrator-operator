@@ -120,12 +120,12 @@ def test_ingress_connectivity_different_backend(juju: jubilant.Juju):
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    juju.config(INGRESS_APP_NAME, {"backend-protocol": "GRPC"})
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "GRPC"}, log=False)
     juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.status_code == 502
     # Undo the change and check again
-    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"})
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"}, log=False)
     juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
@@ -144,14 +144,14 @@ def test_ingress_connectivity_invalid_backend(juju: jubilant.Juju):
     assert response.text == "ok"
     assert response.status_code == 200
     # Then change the config and check if there is an error
-    juju.config(INGRESS_APP_NAME, {"backend-protocol": "FAKE"})
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "FAKE"}, log=False)
     juju.wait(jubilant.all_agents_idle)
     status = juju.status()
     unit_status = status.apps[INGRESS_APP_NAME].units[f"{INGRESS_APP_NAME}/0"]
     assert unit_status.workload_status.current == "blocked"
     assert "invalid backend protocol" in unit_status.workload_status.message
     # Undo the change and check again
-    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"})
+    juju.config(INGRESS_APP_NAME, {"backend-protocol": "HTTP"}, log=False)
     juju.wait(jubilant.all_active)
     response = requests_get("http://127.0.0.1/ok", host_header="any")
     assert response.text == "ok"
@@ -161,10 +161,14 @@ def test_ingress_connectivity_invalid_backend(juju: jubilant.Juju):
 @pytest.fixture(name="set_service_hostname")
 def set_service_hostname_fixture(juju: jubilant.Juju):
     """A fixture to set service-hostname to NEW_HOSTNAME in the any-charm nginx-route relation."""
-    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite(service_hostname=NEW_HOSTNAME)})
+    juju.config(
+        ANY_APP_NAME,
+        {"src-overwrite": gen_src_overwrite(service_hostname=NEW_HOSTNAME)},
+        log=False,
+    )
     juju.wait(jubilant.all_active)
     yield
-    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()}, log=False)
     juju.wait(jubilant.all_active)
 
 
@@ -185,11 +189,13 @@ def test_update_service_hostname():
 def set_additional_hosts_fixture(juju: jubilant.Juju, run_action):
     """A fixture to set additional-hosts to NEW_HOSTNAME in the any-charm nginx-route relation."""
     juju.config(
-        ANY_APP_NAME, {"src-overwrite": gen_src_overwrite(additional_hostnames=NEW_HOSTNAME)}
+        ANY_APP_NAME,
+        {"src-overwrite": gen_src_overwrite(additional_hostnames=NEW_HOSTNAME)},
+        log=False,
     )
     juju.wait(jubilant.all_active)
     yield
-    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()}, log=False)
     juju.wait(jubilant.all_active)
     action_result = run_action(ANY_APP_NAME, "get-relation-data")
     relation_data = json.loads(action_result["relation-data"])[0]
@@ -220,7 +226,7 @@ def test_missing_field(juju: jubilant.Juju, run_action):
     act: update the nginx-route relation data with service-name missing.
     assert: Nginx ingress integrator charm should enter blocked status.
     """
-    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()}, log=False)
     run_action(
         ANY_APP_NAME,
         "rpc",

@@ -19,8 +19,8 @@ ingress for the WordPress web application, which is provided by the
 - Juju bootstrapped to a MicroK8s controller: `juju bootstrap microk8s tutorial-controller`
 
 ```{note}
-You can get a working setup by using a Multipass VM as outlined in the <!-- TODO: Replace with intersphinx ref when available -->
-[Set up your test environment](https://canonical-juju.readthedocs-hosted.com/en/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/#set-things-up) guide.
+You can get a working setup by using a Multipass VM as outlined in the 
+{ref}`Set up your test environment <juju:set-things-up>` guide.
 ```
 
 ## What you'll do
@@ -92,7 +92,9 @@ The `database` interface is required since the `mysql-k8s` charm provides multip
 
 Run `juju status` to see the current status of the deployment. The output should be similar to the following:
 
-```
+```{terminal}
+juju status
+
 Model                   Controller          Cloud/Region        Version  SLA          Timestamp
 nginx-ingress-tutorial  microk8s-localhost  microk8s/localhost  3.6.8    unsupported  11:25:46Z
 
@@ -126,7 +128,9 @@ juju integrate wordpress-k8s nginx-ingress-integrator
 Run `juju status` to see the current status of the deployment. The 
 output should be similar to the following:
 
-```
+```{terminal}
+juju status
+
 Model                   Controller          Cloud/Region        Version  SLA          Timestamp
 nginx-ingress-tutorial  microk8s-localhost  microk8s/localhost  3.6.8    unsupported  11:27:23Z
 
@@ -178,8 +182,9 @@ Wait until everything is active and idle by monitoring `juju status`. Now, if yo
 default hostname to access the WordPress service behind the ingress, it
 will return a 404 Not Found response.
 
-```
+```{terminal}
 curl -H "Host: wordpress-k8s" http://127.0.0.1
+
 <html>
 <head><title>404 Not Found</title></head>
 <body>
@@ -200,5 +205,5 @@ curl -H "Host: wordpress.test" http://127.0.0.1
 
 Congratulations! You've completed the Nginx
 ingress integrator tutorial. You can clean up your environment by 
-following this guide: <!-- TODO: Replace with intersphinx ref when available -->
-[Tear down your test environment](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/howto/manage-your-deployment/manage-your-deployment-environment/#tear-things-down)
+following this guide:
+{ref}`Tear down your test environment <juju:tear-things-down>`

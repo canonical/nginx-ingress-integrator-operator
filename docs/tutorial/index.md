@@ -8,6 +8,8 @@ myst:
 
 # Tutorial
 
+Learn how to deploy and operate the NGINX ingress integrator charm for the first time.
+
 ```{toctree}
 :maxdepth: 1
 

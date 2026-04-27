@@ -1,3 +1,5 @@
+(explanation_security)=
+
 # Security overview
 
 This document describes the security design of the NGINX Ingress Integrator charm.
@@ -32,14 +34,16 @@ Encrypting these requests would help to prevent any machine-in-the-middle attack
 ### Good practices
 
 Encryption can be achieved by giving a TLS certificate to the charm, configuring it to accept HTTPS request over the unencrypted HTTP request.
-See [how to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) for how to achieve this.
+See {ref}`how to secure an Ingress with TLS <how_to_secure_an_ingress_with_tls>` for how to achieve this.
 
 ### Summary
 
 - Use TLS certificates to encrypt traffic.
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
+
 ## Denial-of-service (DoS) attack
+
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 This type of attack refers to attackers overloading a service by issuing many requests in a short period of time.

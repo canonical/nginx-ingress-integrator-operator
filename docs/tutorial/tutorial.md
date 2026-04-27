@@ -1,5 +1,9 @@
+(tutorial_tutorial)=
+
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
+
 # Deploy the Nginx ingress integrator charm for the first time
+
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 The `nginx-ingress-integrator` charm helps other charms configure Nginx
@@ -9,13 +13,15 @@ ingress for the WordPress web application, which is provided by the
 `wordpress-k8s` charm.
 
 ## What you'll need
+
 - A working station, e.g., a laptop, with AMD64 architecture.
-- Juju 3 installed. For more information about how to install Juju, see [Get started with Juju](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/tutorial/).
+- Juju 3 installed. For more information about how to install Juju, see {ref}`Get started with Juju <juju:tutorial>`.
 - Juju bootstrapped to a MicroK8s controller: `juju bootstrap microk8s tutorial-controller`
 
-[note]
-You can get a working setup by using a Multipass VM as outlined in the [Set up your test environment](https://canonical-juju.readthedocs-hosted.com/en/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/#set-things-up) guide.
-[/note]
+```{note}
+You can get a working setup by using a Multipass VM as outlined in the <!-- TODO: Replace with intersphinx ref when available -->
+[Set up your test environment](https://canonical-juju.readthedocs-hosted.com/en/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/#set-things-up) guide.
+```
 
 ## What you'll do
 
@@ -33,9 +39,9 @@ To be able to work inside the Multipass VM first you need to log in with the fol
 multipass shell my-juju-vm
 ```
 
-[note]
+```{note}
 If you're working locally, you don't need to do this step.
-[/note]
+```
 
 To manage resources effectively and to separate this tutorial's workload from
 your usual work, create a new model in the MicroK8s controller using the following command:
@@ -54,7 +60,9 @@ sudo microk8s enable ingress
 ```
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
+
 ## Deploy WordPress K8s charm
+
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 Nginx ingress integrator provides ingress to other charms. In this 
@@ -63,7 +71,7 @@ demonstrate the Nginx ingress integrator charm's capability to configure
 ingress.
 
 Deployment of WordPress requires a relational database. The integration with the
-`mysql` [interface](https://documentation.ubuntu.com/juju/3.6/reference/relation/) is required by the `wordpress-k8s`
+`mysql` {ref}`interface <juju:relation>` is required by the `wordpress-k8s`
 charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used.
 
 Start off by deploying the WordPress charm. By default it will deploy the latest stable release of
@@ -79,6 +87,7 @@ Now deploy the `mysql-k8s` charm and integrate it with the `wordpress-k8s` charm
 juju deploy mysql-k8s --trust
 juju integrate wordpress-k8s mysql-k8s:database
 ```
+
 The `database` interface is required since the `mysql-k8s` charm provides multiple compatible interfaces.
 
 Run `juju status` to see the current status of the deployment. The output should be similar to the following:
@@ -99,7 +108,9 @@ wordpress-k8s/0*  active    idle   10.1.43.138
 The deployment finishes when the status shows "Active" for both the WordPress and MySQL charms.
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
+
 ## Deploy the Nginx ingress integrator
+
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 The following commands deploy the `nginx-ingress-integrator` charm and
@@ -189,4 +200,5 @@ curl -H "Host: wordpress.test" http://127.0.0.1
 
 Congratulations! You've completed the Nginx
 ingress integrator tutorial. You can clean up your environment by 
-following this guide: [Tear down your test environment](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/howto/manage-your-deployment/manage-your-deployment-environment/#tear-things-down)
+following this guide: <!-- TODO: Replace with intersphinx ref when available -->
+[Tear down your test environment](https://canonical-juju.readthedocs-hosted.com/en/3.6/user/howto/manage-your-deployment/manage-your-deployment-environment/#tear-things-down)

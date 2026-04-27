@@ -22,17 +22,46 @@ access to their HTTP workloads in Kubernetes by easy integration offered via
 For DevOps and SRE teams, providing ingress for charms that support a relation
 to this charm will be possible via a simple `juju relate` command.
 
+## Documentation
+
+Our documentation is stored in the `docs` directory.
+It is based on the Canonical starter pack
+and hosted on [Read the Docs](https://about.readthedocs.com/). In structuring,
+the documentation employs the [Diátaxis](https://diataxis.fr/) approach.
+
+You may open a pull request with your documentation changes, or you can
+[file a bug](https://github.com/canonical/nginx-ingress-integrator-operator/issues) to provide constructive feedback or suggestions.
+
+To run the documentation locally before submitting your changes:
+
+```bash
+cd docs
+make run
+```
+
+GitHub runs automatic checks on the documentation
+to verify spelling, validate links and style guide compliance.
+
+You can (and should) run the same checks locally:
+
+```bash
+make spelling
+make linkcheck
+make vale
+make lint-md
+```
+
 ## Get started
 
-Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) for more details on getting started.
+Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) <!-- TODO: update to RTD URL once known --> for more details on getting started.
 
 ### Basic operations
 
 #### Secure an ingress with TLS
-Refer to [How to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) for step-by-step instructions.
+Refer to [How to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) <!-- TODO: update to RTD URL once known --> for step-by-step instructions.
 
 #### Add the ingress relation
-Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) for step-by-step instructions.
+Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) <!-- TODO: update to RTD URL once known --> for step-by-step instructions.
 
 
 ## Integrations

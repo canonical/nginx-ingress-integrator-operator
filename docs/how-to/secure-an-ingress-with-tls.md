@@ -1,4 +1,6 @@
-# How to secure an Ingress with TLS.
+(how_to_secure_an_ingress_with_tls)=
+
+# How to secure an Ingress with TLS
 
 ## Requirements
 

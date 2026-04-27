@@ -8,6 +8,8 @@ myst:
 
 # Explanation
 
+This section provides additional context and deeper understanding of specific topics and concepts relevant to the NGINX ingress integrator charm.
+
 ```{toctree}
 :maxdepth: 1
 

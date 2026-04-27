@@ -6,7 +6,7 @@
 <!-- vale Canonical.007-Headings-sentence-case = YES -->
 
 A [Juju](https://juju.is/) [charm](https://documentation.ubuntu.com/juju/3.6/reference/charm/) deploying and managing external access to HTTP/HTTPS services in a
-Kubernetes cluster via an Nginx Ingress resource. This charm requires the Kubernetes cluster in question to have an
+Kubernetes cluster through an Nginx Ingress resource. This charm requires the Kubernetes cluster in question to have an
 [Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it. The Nginx Integrator
 Operator is a workload-less charm that allows other charms to configure an Nginx Ingress resource.
 
@@ -16,11 +16,11 @@ number of advanced features including rate limiting, restricting access to
 specific client IP source ranges, and OWASP ModSecurity Core Rule Set (CRS).
 
 As such, the charm makes it easy for charm developers to provide external
-access to their HTTP workloads in Kubernetes by easy integration offered via
+access to their HTTP workloads in Kubernetes by easy integration offered through
 [the charm's ingress library](https://charmhub.io/nginx-ingress-integrator/libraries/ingress).
 
 For DevOps and SRE teams, providing ingress for charms that support a relation
-to this charm will be possible via a simple `juju relate` command.
+to this charm will be possible using a simple `juju integrate` command.
 
 ## Documentation
 

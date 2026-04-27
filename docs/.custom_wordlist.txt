@@ -1,0 +1,8 @@
+AI
+allowlist
+hostname
+hostnames
+IPs
+Kubecon
+pytest
+pyyaml

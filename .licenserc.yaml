@@ -42,4 +42,6 @@ header:
   - 'tests/files/*'
   - '.lycheeignore'
   - 'uv.lock'
+  - '.readthedocs.yaml'
+  - 'docs/**'
   comment: on-failure

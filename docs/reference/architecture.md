@@ -15,7 +15,9 @@ As a result, if you run a `kubectl get pods` on a namespace named for the Juju
 model you’ve deployed the nginx-ingress-integrator charm into, you’ll see 
 something like the following:
 
-```
+```{terminal}
+:output-only:
+
 NAME                             READY   STATUS    RESTARTS   AGE
 nginx-ingress-integrator-0       1/1     Running   0          3h47m
 
@@ -66,9 +68,9 @@ Nginx Ingress Integrator charm doesn't use any OCI image resources.
 
 For this charm, the following Juju events are observed:
 
-1. {ref}`config-changed <juju:hook>`
-2. {ref}`start <juju:hook>`
-3. {ref}`get-certificate-action <juju:hook>`
+1. {ref}`config-changed <juju:hook-config-changed>`
+2. {ref}`start <juju:hook-start>`
+3. ``get-certificate-action``
 4. [`data-provided` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
 5. [`data-removed` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
 6. [`certificate_available` from `tls_certificates` charm library](https://charmhub.io/tls-certificates-interface/libraries/tls_certificates)
@@ -83,7 +85,9 @@ The `src/charm.py` is the default entry point for a charm and has the
 the base class from which all Charms are formed, defined by [Ops](https://juju.is/docs/sdk/ops)
 (Python framework for developing charms).
 
-> See more in the Juju docs: {ref}`Charm <juju:charm>`
+```{note}
+See more in the Juju docs: {ref}`Charm <juju:charm>`
+```
 
 The `__init__` method guarantees that the charm observes all events relevant to 
 its operation and handles them.

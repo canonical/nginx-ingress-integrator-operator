@@ -1,3 +1,7 @@
+(explanation_what_is_ingress)=
+
+# What is ingress?
+
 Ingress in the Kubernetes context is [defined as](https://kubernetes.io/docs/concepts/services-networking/ingress/) “An API object that manages external access to the services in a cluster, typically HTTP. Ingress may provide load balancing, SSL termination and name-based virtual hosting.”
 
 In the context of this operator, there are two key concepts to understand:
@@ -7,7 +11,7 @@ In the context of this operator, there are two key concepts to understand:
 
 This operator configures an ingress **resource** which is then picked up by an ingress **controller** to determine how the ingress for a given application is configured.
 
-### What does this charm do?
+## What does this charm do?
 
 To enable ingress via Nginx for [sidecar charms](https://discourse.charmhub.io/t/the-future-of-charmed-operators-on-kubernetes/4361), we’ve created this nginx-ingress-integrator charm. To use this charm you’ll need to have an Nginx Ingress Controller deployed into your K8s cluster.
 

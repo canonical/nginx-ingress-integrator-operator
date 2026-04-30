@@ -1,3 +1,7 @@
+(reference_integrations)=
+
+# Integrations
+
 This charm provides an ingress integration, and can be integrated with any HTTP/HTTPS application. Below is a list of some of the known charms that currently integrate with it, but it may not be exhaustive:
 
 * [`content-cache-k8s`](https://charmhub.io/content-cache-k8s)

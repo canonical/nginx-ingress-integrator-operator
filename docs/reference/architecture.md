@@ -1,3 +1,5 @@
+(reference_architecture)=
+
 # Charm architecture
 
 At its core, Nginx Ingress Integrator is a basic charm that talks to the 
@@ -13,7 +15,9 @@ As a result, if you run a `kubectl get pods` on a namespace named for the Juju
 model you’ve deployed the nginx-ingress-integrator charm into, you’ll see 
 something like the following:
 
-```
+```{terminal}
+:output-only:
+
 NAME                             READY   STATUS    RESTARTS   AGE
 nginx-ingress-integrator-0       1/1     Running   0          3h47m
 
@@ -64,9 +68,9 @@ Nginx Ingress Integrator charm doesn't use any OCI image resources.
 
 For this charm, the following Juju events are observed:
 
-1. [`config-changed`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#config-changed)
-2. [`start`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#start)
-3. [`get-certificate-action`](https://canonical-juju.readthedocs-hosted.com/en/latest/user/reference/hook/#action-action)
+1. {ref}`config-changed <juju:hook-config-changed>`
+2. {ref}`start <juju:hook-start>`
+3. ``get-certificate-action``
 4. [`data-provided` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
 5. [`data-removed` from `ingress` charm library](https://charmhub.io/traefik-k8s/libraries/ingress)
 6. [`certificate_available` from `tls_certificates` charm library](https://charmhub.io/tls-certificates-interface/libraries/tls_certificates)
@@ -81,7 +85,9 @@ The `src/charm.py` is the default entry point for a charm and has the
 the base class from which all Charms are formed, defined by [Ops](https://juju.is/docs/sdk/ops)
 (Python framework for developing charms).
 
-> See more in the Juju docs: [Charm](https://documentation.ubuntu.com/juju/3.6/reference/charm/)
+```{note}
+See more in the Juju docs: {ref}`Charm <juju:charm>`
+```
 
 The `__init__` method guarantees that the charm observes all events relevant to 
 its operation and handles them.
@@ -89,14 +95,18 @@ its operation and handles them.
 Take, for example, when a configuration is changed by using the CLI.
 
 1. User runs the configuration command:
-```bash
-juju config <relevant-charm-configuration>
-```
+
+   ```bash
+   juju config <relevant-charm-configuration>
+   ```
+
 2. A `config-changed` event is emitted.
 3. In the `__init__` method is defined how to handle this event like this:
-```python
-self.framework.observe(self.on.config_changed, self._on_config_changed)
-```
+
+   ```python
+   self.framework.observe(self.on.config_changed, self._on_config_changed)
+   ```
+
 4. The method `_on_config_changed`, for its turn, will take the necessary actions such as waiting for all the relations to be ready and then configuring the containers.
 
 ## Charm architecture diagram
@@ -106,7 +116,7 @@ The Nginx Ingress Integrator charm uses the `ingress`, `tls_certificates` and
 Kubernetes Python client, which is wrapped in custom modules to reconcile the 
 Kubernetes resources necessary for ingress.
 
-```mermaid
+```{mermaid}
 C4Context
     System_Boundary(nginx-ingress-integrator, "Nginx Ingress Integrator") {
         Container_Boundary(charm-lib, "Charm Libraries") {

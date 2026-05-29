@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    "description lang=en": "Learn the process to deploy the NGINX ingress integrator charm."
+---
+
 (tutorial_tutorial)=
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->
@@ -12,17 +18,6 @@ step of deploying the `nginx-ingress-integrator` charm to provide
 ingress for the WordPress web application, which is provided by the
 `wordpress-k8s` charm.
 
-## What you'll need
-
-- A working station, e.g., a laptop, with AMD64 architecture.
-- Juju 3 installed. For more information about how to install Juju, see {ref}`Get started with Juju <juju:tutorial>`.
-- Juju bootstrapped to a MicroK8s controller: `juju bootstrap microk8s tutorial-controller`
-
-```{note}
-You can get a working setup by using a Multipass VM as outlined in the 
-{ref}`Set up your test environment <juju:set-things-up>` guide.
-```
-
 ## What you'll do
 
 - Deploy the `wordpress-k8s` charm
@@ -31,23 +26,59 @@ You can get a working setup by using a Multipass VM as outlined in the
 - Test the ingress it creates.
 - Configure the hostname for host-based routing
 
-## Set up the environment
+<!-- SPREAD SKIP -->
 
-To be able to work inside the Multipass VM first you need to log in with the following command:
+## What you'll need
 
+- A working station, e.g., a laptop, with AMD64 architecture.
+- Juju 3 installed. For more information about how to install Juju, see {ref}`Get started with Juju <juju:tutorial>`.
+- Juju bootstrapped to a MicroK8s controller: `juju bootstrap microk8s tutorial-controller`
+
+````{tip}
+You can use Multipass to create an isolated environment by running:
 ```bash
-multipass shell my-juju-vm
+multipass launch 24.04 --name charm-tutorial-vm --cpus 4 --memory 8G --disk 50G
+```
+To work inside the Multipass VM run the following command:
+```bash
+multipass shell charm-tutorial-vm
+```
+````
+
+This tutorial requires the following software to be installed on your working station
+(either locally or in the Multipass VM):
+
+- Juju 3
+- MicroK8s 1.33
+
+Use [Concierge](https://github.com/canonical/concierge) to set up Juju and MicroK8s:
+
+```
+sudo snap install --classic concierge
+sudo concierge prepare -p microk8s
 ```
 
-```{note}
-If you're working locally, you don't need to do this step.
+This first command installs Concierge, and the second command uses Concierge to install
+and configure Juju and MicroK8s.
+
+For this tutorial, Juju must be bootstrapped to a MicroK8s controller. Concierge should
+complete this step for you, and you can verify by checking for `msg="Bootstrapped Juju" provider=microk8s`
+in the terminal output and by running `juju controllers`.
+
+If Concierge did not perform the bootstrap, run:
+
 ```
+juju bootstrap microk8s tutorial-controller
+```
+
+<!-- SPREAD SKIP END -->
+
+## Set up the environment
 
 To manage resources effectively and to separate this tutorial's workload from
 your usual work, create a new model in the MicroK8s controller using the following command:
 
-
-```
+```bash
 juju add-model nginx-ingress-tutorial
 ```
 
@@ -55,7 +86,7 @@ You will also need to install Nginx ingress in the Kubernetes cluster.
 This can be achieved by enable the ingress plugin in MicroK8s using the
 following command.
 
-```
+```bash
 sudo microk8s enable ingress
 ```
 
@@ -77,13 +108,13 @@ charm and hence, [`mysql-k8s`](https://charmhub.io/mysql-k8s) charm will be used
 Start off by deploying the WordPress charm. By default it will deploy the latest stable release of
 the `wordpress-k8s` charm.
 
-```
+```bash
 juju deploy wordpress-k8s
 ```
 
 Now deploy the `mysql-k8s` charm and integrate it with the `wordpress-k8s` charm.
 
-```
+```bash
 juju deploy mysql-k8s --trust
 juju integrate wordpress-k8s mysql-k8s:database
 ```
@@ -120,7 +151,7 @@ integrate it with the `wordpress-k8s` charm. `--trust` is needed because
 the `nginx-ingress-integrator` charm requires elevated permission to 
 create ingress-related resources in Kubernetes clusters.
 
-```
+```bash
 juju deploy nginx-ingress-integrator --trust
 juju integrate wordpress-k8s nginx-ingress-integrator
 ```
@@ -158,7 +189,7 @@ address is `127.0.0.1`, but it may vary based on your Kubernetes cluster
 setup. If unknown, you can find the ingress address in the 
 `nginx-ingress-integrator` charm status message.
 
-```
+```bash
 curl -H "Host: wordpress-k8s" http://127.0.0.1
 ```
 
@@ -174,7 +205,7 @@ Now let's use the `service-hostname` configuration of the
 
 Now update the `service-hostname` configuration to a new value:
 
-```
+```bash
 juju config nginx-ingress-integrator service-hostname=wordpress.test
 ```
 
@@ -197,7 +228,7 @@ curl -H "Host: wordpress-k8s" http://127.0.0.1
 But if you use the new hostname (`wordpress.test`) we just set, you can
 access WordPress without any problem:
 
-```
+```bash
 curl -H "Host: wordpress.test" http://127.0.0.1
 ```
 

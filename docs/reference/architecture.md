@@ -82,7 +82,7 @@ details, see the documentation for the charm libraries.
 
 The `src/charm.py` is the default entry point for a charm and has the 
 `NginxIngressCharm` Python class which inherits from `CharmBase`. `CharmBase` is 
-the base class from which all Charms are formed, defined by [Ops](https://juju.is/docs/sdk/ops)
+the base class from which all Charms are formed, defined by {doc}`Ops <ops:index>`
 (Python framework for developing charms).
 
 ```{note}

@@ -23,6 +23,7 @@ basic operations you can complete with the charm.
     :maxdepth: 1
 
     Add the NGINX route relation <add-the-nginx-route-relation>
+    Enable OWASP ModSecurity <enable-owasp-modsecurity>
     Secure an ingress with TLS <secure-an-ingress-with-tls>
     Support multiple relations <support-multiple-relations>
 

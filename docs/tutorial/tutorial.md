@@ -1,3 +1,9 @@
+---
+myst:
+  html_meta:
+    "description lang=en": "Learn the process to deploy the NGINX ingress integrator charm."
+---
+
 (tutorial_tutorial)=
 
 <!-- vale Canonical.007-Headings-sentence-case = NO -->

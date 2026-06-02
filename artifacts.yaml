@@ -5,3 +5,7 @@ version: 1
 charms:
   - name: nginx-ingress-integrator
     charmcraft-yaml: charmcraft.yaml
+    platforms:
+      - arch: amd64
+      - arch: arm64
+        runner: [self-hosted, arm64, large]

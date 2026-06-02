@@ -6,10 +6,6 @@ on:
     - main
     - track/*
 
-permissions:
-  actions: read
-  contents: write
-
 jobs:
   publish:
     uses: canonical/charm-ci/.github/workflows/publish-artifacts.yml@main
@@ -26,6 +22,8 @@ jobs:
     name: Release charm libs
     needs: publish
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: canonical/charming-actions/release-libraries@2.7.0

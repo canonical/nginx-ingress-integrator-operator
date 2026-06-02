@@ -59,16 +59,10 @@ def app_name(metadata):
 
 @fixture(scope="module", autouse=True)
 def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
-    """Set model architecture constraint if provided.
-
-    Also increases the default wait timeout for non-amd64 architectures,
-    which tend to need more time to pull images and start charm agents.
-    """
-    arch = pytestconfig.getoption("--model-arch")
-    if arch:
-        juju.model_constraints({"arch": arch})
-        if arch != "amd64":
-            juju.wait_timeout = 10 * 60.0
+    """Set model architecture constraint if provided."""
+    model_arch = pytestconfig.getoption("--model-arch")
+    if model_arch:
+        juju.model_constraints({"arch": model_arch})
 
 
 @fixture(scope="module")

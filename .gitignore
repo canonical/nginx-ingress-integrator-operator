@@ -7,6 +7,8 @@ __pycache__
 venv
 .venv
 .vscode
+build/
+artifacts.build.yaml
 
 # BEGIN VALE WORKFLOW IGNORE
 .vale/styles/*

@@ -1,0 +1,7 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+version: 1
+charms:
+  - name: nginx-ingress-integrator
+    charmcraft-yaml: charmcraft.yaml

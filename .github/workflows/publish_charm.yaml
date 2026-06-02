@@ -7,9 +7,19 @@ on:
     - track/*
 
 jobs:
-  publish-to-edge:
-    uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
+  build:
+    uses: canonical/charm-ci/.github/workflows/build-artifacts.yml@main
     permissions:
+      contents: read
+      packages: write
       actions: read
-      contents: write
+
+  publish:
+    needs: build
+    uses: canonical/charm-ci/.github/workflows/publish-artifacts.yml@main
+    with:
+      channel: latest/edge
+    permissions:
+      contents: read
+      actions: read
     secrets: inherit

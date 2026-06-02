@@ -1,0 +1,68 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+project: nginx-ingress-integrator
+path: /home/ubuntu/nginx-ingress-integrator
+kill-timeout: 60m
+warn-timeout: 1m
+
+backends:
+  integration-test:
+    type: integration-test
+    systems:
+      - ubuntu-24.04
+
+  integration-test-arm64:
+    type: integration-test
+    systems:
+      - ubuntu-24.04:
+          runner: [self-hosted, arm64, large]
+
+environment:
+  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
+
+exclude:
+  - .git
+  - .tox
+  - .venv
+  - .*_cache
+  - build
+
+integration-suites:
+  # Juju 3.6 — amd64 (full test suite)
+  tests/integration/:
+    cwd: ./
+    summary: integration tests (juju 3.6, amd64)
+    backends:
+      - integration-test
+    environment:
+      CONCIERGE: concierge-juju3-microk8s.yaml
+      MODULE/test_cert_relation: tests/integration/test_cert_relation.py
+      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
+      MODULE/test_nginx_route: tests/integration/test_nginx_route.py
+
+  # Juju 3.6 — arm64 self-hosted (full test suite with --model-arch=arm64)
+  tests/integration/:
+    cwd: ./
+    summary: integration tests (juju 3.6, arm64)
+    backends:
+      - integration-test-arm64
+    environment:
+      CONCIERGE: concierge-juju3-microk8s.yaml
+      MODULE/test_cert_relation: tests/integration/test_cert_relation.py
+      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
+      MODULE/test_nginx_route: tests/integration/test_nginx_route.py
+    pytest-arguments-template: |
+      -x --model-arch=arm64
+
+  # Juju 2.9 — amd64 only (subset of modules; integration-juju2 tox env via TOX_ENV)
+  tests/integration/:
+    cwd: ./
+    summary: integration tests (juju 2.9, amd64)
+    backends:
+      - integration-test
+    environment:
+      CONCIERGE: concierge-juju2-microk8s.yaml
+      TOX_ENV: integration-juju2
+      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
+      MODULE/test_nginx_route: tests/integration/test_nginx_route.py

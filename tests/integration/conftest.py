@@ -57,7 +57,7 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@fixture(scope="module", autouse=True)
+@fixture(scope="module")
 def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
     """Set model architecture constraint if provided."""
     model_arch = pytestconfig.getoption("--model-arch")

@@ -14,7 +14,7 @@ backends:
           environment:
             CONCIERGE: concierge-juju3-microk8s.yaml
       - ubuntu-24.04-juju3-arm64:
-          runner: [self-hosted, arm64, large]
+          runner: [ubuntu-24.04-arm]
           arch: arm64
           environment:
             CONCIERGE: concierge-juju3-microk8s.yaml

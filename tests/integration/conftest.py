@@ -57,7 +57,7 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@fixture(scope="module")
+@fixture
 def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
     """Set model architecture constraint if provided."""
     model_arch = pytestconfig.getoption("--model-arch")
@@ -160,7 +160,7 @@ def wait_ingress_annotation(get_ingress_annotation):
     return _wait_ingress_annotation
 
 
-@fixture(scope="module")
+@fixture
 def build_and_deploy_ingress(juju: jubilant.Juju, model_arch, pytestconfig: pytest.Config):
     """Create a function to build the nginx ingress integrator charm then deploy it."""
 
@@ -178,7 +178,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, model_arch, pytestconfig: pyte
     return _build_and_deploy_ingress
 
 
-@fixture(scope="module")
+@fixture
 def deploy_any_charm(juju: jubilant.Juju, model_arch):
     """Create a function to deploy any-charm.
 

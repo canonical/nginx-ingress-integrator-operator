@@ -40,7 +40,7 @@ integration-suites:
     backends:
       - integration-test
     pytest-environment-template: |
-      PYTEST_ADDOPTS=--juju-model testing --no-juju-teardown{% if arch == "arm64" %} --model-arch=arm64{% endif %}
+      PYTEST_ADDOPTS={% if arch == "arm64" %}--model-arch=arm64{% endif %}
 
   tests/integration/juju2/:
     auto-discover: false

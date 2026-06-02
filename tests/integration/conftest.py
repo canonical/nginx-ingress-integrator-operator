@@ -161,7 +161,7 @@ def wait_ingress_annotation(get_ingress_annotation):
 
 
 @fixture(scope="module")
-def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
+def build_and_deploy_ingress(juju: jubilant.Juju, model_arch, pytestconfig: pytest.Config):
     """Create a function to build the nginx ingress integrator charm then deploy it."""
 
     def _build_and_deploy_ingress(application_name: str = "ingress"):
@@ -179,7 +179,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
 
 
 @fixture(scope="module")
-def deploy_any_charm(juju: jubilant.Juju):
+def deploy_any_charm(juju: jubilant.Juju, model_arch):
     """Create a function to deploy any-charm.
 
     The function accepts a string as the initial src-overwrite configuration.

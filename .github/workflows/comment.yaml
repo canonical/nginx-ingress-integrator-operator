@@ -6,9 +6,6 @@ on:
     types:
       - completed
 
-permissions:
-  pull-requests: write
-
 jobs:
   comment-on-pr:
     uses: canonical/operator-workflows/.github/workflows/comment.yaml@main

@@ -5,9 +5,18 @@ on:
   schedule:
     - cron: "0 15 * * SAT"
 
+permissions:
+  actions: read
+  contents: read
+  packages: write
+
 jobs:
   integration-tests:
     uses: canonical/charm-ci/.github/workflows/integration-test.yml@main
+    permissions:
+      actions: read
+      contents: read
+      packages: write
     secrets: inherit
     with:
       working-directory: .

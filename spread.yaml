@@ -34,7 +34,7 @@ exclude:
 
 integration-suites:
   tests/integration/:
-    cwd: ./
+    working-dir: ./
     summary: integration tests
     systems: [ubuntu-24.04-juju3, ubuntu-24.04-juju3-arm64]
     backends:
@@ -44,7 +44,7 @@ integration-suites:
 
   tests/integration/juju2/:
     auto-discover: false
-    cwd: ./
+    working-dir: ./
     summary: integration tests (juju2)
     systems: [ubuntu-24.04-juju2]
     backends:

@@ -18,7 +18,6 @@ backends:
           arch: arm64
           environment:
             CONCIERGE: concierge-juju3-microk8s.yaml
-            PYTEST_ADDOPTS: --model-arch=arm64
       - ubuntu-24.04-juju2:
           environment:
             CONCIERGE: concierge-juju2-microk8s.yaml
@@ -40,6 +39,8 @@ integration-suites:
     systems: [ubuntu-24.04-juju3, ubuntu-24.04-juju3-arm64]
     backends:
       - integration-test
+    pytest-environment-template: |
+      {% if arch == "arm64" %}PYTEST_ADDOPTS=--model-arch=arm64{% endif %}
 
   tests/integration/juju2/:
     auto-discover: false

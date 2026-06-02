@@ -26,7 +26,6 @@ exclude:
   - .tox
   - .venv
   - .*_cache
-  - build
 
 integration-suites:
   # Juju 3.6 — amd64 (full test suite)

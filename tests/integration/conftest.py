@@ -6,6 +6,7 @@
 import shlex
 import subprocess
 import time
+from collections.abc import Generator
 from pathlib import Path
 from typing import cast
 
@@ -59,7 +60,7 @@ def app_name(metadata):
 
 
 @fixture(scope="session")
-def juju(request: pytest.FixtureRequest) -> jubilant.Juju:
+def juju(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, None, None]:
     """Pytest fixture that wraps jubilant model creation."""
     use_existing = request.config.getoption("--use-existing", default=False)
     if use_existing:

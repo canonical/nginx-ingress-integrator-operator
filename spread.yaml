@@ -36,10 +36,19 @@ integration-suites:
   tests/integration/:
     cwd: ./
     summary: integration tests
+    systems: [ubuntu-24.04-juju3, ubuntu-24.04-juju3-arm64]
+    backends:
+      - integration-test
+    pytest-arguments-template: |
+      {% if arch == "arm64" %}--model-arch=arm64{% endif %}
+
+  tests/integration/juju2/:
+    auto-discover: false
+    cwd: ./
+    summary: integration tests (juju2)
+    systems: [ubuntu-24.04-juju2]
     backends:
       - integration-test
     environment:
-      # test_cert_relation is not supported on juju 2.9
-      MODULE/test_cert_relation/ubuntu-24.04-juju2: _skip
-    pytest-arguments-template: |
-      {% if arch == "arm64" %}--model-arch=arm64{% endif %}
+      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
+      MODULE/test_nginx_route: tests/integration/test_nginx_route.py

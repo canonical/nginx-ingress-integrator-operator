@@ -11,6 +11,7 @@ from pathlib import Path
 import jubilant
 import kubernetes
 import pytest
+import pytest_jubilant
 import yaml
 from pytest import Config, fixture
 
@@ -58,11 +59,13 @@ def app_name(metadata):
 
 
 @fixture(scope="module")
-def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
-    """Set model architecture constraint if provided."""
+def juju(juju_factory: pytest_jubilant.JujuFactory, pytestconfig: Config) -> jubilant.Juju:
+    """Create a Juju model and set architecture constraint if provided."""
+    juju = juju_factory.get_juju("")
     model_arch = pytestconfig.getoption("--model-arch")
     if model_arch:
         juju.model_constraints({"arch": model_arch})
+    return juju
 
 
 @fixture(scope="module")
@@ -161,7 +164,7 @@ def wait_ingress_annotation(get_ingress_annotation):
 
 
 @fixture(scope="module")
-def build_and_deploy_ingress(juju: jubilant.Juju, model_arch, pytestconfig: pytest.Config):
+def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
     """Create a function to build the nginx ingress integrator charm then deploy it."""
 
     def _build_and_deploy_ingress(application_name: str = "ingress"):
@@ -179,7 +182,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, model_arch, pytestconfig: pyte
 
 
 @fixture(scope="module")
-def deploy_any_charm(juju: jubilant.Juju, model_arch):
+def deploy_any_charm(juju: jubilant.Juju):
     """Create a function to deploy any-charm.
 
     The function accepts a string as the initial src-overwrite configuration.

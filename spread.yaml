@@ -10,13 +10,18 @@ backends:
   integration-test:
     type: integration-test
     systems:
-      - ubuntu-24.04
-
-  integration-test-arm64:
-    type: integration-test
-    systems:
-      - ubuntu-24.04:
+      - ubuntu-24.04-juju3:
+          environment:
+            CONCIERGE: concierge-juju3-microk8s.yaml
+      - ubuntu-24.04-juju3-arm64:
           runner: [self-hosted, arm64, large]
+          arch: arm64
+          environment:
+            CONCIERGE: concierge-juju3-microk8s.yaml
+      - ubuntu-24.04-juju2:
+          environment:
+            CONCIERGE: concierge-juju2-microk8s.yaml
+            TOX_ENV: integration-juju2
 
 environment:
   OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
@@ -28,40 +33,13 @@ exclude:
   - .*_cache
 
 integration-suites:
-  # Juju 3.6 — amd64 (full test suite)
   tests/integration/:
     cwd: ./
-    summary: integration tests (juju 3.6, amd64)
+    summary: integration tests
     backends:
       - integration-test
     environment:
-      CONCIERGE: concierge-juju3-microk8s.yaml
-      MODULE/test_cert_relation: tests/integration/test_cert_relation.py
-      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
-      MODULE/test_nginx_route: tests/integration/test_nginx_route.py
-
-  # Juju 3.6 — arm64 self-hosted (full test suite with --model-arch=arm64)
-  tests/integration/:
-    cwd: ./
-    summary: integration tests (juju 3.6, arm64)
-    backends:
-      - integration-test-arm64
-    environment:
-      CONCIERGE: concierge-juju3-microk8s.yaml
-      MODULE/test_cert_relation: tests/integration/test_cert_relation.py
-      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
-      MODULE/test_nginx_route: tests/integration/test_nginx_route.py
+      # test_cert_relation is not supported on juju 2.9
+      MODULE/test_cert_relation/ubuntu-24.04-juju2: _skip
     pytest-arguments-template: |
-      -x --model-arch=arm64
-
-  # Juju 2.9 — amd64 only (subset of modules; integration-juju2 tox env via TOX_ENV)
-  tests/integration/:
-    cwd: ./
-    summary: integration tests (juju 2.9, amd64)
-    backends:
-      - integration-test
-    environment:
-      CONCIERGE: concierge-juju2-microk8s.yaml
-      TOX_ENV: integration-juju2
-      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
-      MODULE/test_nginx_route: tests/integration/test_nginx_route.py
+      {% if arch == "arm64" %}--model-arch=arm64{% endif %}

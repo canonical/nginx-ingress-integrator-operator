@@ -7,13 +7,13 @@ import shlex
 import subprocess
 import time
 from pathlib import Path
+from typing import cast
 
 import jubilant
 import kubernetes
 import pytest
-import pytest_jubilant
 import yaml
-from pytest import Config, fixture
+from pytest import fixture
 
 
 def pack(root: Path | str = "./") -> Path:
@@ -58,14 +58,23 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@fixture(scope="module")
-def juju(juju_factory: pytest_jubilant.JujuFactory, pytestconfig: Config) -> jubilant.Juju:
-    """Create a Juju model and set architecture constraint if provided."""
-    juju = juju_factory.get_juju("")
-    model_arch = pytestconfig.getoption("--model-arch")
-    if model_arch:
-        juju.model_constraints({"arch": model_arch})
-    return juju
+@fixture(scope="session")
+def juju(request: pytest.FixtureRequest) -> jubilant.Juju:
+    """Pytest fixture that wraps jubilant model creation."""
+    use_existing = request.config.getoption("--use-existing", default=False)
+    if use_existing:
+        yield jubilant.Juju()
+        return
+
+    model = request.config.getoption("--model")
+    if model:
+        yield jubilant.Juju(model=model)
+        return
+
+    keep_models = cast(bool, request.config.getoption("--keep-models"))
+    with jubilant.temp_model(keep=keep_models) as juju:
+        juju.wait_timeout = 10 * 60
+        yield juju
 
 
 @fixture(scope="module")

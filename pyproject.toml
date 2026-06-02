@@ -33,7 +33,6 @@ lint = [
   "ops-scenario",
   "pep8-naming",
   "pytest",
-  "pytest-jubilant",
   "requests",
   "ruff",
   "types-pyyaml",
@@ -55,14 +54,12 @@ integration = [
   "allure-pytest-collection-report @ git+https://github.com/canonical/data-platform-workflows@v24.0.0#subdirectory=python/pytest_plugins/allure_pytest_collection_report",
   "jubilant",
   "pytest",
-  "pytest-jubilant",
 ]
 integration-juju2 = [
   "allure-pytest>=2.8.18",
   "allure-pytest-collection-report @ git+https://github.com/canonical/data-platform-workflows@v24.0.0#subdirectory=python/pytest_plugins/allure_pytest_collection_report",
   "jubilant-backports",
   "pytest",
-  "pytest-jubilant",
 ]
 
 [tool.uv]

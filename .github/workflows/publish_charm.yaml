@@ -7,18 +7,11 @@ on:
     - track/*
 
 jobs:
-  build:
-    uses: canonical/charm-ci/.github/workflows/build-artifacts.yml@main
-    permissions:
-      contents: read
-      packages: write
-      actions: read
-
   publish:
-    needs: build
     uses: canonical/charm-ci/.github/workflows/publish-artifacts.yml@main
     with:
       channel: latest/edge
+      integration-workflow-name: integration_test.yaml
     permissions:
       contents: read
       actions: read

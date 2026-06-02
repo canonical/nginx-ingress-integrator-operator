@@ -6,15 +6,7 @@ on:
   - cron: "0 15 * * SAT"
 
 jobs:
-  build:
-    uses: canonical/charm-ci/.github/workflows/build-artifacts.yml@main
-    permissions:
-      contents: read
-      packages: write
-      actions: read
-
   integration-tests:
-    needs: build
     uses: canonical/charm-ci/.github/workflows/integration-test.yml@main
     secrets: inherit
     with:

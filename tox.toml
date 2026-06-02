@@ -8,7 +8,7 @@ requires = [ "tox>=4.21" ]
 no_package = true
 
 [env_run_base]
-passenv = [ "PYTHONPATH", "CHARM_BUILD_DIR", "MODEL_SETTINGS" ]
+passenv = [ "PYTHONPATH", "CHARM_BUILD_DIR", "MODEL_SETTINGS", "PYTEST_ADDOPTS" ]
 runner = "uv-venv-lock-runner"
 
 [env_run_base.setenv]

@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import cast
 
-import jubilant
+import jubilant_backports as jubilant
 import kubernetes
 import pytest
 import yaml

@@ -139,7 +139,7 @@ commands = [
     { replace = "posargs", extend = "true" },
   ],
 ]
-dependency_groups = [ "integration-juju2" ]
+dependency_groups = [ "integration" ]
 
 [env.lint-fix]
 description = "Apply coding style standards to code"

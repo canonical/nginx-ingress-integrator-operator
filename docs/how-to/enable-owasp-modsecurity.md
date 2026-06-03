@@ -16,7 +16,7 @@ detection rules for use with ModSecurity or compatible web application
 firewalls. Enable OWASP ModSecurity and the core rule set by
 setting the `owasp-modsecurity-crs` charm configuration to `true`:
 
-```bash
+```{bash}
 juju config nginx-ingress-integrator owasp-modsecurity-crs=true
 ```
 
@@ -31,6 +31,14 @@ Separate each rule using a new line (`\n`).
 
 See the [ModSecurity reference](https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-%28v3.x%29)
 manual for the full rule configuration directives.
+
+See the [`owasp-modsecurity-custom-rules` configuration description](https://charmhub.io/nginx-ingress-integrator/configurations#owasp-modsecurity-custom-rules)
+for the full configuration format, and here's an example of setting
+custom rules using a juju command:
+
+```{bash}
+juju config nginx-ingress-integrator owasp-modsecurity-custom-rules="SecAction id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1\n"
+```
 
 ```{warning}
 This option is only effective when `owasp-modsecurity-crs` is set to

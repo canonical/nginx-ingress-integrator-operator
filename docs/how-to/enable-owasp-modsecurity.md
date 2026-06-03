@@ -27,6 +27,7 @@ setting the `owasp-modsecurity-custom-rules` charm configuration option.
 This configuration option will be put in
 the `nginx.ingress.kubernetes.io/modsecurity-snippet` NGINX ingress
 annotation with other charm-generated configuration snippets.
+Separate each rule using a new line (`\n`).
 
 See the [ModSecurity reference](https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-%28v3.x%29)
 manual for the full rule configuration directives.

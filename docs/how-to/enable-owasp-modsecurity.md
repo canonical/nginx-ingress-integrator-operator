@@ -31,5 +31,7 @@ annotation with other charm-generated configuration snippets.
 See the [ModSecurity reference](https://github.com/owasp-modsecurity/ModSecurity/wiki/Reference-Manual-%28v3.x%29)
 manual for the full rule configuration directives.
 
+```{warning}
 This option is only effective when `owasp-modsecurity-crs` is set to
 `true`.
+```

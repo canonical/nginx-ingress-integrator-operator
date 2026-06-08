@@ -34,7 +34,7 @@ manual for the full rule configuration directives.
 
 See the [`owasp-modsecurity-custom-rules` configuration description](https://charmhub.io/nginx-ingress-integrator/configurations#owasp-modsecurity-custom-rules)
 for the full configuration format, and here's an example of setting
-custom rules using a juju command:
+custom rules using a Juju command:
 
 ```bash
 juju config nginx-ingress-integrator owasp-modsecurity-custom-rules="SecAction id:900130,phase:1,nolog,pass,t:none,setvar:tx.crs_exclusions_wordpress=1\n"

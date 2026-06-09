@@ -53,15 +53,15 @@ make lint-md
 
 ## Get started
 
-Refer to the [tutorial](https://charmhub.io/nginx-ingress-integrator/docs/getting-started) <!-- TODO: update to RTD URL once known --> for more details on getting started.
+Refer to the [tutorial](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/tutorial/tutorial/) for more details on getting started.
 
 ### Basic operations
 
 #### Secure an ingress with TLS
-Refer to [How to secure an Ingress with TLS](https://charmhub.io/nginx-ingress-integrator/docs/secure-an-ingress-with-tls) <!-- TODO: update to RTD URL once known --> for step-by-step instructions.
+Refer to [How to secure an Ingress with TLS](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/) for step-by-step instructions.
 
 #### Add the ingress relation
-Refer to [How to add the Ingress relation](https://charmhub.io/nginx-ingress-integrator/docs/add-the-nginx-route-relation) <!-- TODO: update to RTD URL once known --> for step-by-step instructions.
+Refer to [How to add the Ingress relation](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/add-the-nginx-route-relation/) for step-by-step instructions.
 
 
 ## Integrations
@@ -84,5 +84,5 @@ about integrations.
 
 ## Project and community
 * [Issues](https://github.com/canonical/nginx-ingress-integrator-operator/issues)
-* [Contributing](https://charmhub.io/nginx-ingress-integrator/docs/contribute)
+* [Contributing](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/contribute/)
 * [Matrix](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)

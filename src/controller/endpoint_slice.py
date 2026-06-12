@@ -23,7 +23,6 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         self._ns = namespace
         self._labels = labels
         self._client = kubernetes.client.DiscoveryV1Api()
-        self._beta_client = kubernetes.client.DiscoveryV1beta1Api()  # pylint: disable=no-member
 
     @property
     def _name(self) -> str:
@@ -88,16 +87,7 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         Raises:
             ApiException: if the Python kubernetes raised an unknown ApiException
         """
-        try:
-            self._client.create_namespaced_endpoint_slice(namespace=self._namespace, body=body)
-        except kubernetes.client.exceptions.ApiException as exc:
-            if exc.status == 404:
-                body.api_version = "discovery.k8s.io/v1beta1"
-                self._beta_client.create_namespaced_endpoint_slice(
-                    namespace=self._namespace, body=body
-                )
-            else:
-                raise
+        self._client.create_namespaced_endpoint_slice(namespace=self._namespace, body=body)
 
     @_map_k8s_auth_exception
     def _patch_resource(self, name: str, body: kubernetes.client.V1EndpointSlice) -> None:
@@ -110,18 +100,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         Raises:
             ApiException: if the Python kubernetes raised an unknown ApiException
         """
-        try:
-            self._client.patch_namespaced_endpoint_slice(
+        self._client.patch_namespaced_endpoint_slice(
                 namespace=self._namespace, name=name, body=body
             )
-        except kubernetes.client.exceptions.ApiException as exc:
-            if exc.status == 404:
-                body.api_version = "discovery.k8s.io/v1beta1"
-                self._beta_client.patch_namespaced_endpoint_slice(
-                    namespace=self._namespace, name=name, body=body
-                )
-            else:
-                raise
 
     @_map_k8s_auth_exception
     def _list_resource(self) -> List[kubernetes.client.V1EndpointSlice]:
@@ -134,16 +115,9 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
             ApiException: if the Python kubernetes raised an unknown ApiException
         """
         label_selector = ",".join(f"{k}={v}" for k, v in self._labels.items())
-        try:
-            return self._client.list_namespaced_endpoint_slice(
+        return self._client.list_namespaced_endpoint_slice(
                 namespace=self._namespace, label_selector=label_selector
             ).items
-        except kubernetes.client.exceptions.ApiException as exc:
-            if exc.status == 404:
-                return self._beta_client.list_namespaced_endpoint_slice(
-                    namespace=self._namespace, label_selector=label_selector
-                ).items
-            raise
 
     @_map_k8s_auth_exception
     def _delete_resource(self, name: str) -> None:
@@ -155,12 +129,4 @@ class EndpointSliceController(ResourceController[kubernetes.client.V1EndpointSli
         Raises:
             ApiException: if the Python kubernetes raised an unknown ApiException
         """
-        try:
-            self._client.delete_namespaced_endpoint_slice(namespace=self._namespace, name=name)
-        except kubernetes.client.exceptions.ApiException as exc:
-            if exc.status == 404:
-                self._beta_client.delete_namespaced_endpoint_slice(
-                    namespace=self._namespace, name=name
-                )
-            else:
-                raise
+        self._client.delete_namespaced_endpoint_slice(namespace=self._namespace, name=name)

@@ -12,7 +12,7 @@ run "basic_deploy" {
     model_uuid = run.setup_tests.model_uuid
     channel    = "latest/edge"
     # renovate: depName="nginx-ingress-integrator"
-    revision = 479
+    revision = 482
   }
 
   assert {

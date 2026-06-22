@@ -24,7 +24,8 @@ to this charm will be possible using a simple `juju integrate` command.
 
 ## Documentation
 
-Our documentation is stored in the `docs` directory.
+Our documentation is stored in the `docs` directory
+and can be viewed at https://canonical.com/juju/docs/nginx-ingress-integrator-charm/.
 It is based on the Canonical starter pack
 and hosted on [Read the Docs](https://about.readthedocs.com/). In structuring,
 the documentation employs the [Diátaxis](https://diataxis.fr/) approach.
@@ -53,15 +54,15 @@ make lint-md
 
 ## Get started
 
-Refer to the [tutorial](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/tutorial/tutorial/) for more details on getting started.
+Refer to the [tutorial](https://canonical.com/juju/docs/nginx-ingress-integrator-charm/latest/tutorial/tutorial/) for more details on getting started.
 
 ### Basic operations
 
 #### Secure an ingress with TLS
-Refer to [How to secure an Ingress with TLS](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/) for step-by-step instructions.
+Refer to [How to secure an Ingress with TLS](https://canonical.com/juju/docs/nginx-ingress-integrator-charm/latest/how-to/secure-an-ingress-with-tls/) for step-by-step instructions.
 
-#### Add the ingress relation
-Refer to [How to add the Ingress relation](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/add-the-nginx-route-relation/) for step-by-step instructions.
+#### Add the NGINX route relation
+Refer to [How to add the NGINX route relation](https://canonical.com/juju/docs/nginx-ingress-integrator-charm/latest/how-to/add-the-nginx-route-relation/) for step-by-step instructions.
 
 
 ## Integrations
@@ -79,10 +80,10 @@ Refer to [Integrations](https://charmhub.io/nginx-ingress-integrator/integration
 about integrations.
 
 ## Learn more
-* [Read more](https://charmhub.io/nginx-ingress-integrator)
+* [Read more](https://canonical.com/juju/docs/nginx-ingress-integrator-charm/)
 * [Troubleshooting](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 
 ## Project and community
 * [Issues](https://github.com/canonical/nginx-ingress-integrator-operator/issues)
-* [Contributing](https://documentation.ubuntu.com/nginx-ingress-integrator-charm/latest/how-to/contribute/)
+* [Contributing](CONTRIBUTING.md)
 * [Matrix](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)

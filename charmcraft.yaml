@@ -22,7 +22,7 @@ description: |
   to this charm will be possible via a simple `juju relate` command.
 
 links:
-  documentation: https://documentation.ubuntu.com/nginx-ingress-integrator-charm/
+  documentation: https://canonical.com/juju/docs/nginx-ingress-integrator-charm/
   issues: https://github.com/canonical/nginx-ingress-integrator-operator/issues
   source: https://github.com/canonical/nginx-ingress-integrator-operator
   contact: https://launchpad.net/~canonical-is-devops

@@ -11,6 +11,5 @@ jobs:
       contents: write
       pull-requests: write
     with:
-      self-hosted-runner: false
       vale-style-check: false
       with-uv: true

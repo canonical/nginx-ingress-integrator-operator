@@ -196,6 +196,8 @@ html_baseurl = f"https://canonical.com/juju/docs/nginx-ingress-integrator-charm/
 
 sitemap_url_scheme = '{link}'
 
+sitemap_filename = "doc-sitemap.xml"
+
 # Include `lastmod` dates in the sitemap:
 
 sitemap_show_lastmod = True

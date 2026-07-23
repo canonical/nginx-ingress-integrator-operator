@@ -8,7 +8,7 @@ requires = [ "tox>=4.21" ]
 no_package = true
 
 [env_run_base]
-passenv = [ "PYTHONPATH", "CHARM_BUILD_DIR", "MODEL_SETTINGS" ]
+passenv = [ "PYTHONPATH", "CHARM_BUILD_DIR", "MODEL_SETTINGS", "PYTEST_ADDOPTS" ]
 runner = "uv-venv-lock-runner"
 
 [env_run_base.setenv]
@@ -139,7 +139,7 @@ commands = [
     { replace = "posargs", extend = "true" },
   ],
 ]
-dependency_groups = [ "integration-juju2" ]
+dependency_groups = [ "integration" ]
 
 [env.lint-fix]
 description = "Apply coding style standards to code"

@@ -7,7 +7,7 @@ import time
 import typing
 from pathlib import Path
 
-import jubilant
+import jubilant_backports as jubilant
 import pytest
 import requests
 

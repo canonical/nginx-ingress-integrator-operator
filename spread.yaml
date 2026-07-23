@@ -1,0 +1,54 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+project: nginx-ingress-integrator
+path: /home/ubuntu/nginx-ingress-integrator
+kill-timeout: 60m
+warn-timeout: 1m
+
+backends:
+  integration-test:
+    type: integration-test
+    systems:
+      - ubuntu-24.04-juju3:
+          environment:
+            CONCIERGE: concierge-juju3-microk8s.yaml
+      - ubuntu-24.04-juju3-arm64:
+          runner: [ubuntu-24.04-arm]
+          arch: arm64
+          environment:
+            CONCIERGE: concierge-juju3-microk8s.yaml
+      - ubuntu-24.04-juju2:
+          environment:
+            CONCIERGE: concierge-juju2-microk8s.yaml
+            TOX_ENV: integration-juju2
+
+environment:
+  OPCLI_GIT_REF: '$(HOST: echo "${OPCLI_GIT_REF:-main}")'
+
+exclude:
+  - .git
+  - .tox
+  - .venv
+  - .*_cache
+
+integration-suites:
+  tests/integration/:
+    working-dir: ./
+    summary: integration tests
+    systems: [ubuntu-24.04-juju3, ubuntu-24.04-juju3-arm64]
+    backends:
+      - integration-test
+    pytest-environment-template: |
+      {% if arch == "arm64" %}PYTEST_ADDOPTS=--model-arch=arm64{% endif %}
+
+  tests/integration/juju2/:
+    auto-discover: false
+    working-dir: ./
+    summary: integration tests (juju2)
+    systems: [ubuntu-24.04-juju2]
+    backends:
+      - integration-test
+    environment:
+      MODULE/test_ingress_relation: tests/integration/test_ingress_relation.py
+      MODULE/test_nginx_route: tests/integration/test_nginx_route.py

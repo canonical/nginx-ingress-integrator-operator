@@ -1,0 +1,19 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+juju:
+  channel: 2.9/stable
+  model-defaults:
+    test-mode: "true"
+    automatically-retry-hooks: "false"
+
+providers:
+  microk8s:
+    enable: true
+    bootstrap: true
+    channel: 1.24/stable
+    addons:
+      - hostpath-storage
+      - dns
+      - ingress
+      - rbac
+      - storage

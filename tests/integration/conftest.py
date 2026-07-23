@@ -6,13 +6,15 @@
 import shlex
 import subprocess
 import time
+from collections.abc import Generator
 from pathlib import Path
+from typing import cast
 
-import jubilant
+import jubilant_backports as jubilant
 import kubernetes
 import pytest
 import yaml
-from pytest import Config, fixture
+from pytest import fixture
 
 
 def pack(root: Path | str = "./") -> Path:
@@ -57,12 +59,23 @@ def app_name(metadata):
     yield metadata["name"]
 
 
-@fixture(scope="module", autouse=True)
-def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
-    """Set model architecture constraint if provided."""
-    model_arch = pytestconfig.getoption("--model-arch")
-    if model_arch:
-        juju.model_constraints({"arch": model_arch})
+@fixture(scope="session")
+def juju(request: pytest.FixtureRequest) -> Generator[jubilant.Juju, None, None]:
+    """Pytest fixture that wraps jubilant model creation."""
+    use_existing = request.config.getoption("--use-existing", default=False)
+    if use_existing:
+        yield jubilant.Juju()
+        return
+
+    model = request.config.getoption("--model")
+    if model:
+        yield jubilant.Juju(model=model)
+        return
+
+    keep_models = cast(bool, request.config.getoption("--keep-models"))
+    with jubilant.temp_model(keep=keep_models) as juju:
+        juju.wait_timeout = 10 * 60
+        yield juju
 
 
 @fixture(scope="module")

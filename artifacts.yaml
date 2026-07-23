@@ -1,0 +1,11 @@
+# Copyright 2025 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+version: 1
+charms:
+  - name: nginx-ingress-integrator
+    charmcraft-yaml: charmcraft.yaml
+    platforms:
+      - arch: amd64
+      - arch: arm64
+        runner: [ubuntu-24.04-arm]

@@ -16,9 +16,9 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-  "charmlibs-interfaces-tls-certificates==1.8.1",
+  "charmlibs-interfaces-tls-certificates==1.10.0",
   "kubernetes==24.2",
-  "ops==3.7.0",
+  "ops==3.8.0",
   "pydantic==2.13.4",
 ]
 

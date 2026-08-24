@@ -10,7 +10,7 @@ myst:
 This is a test of the redesigned documentation workflows.
 ```
 
-Here is a misspelled word: Ziminicle
+Here is a broken link: http://brokenfakelinks.com/
 
 A [Juju](https://juju.is/) [charm](https://documentation.ubuntu.com/juju/3.6/reference/charm/) deploying and managing external access to HTTP/HTTPS services in a Kubernetes cluster through an Nginx Ingress resource. This requires the Kubernetes cluster in question to have an [Nginx Ingress Controller](https://docs.nginx.com/nginx-ingress-controller/) already deployed into it.
 

@@ -1,0 +1,26 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: d2d1381
+_src_path: gh:canonical/platform-engineering-documentation-files.git
+author: Canonical Ltd.
+discourse: https://discourse.charmhub.io
+display_contributors: false
+docs_host: canonical.com
+github_url: https://github.com/canonical/nginx-ingress-integrator-operator
+html_favicon: ''
+license_name: Apache-2.0
+license_url: https://github.com/canonical/nginx-ingress-integrator-operator/blob/main/LICENSE
+linkcheck_timeout: 30
+llms_txt_description: Documentation for the NGINX ingress integrator charm, a Juju
+    charm that configures NGINX Ingress on Kubernetes for charmed applications.
+matrix: https://matrix.to/#/#charmhub-charmdev:ubuntu.com
+mattermost: ''
+new_domain: canonical.com/juju/docs/nginx-ingress-integrator-charm
+ogp_image: https://assets.ubuntu.com/v1/cc828679-docs_illustration.svg
+old_domain: canonical-nginx-ingress-integrator-juju-charm.readthedocs-hosted.com
+product_page: charmhub.io/nginx-ingress-integrator
+product_tag: ''
+project: NGINX ingress integrator charm
+repo_default_branch: main
+repo_folder: /docs/
+rtd_slug: juju/docs/nginx-ingress-integrator-charm
+source_edit_link: https://github.com/canonical/nginx-ingress-integrator-operator

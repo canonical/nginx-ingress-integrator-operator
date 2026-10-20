@@ -4,5 +4,7 @@ hostname
 hostnames
 IPs
 Kubecon
+Onboarded
+PRs
 pytest
 pyyaml

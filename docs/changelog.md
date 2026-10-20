@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 Each revision is versioned by the date of the revision.
 
+## 2026-10-19
+
+- Onboarded the documentation into [platform-engineering-documentation-files](https://github.com/canonical/platform-engineering-documentation-files) Copier-based management solution.
+
 ## 2026-06-18
 
 - Migrated the RTD documentation URL under the Canonical domain.

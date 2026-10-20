@@ -43,5 +43,6 @@ header:
   - '.lycheeignore'
   - 'uv.lock'
   - '.readthedocs.yaml'
+  - '.copier-answers.yml'
   - 'docs/**'
   comment: on-failure

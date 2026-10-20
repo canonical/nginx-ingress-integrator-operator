@@ -9,7 +9,7 @@ This document explains the processes and practices recommended for contributing 
 - If you would like to chat with us about your use-cases or proposed implementation, you can reach
   us at [Canonical Matrix public channel](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
   or [Discourse](https://discourse.charmhub.io/).
-- Familiarizing yourself with the [Juju documentation](https://documentation.ubuntu.com/juju/3.6/howto/manage-charms/)
+- Familiarizing yourself with the [Juju documentation](https://canonical.com/juju/docs/juju-cli/3.6/howto/manage-charms/)
   will help you a lot when working on new features or bug fixes.
 - All enhancements require review before being merged. Code review typically examines
   - code quality
@@ -39,14 +39,14 @@ If you want to address an issue or a bug in this project,
 notify in advance the people involved to avoid confusion;
 also, reference the issue or bug number when you submit the changes.
 
-- [Fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks)
+- [Fork](https://docs.github.com/en/pull-requests/reference/forks)
   our [GitHub repository](https://github.com/canonical/nginx-ingress-integrator-operator)
   and add the changes to your fork, properly structuring your commits,
   providing detailed commit messages and signing your commits.
 - Make sure the updated project builds and runs without warnings or errors;
   this includes linting, documentation, code and tests.
 - Submit the changes as a
-  [pull request (PR)](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork).
+  [pull request (PR)](https://docs.github.com/en/pull-requests/how-tos/create-pull-requests/creating-a-pull-request-from-a-fork).
 
 Your changes will be reviewed in due time; if approved, they will be eventually merged.
 
@@ -73,7 +73,7 @@ your pull request must provide the following details:
 
 - **Checklist**: Complete the following items:
 
-  - The [charm style guide](https://documentation.ubuntu.com/juju/3.6/reference/charm/charm-development-best-practices/) was applied
+  - The [charm style guide](https://canonical.com/juju/docs/juju-cli/3.6/reference/charm/charm-development-best-practices/) was applied
   - The [contributing guide](https://github.com/canonical/is-charms-contributing-guide) was applied
   - The changes are compliant with [ISD054 - Managing Charm Complexity](https://discourse.charmhub.io/t/specification-isd014-managing-charm-complexity/11619)
   - The documentation is updated
@@ -104,7 +104,7 @@ To add signatures on your commits, follow the
 ## Develop
 
 To make contributions to this charm, you'll need a working
-[development setup](https://documentation.ubuntu.com/juju/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/).
+[development setup](https://canonical.com/juju/docs/juju-cli/latest/user/howto/manage-your-deployment/manage-your-deployment-environment/).
 
 The code for this charm can be downloaded as follows:
 

@@ -16,10 +16,35 @@ For DevOps and SRE teams, providing ingress for charms that support a relation t
 
 ## In this documentation
 
-| | |
-|--|--|
-|  [Tutorials](tutorial_index)</br>  Get started - a hands-on introduction to using the NGINX ingress integrator for new users </br> |  [How-to guides](how_to_index) </br> Step-by-step guides covering key operations and common tasks |
-| [Reference](reference_index) </br> Technical information - specifications, APIs, architecture | [Explanation](explanation_index) </br> Concepts - discussion and clarification of key topics  |
+```{list-table}
+   :header-rows: 1
+   :widths: 15 30
+
+* - 
+  - 
+* - **Get started**
+  - {ref}`Deploy the NGINX ingress integrator charm <tutorial_tutorial>`
+* - **Deployment**
+  - {ref}`Add the nginx-route relation <how_to_add_the_nginx_route_relation>` | {ref}`Support multiple relations <how_to_support_multiple_relations>`
+* - **Operations**
+  - {ref}`Upgrade <how_to_upgrade>`
+* - **Security**
+  - {ref}`Secure an ingress with TLS <how_to_secure_an_ingress_with_tls>` | {ref}`Enable OWASP ModSecurity <how_to_enable_owasp_modsecurity_firewall>` | {ref}`Overview <explanation_security>`
+* - **Integrations**
+  - {ref}`Integrations <reference_integrations>`
+* - **Design**
+  - {ref}`Charm architecture <reference_architecture>` | {ref}`What is ingress? <explanation_what_is_ingress>`
+```
+
+## How this documentation is organized
+
+This documentation uses the
+[Diátaxis documentation structure](https://diataxis.fr/).
+
+* The {ref}`Tutorial <tutorial_index>` takes you step-by-step through your first deployment of the NGINX ingress integrator charm.
+* The {ref}`How-to guides <how_to_index>` cover practical tasks for configuring, integrating, and maintaining your NGINX ingress integrator deployment.
+* {ref}`Reference <reference_index>` provides technical details on the charm architecture and integrations.
+* {ref}`Explanation <explanation_index>` includes context and overviews on key topics such as security and ingress.
 
 ## Contributing to this documentation
 
@@ -32,8 +57,9 @@ If there's a particular area of documentation that you'd like to see that's miss
 The NGINX ingress integrator charm is a member of the Ubuntu family. It's an open-source project that warmly welcomes community projects, contributions, suggestions, fixes, and constructive feedback.
 
 - [Code of conduct](https://ubuntu.com/community/docs/ethos/code-of-conduct)
-- [Get support](https://discourse.charmhub.io/)
-- [Join our online chat](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
+- [File a bug](https://github.com/canonical/nginx-ingress-integrator-operator/issues)
+- Get support through the [Discourse forum](https://discourse.charmhub.io/)
+- Join our [online chat](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)
 - [Contribute](how_to_contribute)
 
 Thinking about using the NGINX ingress integrator charm for your next project? [Get in touch](https://matrix.to/#/#charmhub-charmdev:ubuntu.com)!

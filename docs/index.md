@@ -24,14 +24,12 @@ For DevOps and SRE teams, providing ingress for charms that support a relation t
   - 
 * - **Get started**
   - {ref}`Deploy the NGINX ingress integrator charm <tutorial_tutorial>`
-* - **Deployment**
-  - {ref}`Add the nginx-route relation <how_to_add_the_nginx_route_relation>` | {ref}`Support multiple relations <how_to_support_multiple_relations>`
 * - **Operations**
   - {ref}`Upgrade <how_to_upgrade>`
 * - **Security**
   - {ref}`Overview <explanation_security>` | {ref}`Secure an ingress with TLS <how_to_secure_an_ingress_with_tls>` | {ref}`Enable OWASP ModSecurity <how_to_enable_owasp_modsecurity_firewall>` 
 * - **Integrations**
-  - {ref}`Integrations <reference_integrations>`
+  - {ref}`Integrations <reference_integrations>` | {ref}`Add the nginx-route relation <how_to_add_the_nginx_route_relation>` | {ref}`Support multiple relations <how_to_support_multiple_relations>`
 * - **Design**
   - {ref}`Charm architecture <reference_architecture>` | {ref}`What is ingress? <explanation_what_is_ingress>`
 ```

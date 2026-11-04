@@ -12,7 +12,7 @@ This charm simplifies exposing services running inside a Kubernetes cluster to e
 
 As such, the charm makes it easy for charm developers to provide external access to their HTTP workloads in Kubernetes by easy integration offered through [the charm's `nginx_route` library](https://charmhub.io/nginx-ingress-integrator/libraries/nginx_route).
 
-For DevOps and SRE teams, providing ingress for charms that support a relation to this charm will be possible through a simple `juju relate` command.
+For DevOps and SRE teams, providing ingress for charms that support a relation to this charm will be possible through a simple `juju integrate` command.
 
 ## In this documentation
 
@@ -29,7 +29,7 @@ For DevOps and SRE teams, providing ingress for charms that support a relation t
 * - **Operations**
   - {ref}`Upgrade <how_to_upgrade>`
 * - **Security**
-  - {ref}`Secure an ingress with TLS <how_to_secure_an_ingress_with_tls>` | {ref}`Enable OWASP ModSecurity <how_to_enable_owasp_modsecurity_firewall>` | {ref}`Overview <explanation_security>`
+  - {ref}`Overview <explanation_security>` | {ref}`Secure an ingress with TLS <how_to_secure_an_ingress_with_tls>` | {ref}`Enable OWASP ModSecurity <how_to_enable_owasp_modsecurity_firewall>` 
 * - **Integrations**
   - {ref}`Integrations <reference_integrations>`
 * - **Design**

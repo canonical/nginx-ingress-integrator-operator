@@ -3,8 +3,11 @@
 
 """General configuration module for integration tests."""
 
+import json
 import shlex
+import shutil
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -13,6 +16,9 @@ import kubernetes
 import pytest
 import yaml
 from pytest import Config, fixture
+
+BASE = "ubuntu@22.04"
+SERIES = "jammy"  # Juju 2.x equivalent of BASE, used since Juju 2 lacks "--base".
 
 
 def pack(root: Path | str = "./") -> Path:
@@ -160,6 +166,19 @@ def wait_ingress_annotation(get_ingress_annotation):
     return _wait_ingress_annotation
 
 
+def _is_juju_2(juju: jubilant.Juju) -> bool:
+    """Check whether the connected Juju CLI is a Juju 2.x release.
+
+    Args:
+        juju: The Juju client to check the CLI version of.
+
+    Returns:
+        True if the Juju CLI major version is 2, False otherwise.
+    """
+    version = json.loads(juju.cli("version", "--format", "json", include_model=False))
+    return version.split(".", 1)[0] == "2"
+
+
 @fixture(scope="module")
 def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
     """Create a function to build the nginx ingress integrator charm then deploy it."""
@@ -173,7 +192,14 @@ def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
         charm = pytestconfig.getoption("--charm-file")
         if not charm:
             charm = pack()
-        juju.deploy(str(charm), application_name, base="ubuntu@22.04", trust=True)
+        if _is_juju_2(juju):
+            # Juju 2.x's "deploy" command doesn't support "--base", only the older
+            # "--series" equivalent, so the deploy call must be issued manually.
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_charm = str(shutil.copy(str(charm), Path(temp_dir) / "_temp.charm"))
+                juju.cli("deploy", temp_charm, application_name, "--series", SERIES, "--trust")
+        else:
+            juju.deploy(str(charm), application_name, base=BASE, trust=True)
 
     return _build_and_deploy_ingress
 

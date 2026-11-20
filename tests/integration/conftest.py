@@ -8,11 +8,12 @@ import subprocess
 import time
 from pathlib import Path
 
-import jubilant
 import kubernetes
 import pytest
 import yaml
 from pytest import Config, fixture
+
+from .jubilant_compat import JUJU2, jubilant
 
 
 def pack(root: Path | str = "./") -> Path:
@@ -57,12 +58,24 @@ def app_name(metadata):
     yield metadata["name"]
 
 
+if JUJU2:
+
+    @fixture(scope="module")
+    def juju():
+        """Provide a temporary model using jubilant-backports, which the pytest-jubilant fixture lacks."""
+        with jubilant.temp_model() as juju:
+            yield juju
+
+
 @fixture(scope="module", autouse=True)
 def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
     """Set model architecture constraint if provided."""
     model_arch = pytestconfig.getoption("--model-arch")
     if model_arch:
-        juju.model_constraints({"arch": model_arch})
+        if JUJU2:
+            juju.cli("set-model-constraints", f"arch={model_arch}")
+        else:
+            juju.model_constraints({"arch": model_arch})
 
 
 @fixture(scope="module")
@@ -173,7 +186,7 @@ def build_and_deploy_ingress(juju: jubilant.Juju, pytestconfig: pytest.Config):
         charm = pytestconfig.getoption("--charm-file")
         if not charm:
             charm = pack()
-        juju.deploy(str(charm), application_name, trust=True)
+        juju.deploy(str(charm), application_name, base="ubuntu@22.04", trust=True)
 
     return _build_and_deploy_ingress
 

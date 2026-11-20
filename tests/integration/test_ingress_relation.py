@@ -7,9 +7,10 @@ import json
 import pathlib
 import textwrap
 
-import jubilant
 import pytest
 import requests
+
+from .jubilant_compat import jubilant
 
 
 def make_any_charm_source(strip_prefix: bool = False, model_name: str | None = "testing") -> str:

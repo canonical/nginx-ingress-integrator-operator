@@ -7,9 +7,10 @@ import time
 import typing
 from pathlib import Path
 
-import jubilant
 import pytest
 import requests
+
+from .jubilant_compat import jubilant
 
 INGRESS_APP_NAME = "ingress"
 ANY_APP_NAME = "any"

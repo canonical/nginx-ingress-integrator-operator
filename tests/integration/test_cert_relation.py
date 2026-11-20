@@ -9,8 +9,9 @@ import time
 import typing
 from pathlib import Path
 
-import jubilant
 import pytest
+
+from .jubilant_compat import jubilant
 
 LOGGER = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ import subprocess
 import time
 from pathlib import Path
 
-import jubilant
+import jubilant_backports as jubilant
 import kubernetes
 import pytest
 import yaml
@@ -57,12 +57,19 @@ def app_name(metadata):
     yield metadata["name"]
 
 
+@fixture(scope="module")
+def juju(pytestconfig: Config):
+    """Provide a temporary Juju model."""
+    with jubilant.temp_model(keep=pytestconfig.getoption("--keep-models")) as juju:
+        yield juju
+
+
 @fixture(scope="module", autouse=True)
 def model_arch(juju: jubilant.Juju, pytestconfig: Config) -> None:
     """Set model architecture constraint if provided."""
     model_arch = pytestconfig.getoption("--model-arch")
     if model_arch:
-        juju.model_constraints({"arch": model_arch})
+        juju.cli("set-model-constraints", f"arch={model_arch}")
 
 
 @fixture(scope="module")

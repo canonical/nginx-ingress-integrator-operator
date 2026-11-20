@@ -7,7 +7,7 @@ import json
 import pathlib
 import textwrap
 
-import jubilant
+import jubilant_backports as jubilant
 import pytest
 import requests
 

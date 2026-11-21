@@ -221,6 +221,7 @@ def test_missing_field(juju: jubilant.Juju, run_action):
     assert: Nginx ingress integrator charm should enter blocked status.
     """
     juju.config(ANY_APP_NAME, {"src-overwrite": gen_src_overwrite()})
+    juju.wait(jubilant.all_active)
     run_action(
         ANY_APP_NAME,
         "rpc",
